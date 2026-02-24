@@ -63,17 +63,13 @@ export default function CompanyForm({ open, onClose, company }: Props) {
     }
   }, [company, open]);
 
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Preview immediately
+  const uploadFile = async (file: File) => {
     const reader = new FileReader();
     reader.onload = (ev) => setLogoPreview(ev.target?.result as string);
     reader.readAsDataURL(file);
 
     setUploading(true);
-    const ext = file.name.split('.').pop();
+    const ext = file.type.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
     const fileName = `${crypto.randomUUID()}.${ext}`;
 
     const { error } = await supabase.storage.from('company-logos').upload(fileName, file, { upsert: true });
@@ -83,6 +79,25 @@ export default function CompanyForm({ open, onClose, company }: Props) {
     }
     setUploading(false);
   };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) uploadFile(file);
+  };
+
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      if (!open) return;
+      const item = Array.from(e.clipboardData?.items || []).find(i => i.type.startsWith('image/'));
+      if (item) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) uploadFile(file);
+      }
+    };
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, [open]);
 
   const removeLogo = () => {
     setLogoUrl(null);
@@ -173,7 +188,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
                 )}
                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
                 <div className="text-xs text-muted-foreground">
-                  {uploading ? 'Subiendo...' : logoPreview ? 'Logo cargado' : 'Haz clic para subir el logo'}
+                  {uploading ? 'Subiendo...' : logoPreview ? 'Logo cargado' : 'Clic para subir o pega una imagen (Ctrl+V)'}
                 </div>
               </div>
             </Section>
