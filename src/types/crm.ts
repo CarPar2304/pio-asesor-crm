@@ -8,6 +8,14 @@ export type TaskStatus = 'pending' | 'completed';
 
 export type PropertyType = 'general' | 'metric-by-year';
 
+export type ContactGender = 'male' | 'female' | 'other' | '';
+
+export const GENDER_LABELS: Record<string, string> = {
+  male: 'Masculino',
+  female: 'Femenino',
+  other: 'Otro',
+};
+
 export interface Contact {
   id: string;
   name: string;
@@ -16,6 +24,7 @@ export interface Contact {
   phone: string;
   notes: string;
   isPrimary: boolean;
+  gender: ContactGender;
 }
 
 export interface CompanyAction {

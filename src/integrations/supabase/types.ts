@@ -149,6 +149,7 @@ export type Database = {
           company_id: string
           created_at: string
           email: string
+          gender: string
           id: string
           is_primary: boolean
           name: string
@@ -160,6 +161,7 @@ export type Database = {
           company_id: string
           created_at?: string
           email?: string
+          gender?: string
           id?: string
           is_primary?: boolean
           name: string
@@ -171,6 +173,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           email?: string
+          gender?: string
           id?: string
           is_primary?: boolean
           name?: string

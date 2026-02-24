@@ -81,7 +81,7 @@ export default function CompanyCard({ company, onOpenProfile, onQuickAction }: P
 
         {lastSales && (
           <p className="text-[11px] text-muted-foreground">
-            Ventas {lastSales.year}: <span className="font-medium text-foreground">{formatCOP(lastSales.value)}</span>
+            Ventas {lastSales.year} (COP): <span className="font-medium text-foreground">{formatCOP(lastSales.value)}</span>
           </p>
         )}
 
