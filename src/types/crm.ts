@@ -76,6 +76,7 @@ export interface Company {
   city: string;
   salesByYear: MetricByYear;
   exportsUSD: number;
+  website: string;
   logo?: string;
   contacts: Contact[];
   actions: CompanyAction[];

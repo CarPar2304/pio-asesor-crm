@@ -24,6 +24,7 @@ interface ParsedRow {
   description: string;
   city: string;
   exportsUSD: number;
+  website: string;
   sales2020: number;
   sales2021: number;
   sales2022: number;
@@ -37,7 +38,7 @@ interface ParsedRow {
 const TEMPLATE_COLUMNS = [
   'Nombre Comercial', 'Razón Social', 'NIT', 'Categoría (EBT/Startup)',
   'Vertical', 'Actividad Económica', 'Descripción', 'Ciudad',
-  'Exportaciones USD', 'Ventas 2020', 'Ventas 2021', 'Ventas 2022',
+  'Página Web', 'Exportaciones USD', 'Ventas 2020', 'Ventas 2021', 'Ventas 2022',
   'Ventas 2023', 'Ventas 2024', 'Ventas 2025',
 ];
 
@@ -45,7 +46,7 @@ function downloadTemplate() {
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet([
     TEMPLATE_COLUMNS,
-    ['Ejemplo SAS', 'Ejemplo Sociedad SAS', '900123456', 'Startup', 'FinTech', 'Desarrollo de software', 'Empresa ejemplo', 'Cali', 0, 0, 0, 100000000, 200000000, 300000000, 0],
+    ['Ejemplo SAS', 'Ejemplo Sociedad SAS', '900123456', 'Startup', 'FinTech', 'Desarrollo de software', 'Empresa ejemplo', 'Cali', 'https://www.ejemplo.com', 0, 0, 0, 100000000, 200000000, 300000000, 0],
   ]);
   ws['!cols'] = TEMPLATE_COLUMNS.map(() => ({ wch: 20 }));
   XLSX.utils.book_append_sheet(wb, ws, 'Empresas');
@@ -103,13 +104,14 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
             economicActivity: String(r[5] || '').trim(),
             description: String(r[6] || '').trim(),
             city: String(r[7] || '').trim(),
-            exportsUSD: Number(r[8]) || 0,
-            sales2020: Number(r[9]) || 0,
-            sales2021: Number(r[10]) || 0,
-            sales2022: Number(r[11]) || 0,
-            sales2023: Number(r[12]) || 0,
-            sales2024: Number(r[13]) || 0,
-            sales2025: Number(r[14]) || 0,
+            website: String(r[8] || '').trim(),
+            exportsUSD: Number(r[9]) || 0,
+            sales2020: Number(r[10]) || 0,
+            sales2021: Number(r[11]) || 0,
+            sales2022: Number(r[12]) || 0,
+            sales2023: Number(r[13]) || 0,
+            sales2024: Number(r[14]) || 0,
+            sales2025: Number(r[15]) || 0,
             errors,
             isDuplicate,
           });
@@ -152,6 +154,7 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
           economicActivity: r.economicActivity,
           description: r.description,
           city: r.city,
+          website: r.website,
           salesByYear,
           exportsUSD: r.exportsUSD,
           contacts: [],

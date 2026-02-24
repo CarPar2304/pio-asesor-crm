@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Phone, CheckSquare, Flag, Pencil, Mail, User, Star } from 'lucide-react';
+import { ArrowLeft, Phone, CheckSquare, Flag, Pencil, Mail, User, Star, Globe } from 'lucide-react';
 import ActivityTimeline from './ActivityTimeline';
 import QuickActionDialog from './QuickActionDialog';
 import CompanyForm from './CompanyForm';
@@ -70,9 +70,18 @@ export default function CompanyProfile({ company, onBack }: Props) {
         </div>
       </div>
 
-      {/* Description */}
+      {/* Description & Website */}
       {company.description && (
         <p className="mt-4 text-sm text-muted-foreground">{company.description}</p>
+      )}
+      {company.website && (
+        <div className="mt-2">
+          <a href={company.website.startsWith('http') ? company.website : `https://${company.website}`} target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+              <Globe className="h-3.5 w-3.5" /> Visitar página web
+            </Button>
+          </a>
+        </div>
       )}
 
       <Separator className="my-6" />

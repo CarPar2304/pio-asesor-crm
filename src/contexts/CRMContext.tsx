@@ -92,6 +92,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       city: c.city,
       salesByYear: (c.sales_by_year || {}) as MetricByYear,
       exportsUSD: Number(c.exports_usd),
+      website: c.website || '',
       logo: c.logo,
       contacts: contactsByCompany.get(c.id) || [],
       actions: actionsByCompany.get(c.id) || [],
@@ -122,6 +123,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       city: company.city,
       sales_by_year: company.salesByYear as any,
       exports_usd: company.exportsUSD,
+      website: company.website || '',
       logo: company.logo,
     } as any).select().single();
 
@@ -158,6 +160,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       city: company.city,
       sales_by_year: company.salesByYear as any,
       exports_usd: company.exportsUSD,
+      website: company.website || '',
       logo: company.logo,
     } as any).eq('id', company.id);
 
