@@ -30,6 +30,7 @@ export type Database = {
           trade_name: string
           updated_at: string
           vertical: string
+          website: string
         }
         Insert: {
           category?: string
@@ -46,6 +47,7 @@ export type Database = {
           trade_name: string
           updated_at?: string
           vertical?: string
+          website?: string
         }
         Update: {
           category?: string
@@ -62,6 +64,7 @@ export type Database = {
           trade_name?: string
           updated_at?: string
           vertical?: string
+          website?: string
         }
         Relationships: []
       }

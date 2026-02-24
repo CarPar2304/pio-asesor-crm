@@ -121,7 +121,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
 
   const [form, setForm] = useState({
     tradeName: '', legalName: '', nit: '', category: 'Startup' as 'EBT' | 'Startup',
-    vertical: '', economicActivity: '', description: '', city: '', exportsUSD: 0,
+    vertical: '', economicActivity: '', description: '', city: '', exportsUSD: 0, website: '',
   });
   const [salesByYear, setSalesByYear] = useState<Record<number, string>>({});
   const [contacts, setContacts] = useState<Contact[]>([emptyContact()]);
@@ -136,7 +136,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
         tradeName: company.tradeName, legalName: company.legalName, nit: company.nit,
         category: company.category, vertical: company.vertical,
         economicActivity: company.economicActivity, description: company.description,
-        city: company.city, exportsUSD: company.exportsUSD,
+        city: company.city, exportsUSD: company.exportsUSD, website: company.website || '',
       });
       const sales: Record<number, string> = {};
       Object.entries(company.salesByYear).forEach(([y, v]) => { sales[Number(y)] = String(v); });
@@ -145,7 +145,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
       setLogoUrl(company.logo || null);
       setLogoPreview(company.logo || null);
     } else {
-      setForm({ tradeName: '', legalName: '', nit: '', category: 'Startup', vertical: '', economicActivity: '', description: '', city: '', exportsUSD: 0 });
+      setForm({ tradeName: '', legalName: '', nit: '', category: 'Startup', vertical: '', economicActivity: '', description: '', city: '', exportsUSD: 0, website: '' });
       setSalesByYear({});
       setContacts([emptyContact()]);
       setNotes('');
@@ -318,6 +318,14 @@ export default function CompanyForm({ open, onClose, company }: Props) {
 
             <Section title="Descripción">
               <Textarea className="text-sm" rows={3} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Describe brevemente la empresa..." />
+            </Section>
+
+            <Separator />
+
+            <Section title="Página web">
+              <Field label="URL del sitio web">
+                <Input className="h-9 text-sm" placeholder="https://www.ejemplo.com" value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))} />
+              </Field>
             </Section>
 
             <Separator />
