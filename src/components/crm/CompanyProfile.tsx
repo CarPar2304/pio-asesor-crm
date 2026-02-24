@@ -37,9 +37,9 @@ export default function CompanyProfile({ company, onBack }: Props) {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-4">
           {company.logo ? (
-            <img src={company.logo} alt="" className="h-14 w-14 rounded-xl object-cover" />
+            <img src={company.logo} alt="" className="h-18 w-18 rounded-xl object-cover" />
           ) : (
-            <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-secondary text-lg font-bold text-muted-foreground">
+            <div className="flex h-18 w-18 items-center justify-center rounded-xl bg-secondary text-xl font-bold text-muted-foreground">
               {company.tradeName.charAt(0)}
             </div>
           )}

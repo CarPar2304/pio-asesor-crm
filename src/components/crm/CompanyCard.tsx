@@ -35,9 +35,9 @@ export default function CompanyCard({ company, onOpenProfile, onQuickAction }: P
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
               {company.logo ? (
-                <img src={company.logo} alt={company.tradeName} className="h-9 w-9 shrink-0 rounded-md border border-border/50 object-cover" />
+                <img src={company.logo} alt={company.tradeName} className="h-11 w-11 shrink-0 rounded-md border border-border/50 object-cover" />
               ) : (
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-sm font-bold text-primary">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-primary/10 text-base font-bold text-primary">
                   {company.tradeName.charAt(0).toUpperCase()}
                 </div>
               )}
