@@ -8,8 +8,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Plus, Trash2, Upload, X } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Plus, Trash2, Upload, X, ChevronsUpDown, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 
 interface Props {
   open: boolean;
@@ -36,6 +38,81 @@ const Field = ({ label, children }: { label: string; children: React.ReactNode }
     {children}
   </div>
 );
+
+function VerticalCombobox({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [customVerticals, setCustomVerticals] = useState<string[]>([]);
+
+  const allVerticals = [...VERTICALS, ...customVerticals.filter(v => !VERTICALS.includes(v))];
+  const filtered = search
+    ? allVerticals.filter(v => v.toLowerCase().includes(search.toLowerCase()))
+    : allVerticals;
+  const canCreate = search.trim() && !allVerticals.some(v => v.toLowerCase() === search.toLowerCase());
+
+  const handleCreate = () => {
+    const newVal = search.trim();
+    if (newVal) {
+      setCustomVerticals(prev => [...prev, newVal]);
+      onChange(newVal);
+      setSearch('');
+      setOpen(false);
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" role="combobox" aria-expanded={open} className="h-9 w-full justify-between text-sm font-normal">
+          {value || 'Seleccionar...'}
+          <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <div className="p-2">
+          <Input
+            placeholder="Buscar o crear..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="h-8 text-sm"
+            onKeyDown={e => {
+              if (e.key === 'Enter' && canCreate) { e.preventDefault(); handleCreate(); }
+            }}
+          />
+        </div>
+        <ScrollArea className="max-h-48">
+          <div className="p-1">
+            {filtered.map(v => (
+              <button
+                key={v}
+                className={cn(
+                  'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground',
+                  value === v && 'bg-accent text-accent-foreground'
+                )}
+                onClick={() => { onChange(v); setSearch(''); setOpen(false); }}
+              >
+                <Check className={cn('h-3.5 w-3.5', value === v ? 'opacity-100' : 'opacity-0')} />
+                {v}
+              </button>
+            ))}
+            {canCreate && (
+              <button
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-primary hover:bg-accent"
+                onClick={handleCreate}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Crear "{search.trim()}"
+              </button>
+            )}
+            {filtered.length === 0 && !canCreate && (
+              <p className="px-2 py-1.5 text-xs text-muted-foreground">Sin resultados</p>
+            )}
+          </div>
+        </ScrollArea>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export default function CompanyForm({ open, onClose, company }: Props) {
   const { addCompany, updateCompany } = useCRM();
@@ -221,12 +298,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
                   </Select>
                 </Field>
                 <Field label="Vertical">
-                  <Select value={form.vertical} onValueChange={v => setForm(f => ({ ...f, vertical: v }))}>
-                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                    <SelectContent>
-                      {VERTICALS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <VerticalCombobox value={form.vertical} onChange={v => setForm(f => ({ ...f, vertical: v }))} />
                 </Field>
               </div>
               <Field label="Actividad económica">
