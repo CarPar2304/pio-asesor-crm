@@ -7,9 +7,10 @@ import CompanyCard from '@/components/crm/CompanyCard';
 import CompanyTable from '@/components/crm/CompanyTable';
 import CRMFilters from '@/components/crm/CRMFilters';
 import CompanyForm from '@/components/crm/CompanyForm';
+import BulkUploadDialog from '@/components/crm/BulkUploadDialog';
 import QuickActionDialog from '@/components/crm/QuickActionDialog';
 import { Button } from '@/components/ui/button';
-import { LayoutGrid, List, Plus } from 'lucide-react';
+import { LayoutGrid, List, Plus, FileSpreadsheet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function Index() {
@@ -19,6 +20,7 @@ export default function Index() {
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [formOpen, setFormOpen] = useState(false);
   const [quickAction, setQuickAction] = useState<{ type: 'action' | 'task' | 'milestone'; companyId: string } | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   const filtered = useMemo(() => {
     return companies.filter(c => {
@@ -67,6 +69,9 @@ export default function Index() {
               <List className="h-3.5 w-3.5" />
             </button>
           </div>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setBulkOpen(true)}>
+            <FileSpreadsheet className="h-3.5 w-3.5" /> Carga masiva
+          </Button>
           <Button size="sm" className="gap-1.5" onClick={() => setFormOpen(true)}>
             <Plus className="h-3.5 w-3.5" /> Nueva empresa
           </Button>
@@ -104,6 +109,7 @@ export default function Index() {
       </div>
 
       <CompanyForm open={formOpen} onClose={() => setFormOpen(false)} />
+      <BulkUploadDialog open={bulkOpen} onClose={() => setBulkOpen(false)} />
       {quickAction && (
         <QuickActionDialog type={quickAction.type} companyId={quickAction.companyId} onClose={() => setQuickAction(null)} />
       )}
