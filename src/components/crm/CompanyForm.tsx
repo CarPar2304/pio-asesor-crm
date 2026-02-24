@@ -23,6 +23,20 @@ const emptyContact = (): Contact => ({
   id: crypto.randomUUID(), name: '', position: '', email: '', phone: '', notes: '', isPrimary: false,
 });
 
+const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <div>
+    <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</h3>
+    <div className="space-y-3">{children}</div>
+  </div>
+);
+
+const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <div>
+    <label className="mb-1 block text-xs font-medium text-muted-foreground">{label}</label>
+    {children}
+  </div>
+);
+
 export default function CompanyForm({ open, onClose, company }: Props) {
   const { addCompany, updateCompany } = useCRM();
   const isEdit = !!company;
@@ -141,23 +155,9 @@ export default function CompanyForm({ open, onClose, company }: Props) {
     }));
   };
 
-  const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <div>
-      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</h3>
-      <div className="space-y-3">{children}</div>
-    </div>
-  );
-
-  const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div>
-      <label className="mb-1 block text-xs font-medium text-muted-foreground">{label}</label>
-      {children}
-    </div>
-  );
-
   return (
     <Dialog open={open} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-2xl p-0 gap-0 max-h-[90vh] overflow-hidden">
+      <DialogContent className="max-w-3xl p-0 gap-0 max-h-[90vh] overflow-hidden">
         <DialogHeader className="border-b border-border px-6 py-4">
           <DialogTitle>{isEdit ? 'Editar empresa' : 'Nueva empresa'}</DialogTitle>
         </DialogHeader>
