@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Company } from '@/types/crm';
+import { Company, GENDER_LABELS } from '@/types/crm';
 import { calculateGrowth, formatCOP, formatPercentage, formatUSD, getLastYearSales } from '@/lib/calculations';
 import { useCRM } from '@/contexts/CRMContext';
 import { Badge } from '@/components/ui/badge';
@@ -79,7 +79,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
 
       {/* Summary metrics */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <MetricCard label={lastSales ? `Ventas ${lastSales.year}` : 'Ventas'} value={lastSales ? formatCOP(lastSales.value) : '—'} />
+        <MetricCard label={lastSales ? `Ventas ${lastSales.year} (COP)` : 'Ventas (COP)'} value={lastSales ? formatCOP(lastSales.value) : '—'} />
         <MetricCard label="Avg YoY" value={formatPercentage(avgYoY)} positive={avgYoY !== null ? avgYoY > 0 : null} />
         <MetricCard label="Último YoY" value={formatPercentage(lastYoY)} positive={lastYoY !== null ? lastYoY > 0 : null} />
         <MetricCard label="Exportaciones" value={company.exportsUSD > 0 ? formatUSD(company.exportsUSD) : '—'} />
@@ -101,7 +101,10 @@ export default function CompanyProfile({ company, onBack }: Props) {
                 </div>
                 <div className="min-w-0">
                   <p className="text-sm font-medium">{c.name}</p>
-                  <p className="text-xs text-muted-foreground">{c.position}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {c.position}
+                    {c.gender && GENDER_LABELS[c.gender] ? ` · ${GENDER_LABELS[c.gender]}` : ''}
+                  </p>
                   <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
                     {c.email && <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{c.email}</span>}
                     {c.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{c.phone}</span>}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Company, Contact, VERTICALS, CITIES } from '@/types/crm';
+import { Company, Contact, ContactGender, VERTICALS, CITIES, GENDER_LABELS } from '@/types/crm';
 import { useCRM } from '@/contexts/CRMContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -22,7 +22,7 @@ interface Props {
 const YEARS = [2020, 2021, 2022, 2023, 2024, 2025];
 
 const emptyContact = (): Contact => ({
-  id: crypto.randomUUID(), name: '', position: '', email: '', phone: '', notes: '', isPrimary: false,
+  id: crypto.randomUUID(), name: '', position: '', email: '', phone: '', notes: '', isPrimary: false, gender: '',
 });
 
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
@@ -351,7 +351,17 @@ export default function CompanyForm({ open, onClose, company }: Props) {
                     <Input className="h-8 text-sm" placeholder="Correo" value={c.email} onChange={e => updateContact(c.id, 'email', e.target.value)} />
                     <Input className="h-8 text-sm" placeholder="Celular" value={c.phone} onChange={e => updateContact(c.id, 'phone', e.target.value)} />
                   </div>
-                  <Input className="h-8 text-sm" placeholder="Notas" value={c.notes} onChange={e => updateContact(c.id, 'notes', e.target.value)} />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Select value={c.gender || ''} onValueChange={v => updateContact(c.id, 'gender', v)}>
+                      <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Género" /></SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(GENDER_LABELS).map(([k, label]) => (
+                          <SelectItem key={k} value={k}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input className="h-8 text-sm" placeholder="Notas" value={c.notes} onChange={e => updateContact(c.id, 'notes', e.target.value)} />
+                  </div>
                 </div>
               ))}
               <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setContacts(prev => [...prev, emptyContact()])}>

@@ -48,7 +48,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     const contactsByCompany = new Map<string, Contact[]>();
     (contactsRes.data || []).forEach((c: any) => {
       const list = contactsByCompany.get(c.company_id) || [];
-      list.push({ id: c.id, name: c.name, position: c.position, email: c.email, phone: c.phone, notes: c.notes, isPrimary: c.is_primary });
+      list.push({ id: c.id, name: c.name, position: c.position, email: c.email, phone: c.phone, notes: c.notes, isPrimary: c.is_primary, gender: c.gender || '' });
       contactsByCompany.set(c.company_id, list);
     });
 
@@ -138,6 +138,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
           phone: c.phone,
           notes: c.notes,
           is_primary: c.isPrimary,
+          gender: c.gender || '',
         })) as any
       );
     }
@@ -172,6 +173,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
           phone: c.phone,
           notes: c.notes,
           is_primary: c.isPrimary,
+          gender: c.gender || '',
         })) as any
       );
     }
@@ -238,6 +240,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       phone: contact.phone,
       notes: contact.notes,
       is_primary: contact.isPrimary,
+      gender: contact.gender || '',
     });
     await fetchAll();
   }, [fetchAll]);
@@ -250,6 +253,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       phone: contact.phone,
       notes: contact.notes,
       is_primary: contact.isPrimary,
+      gender: contact.gender || '',
     }).eq('id', contact.id);
     await fetchAll();
   }, [fetchAll]);
