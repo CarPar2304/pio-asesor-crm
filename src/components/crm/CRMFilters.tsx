@@ -1,0 +1,192 @@
+import { useState } from 'react';
+import { FilterState, SavedView, VERTICALS, CITIES, DEFAULT_FILTERS } from '@/types/crm';
+import { useCRM } from '@/contexts/CRMContext';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Search, X, SlidersHorizontal, Bookmark, BookmarkPlus } from 'lucide-react';
+
+interface Props {
+  filters: FilterState;
+  onChange: (filters: FilterState) => void;
+}
+
+export default function CRMFilters({ filters, onChange }: Props) {
+  const { savedViews, saveView, deleteView } = useCRM();
+  const [viewName, setViewName] = useState('');
+
+  const update = (partial: Partial<FilterState>) => onChange({ ...filters, ...partial });
+
+  const activeChips: { label: string; clear: () => void }[] = [];
+  if (filters.category) activeChips.push({ label: `Categoría: ${filters.category}`, clear: () => update({ category: '' }) });
+  if (filters.vertical) activeChips.push({ label: `Vertical: ${filters.vertical}`, clear: () => update({ vertical: '' }) });
+  if (filters.city) activeChips.push({ label: `Ciudad: ${filters.city}`, clear: () => update({ city: '' }) });
+  if (filters.economicActivity) activeChips.push({ label: `Act. Económica: ${filters.economicActivity}`, clear: () => update({ economicActivity: '' }) });
+  if (filters.salesMin) activeChips.push({ label: `Ventas ≥ ${filters.salesMin}`, clear: () => update({ salesMin: '' }) });
+  if (filters.salesMax) activeChips.push({ label: `Ventas ≤ ${filters.salesMax}`, clear: () => update({ salesMax: '' }) });
+  if (filters.avgYoYMin) activeChips.push({ label: `Avg YoY ≥ ${filters.avgYoYMin}%`, clear: () => update({ avgYoYMin: '' }) });
+  if (filters.lastYoYMin) activeChips.push({ label: `Último YoY ≥ ${filters.lastYoYMin}%`, clear: () => update({ lastYoYMin: '' }) });
+
+  const hasFilters = activeChips.length > 0 || filters.search;
+
+  const handleSaveView = () => {
+    if (!viewName.trim()) return;
+    saveView({ id: crypto.randomUUID(), name: viewName.trim(), filters: { ...filters } });
+    setViewName('');
+  };
+
+  const years = Array.from({ length: 6 }, (_, i) => 2020 + i);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Buscar empresa..."
+            value={filters.search}
+            onChange={e => update({ search: e.target.value })}
+            className="h-9 pl-8 text-sm"
+          />
+        </div>
+
+        <Select value={filters.category} onValueChange={v => update({ category: v === 'all' ? '' : v })}>
+          <SelectTrigger className="h-9 w-[130px] text-sm">
+            <SelectValue placeholder="Categoría" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas</SelectItem>
+            <SelectItem value="EBT">EBT</SelectItem>
+            <SelectItem value="Startup">Startup</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={filters.vertical} onValueChange={v => update({ vertical: v === 'all' ? '' : v })}>
+          <SelectTrigger className="h-9 w-[160px] text-sm">
+            <SelectValue placeholder="Vertical" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas</SelectItem>
+            {VERTICALS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+          </SelectContent>
+        </Select>
+
+        <Select value={filters.city} onValueChange={v => update({ city: v === 'all' ? '' : v })}>
+          <SelectTrigger className="h-9 w-[130px] text-sm">
+            <SelectValue placeholder="Ciudad" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas</SelectItem>
+            {CITIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+          </SelectContent>
+        </Select>
+
+        <Select value={String(filters.activeYear)} onValueChange={v => update({ activeYear: Number(v) })}>
+          <SelectTrigger className="h-9 w-[100px] text-sm">
+            <SelectValue placeholder="Año" />
+          </SelectTrigger>
+          <SelectContent>
+            {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
+          </SelectContent>
+        </Select>
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm">
+              <SlidersHorizontal className="h-3.5 w-3.5" /> Más filtros
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-72 space-y-3" align="end">
+            <p className="text-sm font-medium">Filtros avanzados</p>
+            <div>
+              <label className="text-xs text-muted-foreground">Actividad económica</label>
+              <Input className="mt-1 h-8 text-sm" value={filters.economicActivity} onChange={e => update({ economicActivity: e.target.value })} placeholder="Buscar..." />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-muted-foreground">Ventas mín (M)</label>
+                <Input className="mt-1 h-8 text-sm" type="number" value={filters.salesMin} onChange={e => update({ salesMin: e.target.value })} placeholder="0" />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Ventas máx (M)</label>
+                <Input className="mt-1 h-8 text-sm" type="number" value={filters.salesMax} onChange={e => update({ salesMax: e.target.value })} placeholder="∞" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-muted-foreground">Avg YoY mín %</label>
+                <Input className="mt-1 h-8 text-sm" type="number" value={filters.avgYoYMin} onChange={e => update({ avgYoYMin: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Avg YoY máx %</label>
+                <Input className="mt-1 h-8 text-sm" type="number" value={filters.avgYoYMax} onChange={e => update({ avgYoYMax: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-muted-foreground">Último YoY mín %</label>
+                <Input className="mt-1 h-8 text-sm" type="number" value={filters.lastYoYMin} onChange={e => update({ lastYoYMin: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground">Último YoY máx %</label>
+                <Input className="mt-1 h-8 text-sm" type="number" value={filters.lastYoYMax} onChange={e => update({ lastYoYMax: e.target.value })} />
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {savedViews.length > 0 && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm">
+                <Bookmark className="h-3.5 w-3.5" /> Vistas
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 space-y-1" align="end">
+              {savedViews.map(v => (
+                <div key={v.id} className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-secondary">
+                  <button className="text-sm" onClick={() => onChange(v.filters)}>{v.name}</button>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => deleteView(v.id)}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </PopoverContent>
+          </Popover>
+        )}
+
+        {hasFilters && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm">
+                <BookmarkPlus className="h-3.5 w-3.5" /> Guardar vista
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56 space-y-2" align="end">
+              <Input className="h-8 text-sm" value={viewName} onChange={e => setViewName(e.target.value)} placeholder="Nombre de la vista" />
+              <Button size="sm" className="w-full" onClick={handleSaveView}>Guardar</Button>
+            </PopoverContent>
+          </Popover>
+        )}
+      </div>
+
+      {activeChips.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {activeChips.map((chip, i) => (
+            <Badge key={i} variant="secondary" className="gap-1 pr-1 text-xs">
+              {chip.label}
+              <button onClick={chip.clear} className="rounded-sm p-0.5 hover:bg-muted">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+          <button className="text-xs text-muted-foreground hover:text-foreground" onClick={() => onChange(DEFAULT_FILTERS)}>
+            Limpiar todo
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
