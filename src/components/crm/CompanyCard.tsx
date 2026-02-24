@@ -52,7 +52,7 @@ export default function CompanyCard({ company, onOpenProfile, onQuickAction }: P
         <div className="mt-2 flex flex-wrap gap-1">
           <Badge variant="outline" className="text-[10px] font-semibold px-1.5 py-0">{company.category}</Badge>
           <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{company.vertical}</Badge>
-          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-muted/60">{company.city}</Badge>
+          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{company.city}</Badge>
         </div>
       </CardHeader>
 
