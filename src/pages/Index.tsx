@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 
 export default function Index() {
   const navigate = useNavigate();
-  const { companies } = useCRM();
+  const { companies, loading } = useCRM();
   const [view, setView] = useState<'grid' | 'table'>('grid');
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [formOpen, setFormOpen] = useState(false);
@@ -76,7 +76,11 @@ export default function Index() {
       <CRMFilters filters={filters} onChange={setFilters} />
 
       <div className="mt-6">
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16">
             <p className="text-sm text-muted-foreground">No se encontraron empresas con los filtros actuales</p>
             <Button variant="link" size="sm" onClick={() => setFilters(DEFAULT_FILTERS)} className="mt-2">

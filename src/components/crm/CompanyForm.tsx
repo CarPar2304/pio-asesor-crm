@@ -54,7 +54,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
     }
   }, [company, open]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const parsedSales: Record<number, number> = {};
     Object.entries(salesByYear).forEach(([y, v]) => {
       const n = Number(v);
@@ -78,8 +78,8 @@ export default function CompanyForm({ open, onClose, company }: Props) {
       createdAt: company?.createdAt || new Date().toISOString().split('T')[0],
     };
 
-    if (isEdit) updateCompany(companyData);
-    else addCompany(companyData);
+    if (isEdit) await updateCompany(companyData);
+    else await addCompany(companyData);
     onClose();
   };
 
