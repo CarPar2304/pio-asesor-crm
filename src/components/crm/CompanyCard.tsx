@@ -27,8 +27,12 @@ export default function CompanyCard({ company, onOpenProfile, onQuickAction }: P
             <p className="mt-0.5 truncate text-sm text-muted-foreground">{company.legalName}</p>
             <p className="font-mono text-xs text-muted-foreground">{company.nit}</p>
           </div>
-          {company.logo && (
-            <img src={company.logo} alt="" className="h-10 w-10 rounded-lg object-cover" />
+          {company.logo ? (
+            <img src={company.logo} alt={company.tradeName} className="h-10 w-10 shrink-0 rounded-lg border border-border object-cover" />
+          ) : (
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary">
+              {company.tradeName.charAt(0).toUpperCase()}
+            </div>
           )}
         </div>
         <div className="mt-2.5 flex flex-wrap gap-1.5">

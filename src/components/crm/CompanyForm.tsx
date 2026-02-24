@@ -1,14 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Company, Contact, VERTICALS, CITIES } from '@/types/crm';
 import { useCRM } from '@/contexts/CRMContext';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Upload, X } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
   open: boolean;
@@ -25,6 +26,7 @@ const emptyContact = (): Contact => ({
 export default function CompanyForm({ open, onClose, company }: Props) {
   const { addCompany, updateCompany } = useCRM();
   const isEdit = !!company;
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
     tradeName: '', legalName: '', nit: '', category: 'Startup' as 'EBT' | 'Startup',
@@ -33,6 +35,9 @@ export default function CompanyForm({ open, onClose, company }: Props) {
   const [salesByYear, setSalesByYear] = useState<Record<number, string>>({});
   const [contacts, setContacts] = useState<Contact[]>([emptyContact()]);
   const [notes, setNotes] = useState('');
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     if (company) {
@@ -46,13 +51,43 @@ export default function CompanyForm({ open, onClose, company }: Props) {
       Object.entries(company.salesByYear).forEach(([y, v]) => { sales[Number(y)] = String(v); });
       setSalesByYear(sales);
       setContacts(company.contacts.length > 0 ? company.contacts : [emptyContact()]);
+      setLogoUrl(company.logo || null);
+      setLogoPreview(company.logo || null);
     } else {
       setForm({ tradeName: '', legalName: '', nit: '', category: 'Startup', vertical: '', economicActivity: '', description: '', city: '', exportsUSD: 0 });
       setSalesByYear({});
       setContacts([emptyContact()]);
       setNotes('');
+      setLogoUrl(null);
+      setLogoPreview(null);
     }
   }, [company, open]);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Preview immediately
+    const reader = new FileReader();
+    reader.onload = (ev) => setLogoPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+
+    setUploading(true);
+    const ext = file.name.split('.').pop();
+    const fileName = `${crypto.randomUUID()}.${ext}`;
+
+    const { error } = await supabase.storage.from('company-logos').upload(fileName, file, { upsert: true });
+    if (!error) {
+      const { data } = supabase.storage.from('company-logos').getPublicUrl(fileName);
+      setLogoUrl(data.publicUrl);
+    }
+    setUploading(false);
+  };
+
+  const removeLogo = () => {
+    setLogoUrl(null);
+    setLogoPreview(null);
+  };
 
   const handleSave = async () => {
     const parsedSales: Record<number, number> = {};
@@ -70,6 +105,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
       id: company?.id || crypto.randomUUID(),
       ...form,
       salesByYear: parsedSales,
+      logo: logoUrl || undefined,
       contacts: validContacts,
       actions: company?.actions || [],
       milestones: company?.milestones || [],
@@ -105,13 +141,45 @@ export default function CompanyForm({ open, onClose, company }: Props) {
   );
 
   return (
-    <Sheet open={open} onOpenChange={() => onClose()}>
-      <SheetContent className="w-full sm:max-w-lg p-0" side="right">
-        <SheetHeader className="border-b border-border px-6 py-4">
-          <SheetTitle>{isEdit ? 'Editar empresa' : 'Nueva empresa'}</SheetTitle>
-        </SheetHeader>
-        <ScrollArea className="h-[calc(100vh-130px)] px-6 py-4">
+    <Dialog open={open} onOpenChange={() => onClose()}>
+      <DialogContent className="max-w-2xl p-0 gap-0 max-h-[90vh] overflow-hidden">
+        <DialogHeader className="border-b border-border px-6 py-4">
+          <DialogTitle>{isEdit ? 'Editar empresa' : 'Nueva empresa'}</DialogTitle>
+        </DialogHeader>
+        <ScrollArea className="max-h-[calc(90vh-130px)] px-6 py-4">
           <div className="space-y-6 pb-6">
+            {/* Logo Upload */}
+            <Section title="Logo">
+              <div className="flex items-center gap-4">
+                {logoPreview ? (
+                  <div className="relative">
+                    <img src={logoPreview} alt="Logo" className="h-16 w-16 rounded-lg border border-border object-cover" />
+                    <button
+                      type="button"
+                      onClick={removeLogo}
+                      className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex h-16 w-16 items-center justify-center rounded-lg border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                  >
+                    <Upload className="h-5 w-5" />
+                  </button>
+                )}
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                <div className="text-xs text-muted-foreground">
+                  {uploading ? 'Subiendo...' : logoPreview ? 'Logo cargado' : 'Haz clic para subir el logo'}
+                </div>
+              </div>
+            </Section>
+
+            <Separator />
+
             <Section title="Identificación">
               <Field label="Nombre comercial">
                 <Input className="h-9 text-sm" value={form.tradeName} onChange={e => setForm(f => ({ ...f, tradeName: e.target.value }))} />
@@ -127,23 +195,25 @@ export default function CompanyForm({ open, onClose, company }: Props) {
             <Separator />
 
             <Section title="Segmentación">
-              <Field label="Categoría">
-                <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v as 'EBT' | 'Startup' }))}>
-                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="EBT">EBT</SelectItem>
-                    <SelectItem value="Startup">Startup</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="Vertical">
-                <Select value={form.vertical} onValueChange={v => setForm(f => ({ ...f, vertical: v }))}>
-                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                  <SelectContent>
-                    {VERTICALS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Categoría">
+                  <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v as 'EBT' | 'Startup' }))}>
+                    <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="EBT">EBT</SelectItem>
+                      <SelectItem value="Startup">Startup</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+                <Field label="Vertical">
+                  <Select value={form.vertical} onValueChange={v => setForm(f => ({ ...f, vertical: v }))}>
+                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                    <SelectContent>
+                      {VERTICALS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              </div>
               <Field label="Actividad económica">
                 <Input className="h-9 text-sm" value={form.economicActivity} onChange={e => setForm(f => ({ ...f, economicActivity: e.target.value }))} />
               </Field>
@@ -205,7 +275,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
             <Separator />
 
             <Section title="Métricas — Ventas por año (COP)">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {YEARS.map(y => (
                   <Field key={y} label={String(y)}>
                     <Input
@@ -237,11 +307,11 @@ export default function CompanyForm({ open, onClose, company }: Props) {
         </ScrollArea>
         <div className="flex justify-end gap-2 border-t border-border px-6 py-3">
           <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
-          <Button size="sm" onClick={handleSave} disabled={!form.tradeName.trim()}>
+          <Button size="sm" onClick={handleSave} disabled={!form.tradeName.trim() || uploading}>
             {isEdit ? 'Guardar cambios' : 'Crear empresa'}
           </Button>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
