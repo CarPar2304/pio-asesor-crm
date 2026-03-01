@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Phone, CheckSquare, Flag, Pencil, Mail, User, Star, Globe } from 'lucide-react';
+import { ArrowLeft, Phone, CheckSquare, Flag, Pencil, Mail, User, Star, Globe, Trash2 } from 'lucide-react';
 import ActivityTimeline from './ActivityTimeline';
 import QuickActionDialog from './QuickActionDialog';
 import CompanyForm from './CompanyForm';
@@ -22,6 +22,14 @@ export default function CompanyProfile({ company, onBack }: Props) {
   const [quickAction, setQuickAction] = useState<'action' | 'task' | 'milestone' | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const { sections, fields } = useCustomFields();
+  const { deleteCompany } = useCRM();
+
+  const handleDelete = async () => {
+    if (confirm(`¿Eliminar "${company.tradeName}"? Esta acción no se puede deshacer.`)) {
+      await deleteCompany(company.id);
+      onBack();
+    }
+  };
 
   const { avgYoY, lastYoY } = calculateGrowth(company.salesByYear);
   const lastSales = getLastYearSales(company.salesByYear);
@@ -81,6 +89,9 @@ export default function CompanyProfile({ company, onBack }: Props) {
           </Button>
           <Button size="sm" className="gap-1.5 text-xs" onClick={() => setEditOpen(true)}>
             <Pencil className="h-3.5 w-3.5" /> Editar
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs text-destructive hover:text-destructive" onClick={handleDelete}>
+            <Trash2 className="h-3.5 w-3.5" /> Eliminar
           </Button>
         </div>
       </div>
