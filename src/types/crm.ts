@@ -120,6 +120,9 @@ export interface Company {
   createdAt: string;
 }
 
+export type SortField = 'tradeName' | 'city' | 'vertical' | 'salesByYear' | 'createdAt';
+export type SortDirection = 'asc' | 'desc';
+
 export interface FilterState {
   search: string;
   category: string;
@@ -134,6 +137,8 @@ export interface FilterState {
   lastYoYMax: string;
   activeYear: number;
   customFieldFilters: Record<string, string>; // fieldId -> value
+  sortField: SortField;
+  sortDirection: SortDirection;
 }
 
 export interface SavedView {
@@ -183,4 +188,6 @@ export const DEFAULT_FILTERS: FilterState = {
   lastYoYMax: '',
   activeYear: new Date().getFullYear() - 1,
   customFieldFilters: {},
+  sortField: 'tradeName',
+  sortDirection: 'asc',
 };

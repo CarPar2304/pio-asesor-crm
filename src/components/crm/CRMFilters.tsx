@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { FilterState, SavedView, VERTICALS, CITIES, DEFAULT_FILTERS } from '@/types/crm';
+import { useState, useMemo } from 'react';
+import { FilterState, SavedView, VERTICALS, CITIES, DEFAULT_FILTERS, SortField, SortDirection } from '@/types/crm';
 import { useCRM } from '@/contexts/CRMContext';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { Input } from '@/components/ui/input';
@@ -7,7 +7,15 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Search, X, SlidersHorizontal, Bookmark, BookmarkPlus } from 'lucide-react';
+import { Search, X, SlidersHorizontal, Bookmark, BookmarkPlus, ArrowUpDown } from 'lucide-react';
+
+const SORT_LABELS: Record<SortField, string> = {
+  tradeName: 'Nombre',
+  city: 'Ciudad',
+  vertical: 'Vertical',
+  salesByYear: 'Ventas',
+  createdAt: 'Fecha de creación',
+};
 
 interface Props {
   filters: FilterState;
@@ -15,9 +23,28 @@ interface Props {
 }
 
 export default function CRMFilters({ filters, onChange }: Props) {
-  const { savedViews, saveView, deleteView } = useCRM();
+  const { companies, savedViews, saveView, deleteView } = useCRM();
   const { sections, fields } = useCustomFields();
   const [viewName, setViewName] = useState('');
+
+  // Dynamic options from existing companies
+  const { allVerticals, allCities, allSubVerticals } = useMemo(() => {
+    const vertSet = new Set<string>(VERTICALS);
+    const citySet = new Set<string>(CITIES);
+    const subVertSet = new Set<string>();
+
+    companies.forEach(c => {
+      if (c.vertical) vertSet.add(c.vertical);
+      if (c.city) citySet.add(c.city);
+      if (c.economicActivity) subVertSet.add(c.economicActivity);
+    });
+
+    return {
+      allVerticals: Array.from(vertSet).sort((a, b) => a.localeCompare(b)),
+      allCities: Array.from(citySet).sort((a, b) => a.localeCompare(b)),
+      allSubVerticals: Array.from(subVertSet).sort((a, b) => a.localeCompare(b)),
+    };
+  }, [companies]);
 
   const update = (partial: Partial<FilterState>) => onChange({ ...filters, ...partial });
   const updateCustomFilter = (fieldId: string, value: string) => {
@@ -38,13 +65,10 @@ export default function CRMFilters({ filters, onChange }: Props) {
   if (filters.avgYoYMin) activeChips.push({ label: `Avg YoY ≥ ${filters.avgYoYMin}%`, clear: () => update({ avgYoYMin: '' }) });
   if (filters.lastYoYMin) activeChips.push({ label: `Último YoY ≥ ${filters.lastYoYMin}%`, clear: () => update({ lastYoYMin: '' }) });
 
-  // Custom field filter chips
   Object.entries(filters.customFieldFilters || {}).forEach(([fieldId, value]) => {
     if (!value) return;
     const field = fields.find(f => f.id === fieldId);
-    if (field) {
-      activeChips.push({ label: `${field.name}: ${value}`, clear: () => clearCustomFilter(fieldId) });
-    }
+    if (field) activeChips.push({ label: `${field.name}: ${value}`, clear: () => clearCustomFilter(fieldId) });
   });
 
   const hasFilters = activeChips.length > 0 || filters.search;
@@ -56,8 +80,6 @@ export default function CRMFilters({ filters, onChange }: Props) {
   };
 
   const years = Array.from({ length: 6 }, (_, i) => 2020 + i);
-
-  // Filterable custom fields (text and select types)
   const filterableFields = fields.filter(f => f.fieldType === 'text' || f.fieldType === 'select');
 
   return (
@@ -81,7 +103,15 @@ export default function CRMFilters({ filters, onChange }: Props) {
           <SelectTrigger className="h-9 w-[160px] text-sm"><SelectValue placeholder="Vertical" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas</SelectItem>
-            {VERTICALS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+            {allVerticals.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+          </SelectContent>
+        </Select>
+
+        <Select value={filters.economicActivity} onValueChange={v => update({ economicActivity: v === 'all' ? '' : v })}>
+          <SelectTrigger className="h-9 w-[160px] text-sm"><SelectValue placeholder="Sub-vertical" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas</SelectItem>
+            {allSubVerticals.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
           </SelectContent>
         </Select>
 
@@ -89,7 +119,7 @@ export default function CRMFilters({ filters, onChange }: Props) {
           <SelectTrigger className="h-9 w-[130px] text-sm"><SelectValue placeholder="Ciudad" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas</SelectItem>
-            {CITIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            {allCities.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
 
@@ -97,6 +127,36 @@ export default function CRMFilters({ filters, onChange }: Props) {
           <SelectTrigger className="h-9 w-[100px] text-sm"><SelectValue placeholder="Año" /></SelectTrigger>
           <SelectContent>{years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
         </Select>
+
+        {/* Sorter */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm">
+              <ArrowUpDown className="h-3.5 w-3.5" /> {SORT_LABELS[filters.sortField]} {filters.sortDirection === 'asc' ? '↑' : '↓'}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 space-y-2" align="end">
+            <p className="text-sm font-medium">Ordenar por</p>
+            {(Object.entries(SORT_LABELS) as [SortField, string][]).map(([field, label]) => (
+              <button
+                key={field}
+                className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-secondary ${filters.sortField === field ? 'bg-secondary font-medium' : ''}`}
+                onClick={() => {
+                  if (filters.sortField === field) {
+                    update({ sortDirection: filters.sortDirection === 'asc' ? 'desc' : 'asc' });
+                  } else {
+                    update({ sortField: field, sortDirection: 'asc' });
+                  }
+                }}
+              >
+                {label}
+                {filters.sortField === field && (
+                  <span className="text-xs text-muted-foreground">{filters.sortDirection === 'asc' ? '↑ A-Z' : '↓ Z-A'}</span>
+                )}
+              </button>
+            ))}
+          </PopoverContent>
+        </Popover>
 
         <Popover>
           <PopoverTrigger asChild>
@@ -106,10 +166,6 @@ export default function CRMFilters({ filters, onChange }: Props) {
           </PopoverTrigger>
           <PopoverContent className="w-72 space-y-3" align="end">
             <p className="text-sm font-medium">Filtros avanzados</p>
-            <div>
-              <label className="text-xs text-muted-foreground">Sub-vertical</label>
-              <Input className="mt-1 h-8 text-sm" value={filters.economicActivity} onChange={e => update({ economicActivity: e.target.value })} placeholder="Buscar..." />
-            </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-xs text-muted-foreground">Ventas mín (M)</label>
@@ -141,7 +197,6 @@ export default function CRMFilters({ filters, onChange }: Props) {
               </div>
             </div>
 
-            {/* Custom field filters */}
             {filterableFields.length > 0 && (
               <>
                 <div className="border-t border-border pt-2">

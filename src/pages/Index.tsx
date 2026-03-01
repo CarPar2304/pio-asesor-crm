@@ -25,7 +25,7 @@ export default function Index() {
   const [bulkOpen, setBulkOpen] = useState(false);
 
   const filtered = useMemo(() => {
-    return companies.filter(c => {
+    const result = companies.filter(c => {
       if (filters.search) {
         const s = filters.search.toLowerCase();
         if (!c.tradeName.toLowerCase().includes(s) && !c.legalName.toLowerCase().includes(s) && !c.nit.includes(s)) return false;
@@ -33,7 +33,7 @@ export default function Index() {
       if (filters.category && c.category !== filters.category) return false;
       if (filters.vertical && c.vertical !== filters.vertical) return false;
       if (filters.city && c.city !== filters.city) return false;
-      if (filters.economicActivity && !c.economicActivity.toLowerCase().includes(filters.economicActivity.toLowerCase())) return false; // sub-vertical filter
+      if (filters.economicActivity && c.economicActivity !== filters.economicActivity) return false;
 
       const yearSales = c.salesByYear[filters.activeYear];
       if (filters.salesMin && (yearSales === undefined || yearSales < Number(filters.salesMin) * 1_000_000)) return false;
@@ -45,7 +45,6 @@ export default function Index() {
       if (filters.lastYoYMin && (lastYoY === null || lastYoY < Number(filters.lastYoYMin))) return false;
       if (filters.lastYoYMax && (lastYoY === null || lastYoY > Number(filters.lastYoYMax))) return false;
 
-      // Custom field filters
       const customFilters = filters.customFieldFilters || {};
       for (const [fieldId, filterValue] of Object.entries(customFilters)) {
         if (!filterValue) continue;
@@ -62,6 +61,22 @@ export default function Index() {
 
       return true;
     });
+
+    // Sort
+    const { sortField, sortDirection } = filters;
+    result.sort((a, b) => {
+      let cmp = 0;
+      switch (sortField) {
+        case 'tradeName': cmp = a.tradeName.localeCompare(b.tradeName); break;
+        case 'city': cmp = a.city.localeCompare(b.city); break;
+        case 'vertical': cmp = a.vertical.localeCompare(b.vertical); break;
+        case 'salesByYear': cmp = (a.salesByYear[filters.activeYear] || 0) - (b.salesByYear[filters.activeYear] || 0); break;
+        case 'createdAt': cmp = a.createdAt.localeCompare(b.createdAt); break;
+      }
+      return sortDirection === 'desc' ? -cmp : cmp;
+    });
+
+    return result;
   }, [companies, filters, fields]);
 
   return (
