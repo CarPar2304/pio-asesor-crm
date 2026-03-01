@@ -33,7 +33,7 @@ export default function Index() {
       if (filters.category && c.category !== filters.category) return false;
       if (filters.vertical && c.vertical !== filters.vertical) return false;
       if (filters.city && c.city !== filters.city) return false;
-      if (filters.economicActivity && !c.economicActivity.toLowerCase().includes(filters.economicActivity.toLowerCase())) return false;
+      if (filters.economicActivity && !c.economicActivity.toLowerCase().includes(filters.economicActivity.toLowerCase())) return false; // sub-vertical filter
 
       const yearSales = c.salesByYear[filters.activeYear];
       if (filters.salesMin && (yearSales === undefined || yearSales < Number(filters.salesMin) * 1_000_000)) return false;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Company, Contact, ContactGender, CustomFieldValue, VERTICALS, CITIES, GENDER_LABELS, FIELD_TYPE_LABELS, CustomFieldType } from '@/types/crm';
+import { Company, Contact, ContactGender, CustomFieldValue, CustomSection, CustomField, VERTICALS, CITIES, GENDER_LABELS, FIELD_TYPE_LABELS, CustomFieldType } from '@/types/crm';
 import { useCRM } from '@/contexts/CRMContext';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Plus, Trash2, Upload, X, ChevronsUpDown, Check, Settings2 } from 'lucide-react';
+import { Plus, Trash2, Upload, X, ChevronsUpDown, Check, Settings2, Pencil } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
@@ -47,33 +47,40 @@ const Section = ({ title, children, onAddField, onDelete }: { title: string; chi
   </div>
 );
 
-const Field = ({ label, children, onDelete }: { label: string; children: React.ReactNode; onDelete?: () => void }) => (
+const Field = ({ label, children, onDelete, onEdit }: { label: string; children: React.ReactNode; onDelete?: () => void; onEdit?: () => void }) => (
   <div>
     <div className="mb-1 flex items-center justify-between">
       <label className="block text-xs font-medium text-muted-foreground">{label}</label>
-      {onDelete && (
-        <Button variant="ghost" size="icon" className="h-4 w-4 text-destructive" onClick={onDelete}>
-          <Trash2 className="h-2.5 w-2.5" />
-        </Button>
-      )}
+      <div className="flex gap-0.5">
+        {onEdit && (
+          <Button variant="ghost" size="icon" className="h-4 w-4 text-muted-foreground hover:text-foreground" onClick={onEdit}>
+            <Pencil className="h-2.5 w-2.5" />
+          </Button>
+        )}
+        {onDelete && (
+          <Button variant="ghost" size="icon" className="h-4 w-4 text-destructive" onClick={onDelete}>
+            <Trash2 className="h-2.5 w-2.5" />
+          </Button>
+        )}
+      </div>
     </div>
     {children}
   </div>
 );
 
-function VerticalCombobox({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function CreatableCombobox({ value, onChange, options: baseOptions, placeholder }: { value: string; onChange: (v: string) => void; options: string[]; placeholder?: string }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const [customVerticals, setCustomVerticals] = useState<string[]>([]);
+  const [customOptions, setCustomOptions] = useState<string[]>([]);
 
-  const allVerticals = [...VERTICALS, ...customVerticals.filter(v => !VERTICALS.includes(v))];
-  const filtered = search ? allVerticals.filter(v => v.toLowerCase().includes(search.toLowerCase())) : allVerticals;
-  const canCreate = search.trim() && !allVerticals.some(v => v.toLowerCase() === search.toLowerCase());
+  const allOptions = [...baseOptions, ...customOptions.filter(v => !baseOptions.includes(v))];
+  const filtered = search ? allOptions.filter(v => v.toLowerCase().includes(search.toLowerCase())) : allOptions;
+  const canCreate = search.trim() && !allOptions.some(v => v.toLowerCase() === search.toLowerCase());
 
   const handleCreate = () => {
     const newVal = search.trim();
     if (newVal) {
-      setCustomVerticals(prev => [...prev, newVal]);
+      setCustomOptions(prev => [...prev, newVal]);
       onChange(newVal);
       setSearch('');
       setOpen(false);
@@ -84,7 +91,7 @@ function VerticalCombobox({ value, onChange }: { value: string; onChange: (v: st
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="outline" role="combobox" aria-expanded={open} className="h-9 w-full justify-between text-sm font-normal">
-          {value || 'Seleccionar...'}
+          {value || placeholder || 'Seleccionar...'}
           <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -114,16 +121,30 @@ function VerticalCombobox({ value, onChange }: { value: string; onChange: (v: st
   );
 }
 
-function AddFieldDialog({ open, onClose, onAdd }: { open: boolean; onClose: () => void; onAdd: (name: string, type: CustomFieldType, options: string[]) => void }) {
+// Sub-vertical options per vertical
+const SUB_VERTICALS: Record<string, string[]> = {
+  'Biotecnología': ['Bioinformática', 'Bioprocesos', 'Diagnóstico', 'Terapéutica', 'Otra'],
+  'AgriTech': ['Agricultura de precisión', 'Insumos biológicos', 'Monitoreo de cultivos', 'Otra'],
+  'IA / Machine Learning': ['NLP', 'Visión por computador', 'Analítica predictiva', 'Automatización', 'Otra'],
+  'HealthTech': ['Telemedicina', 'Dispositivos médicos', 'Salud digital', 'Otra'],
+  'CleanTech': ['Energías renovables', 'Gestión de residuos', 'Eficiencia energética', 'Otra'],
+  'FinTech': ['Pagos', 'Lending', 'Seguros', 'Blockchain', 'Otra'],
+  'EdTech': ['E-learning', 'Gestión educativa', 'Contenido digital', 'Otra'],
+  'LogTech': ['Última milla', 'Gestión de flotas', 'Cadena de suministro', 'Otra'],
+  'FoodTech': ['Delivery', 'Alimentos alternativos', 'Trazabilidad', 'Otra'],
+};
+
+function AddFieldDialog({ open, onClose, onAdd, existingSections }: { open: boolean; onClose: () => void; onAdd: (name: string, type: CustomFieldType, options: string[], sectionId: string | null) => void; existingSections: CustomSection[] }) {
   const [name, setName] = useState('');
   const [type, setType] = useState<CustomFieldType>('text');
   const [optionsText, setOptionsText] = useState('');
+  const [sectionId, setSectionId] = useState<string>('__none');
 
   const handleAdd = () => {
     if (!name.trim()) return;
     const options = type === 'select' ? optionsText.split(',').map(o => o.trim()).filter(Boolean) : [];
-    onAdd(name.trim(), type, options);
-    setName(''); setType('text'); setOptionsText('');
+    onAdd(name.trim(), type, options, sectionId === '__none' ? null : sectionId);
+    setName(''); setType('text'); setOptionsText(''); setSectionId('__none');
     onClose();
   };
 
@@ -151,7 +172,107 @@ function AddFieldDialog({ open, onClose, onAdd }: { open: boolean; onClose: () =
               <Input className="mt-1 h-9 text-sm" value={optionsText} onChange={e => setOptionsText(e.target.value)} placeholder="B2B, B2C, B2G" />
             </div>
           )}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Sección</label>
+            <Select value={sectionId} onValueChange={setSectionId}>
+              <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none">Sin sección</SelectItem>
+                {existingSections.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
           <Button size="sm" className="w-full" onClick={handleAdd} disabled={!name.trim()}>Crear campo</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditFieldDialog({ open, onClose, field, onSave, existingSections }: { open: boolean; onClose: () => void; field: CustomField | null; onSave: (updated: CustomField) => void; existingSections: CustomSection[] }) {
+  const [name, setName] = useState('');
+  const [type, setType] = useState<CustomFieldType>('text');
+  const [optionsText, setOptionsText] = useState('');
+  const [sectionId, setSectionId] = useState<string>('__none');
+
+  useEffect(() => {
+    if (field) {
+      setName(field.name);
+      setType(field.fieldType);
+      setOptionsText(field.options.join(', '));
+      setSectionId(field.sectionId || '__none');
+    }
+  }, [field]);
+
+  const handleSave = () => {
+    if (!field || !name.trim()) return;
+    const options = type === 'select' ? optionsText.split(',').map(o => o.trim()).filter(Boolean) : [];
+    onSave({ ...field, name: name.trim(), fieldType: type, options, sectionId: sectionId === '__none' ? null : sectionId });
+    onClose();
+  };
+
+  if (!field) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader><DialogTitle>Editar campo</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Nombre</label>
+            <Input className="mt-1 h-9 text-sm" value={name} onChange={e => setName(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Tipo</label>
+            <Select value={type} onValueChange={v => setType(v as CustomFieldType)}>
+              <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(FIELD_TYPE_LABELS).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          {type === 'select' && (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Opciones (separadas por coma)</label>
+              <Input className="mt-1 h-9 text-sm" value={optionsText} onChange={e => setOptionsText(e.target.value)} placeholder="B2B, B2C, B2G" />
+            </div>
+          )}
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Sección</label>
+            <Select value={sectionId} onValueChange={setSectionId}>
+              <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none">Sin sección</SelectItem>
+                {existingSections.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button size="sm" className="w-full" onClick={handleSave} disabled={!name.trim()}>Guardar cambios</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditSectionDialog({ open, onClose, section, onSave }: { open: boolean; onClose: () => void; section: CustomSection | null; onSave: (id: string, name: string) => void }) {
+  const [name, setName] = useState('');
+
+  useEffect(() => {
+    if (section) setName(section.name);
+  }, [section]);
+
+  if (!section) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader><DialogTitle>Editar sección</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Nombre de la sección</label>
+            <Input className="mt-1 h-9 text-sm" value={name} onChange={e => setName(e.target.value)} />
+          </div>
+          <Button size="sm" className="w-full" onClick={() => { if (name.trim()) { onSave(section.id, name.trim()); onClose(); } }} disabled={!name.trim()}>Guardar</Button>
         </div>
       </DialogContent>
     </Dialog>
@@ -178,13 +299,13 @@ function AddSectionDialog({ open, onClose, onAdd }: { open: boolean; onClose: ()
 
 export default function CompanyForm({ open, onClose, company }: Props) {
   const { addCompany, updateCompany, saveFieldValues } = useCRM();
-  const { sections, fields, addSection, addField, deleteSection, deleteField } = useCustomFields();
+  const { sections, fields, addSection, addField, deleteSection, deleteField, updateField, updateSection } = useCustomFields();
   const isEdit = !!company;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
     tradeName: '', legalName: '', nit: '', category: 'Startup' as 'EBT' | 'Startup',
-    vertical: '', economicActivity: '', description: '', city: '', exportsUSD: 0, website: '',
+    vertical: '', subVertical: '', description: '', city: '', customCity: '', exportsUSD: 0, website: '',
   });
   const [salesByYear, setSalesByYear] = useState<Record<number, string>>({});
   const [extraYears, setExtraYears] = useState<number[]>([]);
@@ -196,20 +317,28 @@ export default function CompanyForm({ open, onClose, company }: Props) {
   const [fieldValues, setFieldValues] = useState<Record<string, CustomFieldValue>>({});
 
   // Dialogs
-  const [addFieldOpen, setAddFieldOpen] = useState<string | null>(null); // sectionId or '__unsectioned'
+  const [addFieldOpen, setAddFieldOpen] = useState(false);
   const [addSectionOpen, setAddSectionOpen] = useState(false);
+  const [editFieldTarget, setEditFieldTarget] = useState<CustomField | null>(null);
+  const [editSectionTarget, setEditSectionTarget] = useState<CustomSection | null>(null);
   const [newYearValue, setNewYearValue] = useState('');
 
   // Compute all years to show
   const allYears = [...new Set([...DEFAULT_YEARS, ...extraYears, ...Object.keys(salesByYear).map(Number)])].sort();
 
+  // City logic: if stored city is not in CITIES, it's a custom city
+  const isCustomCity = (city: string) => city && !CITIES.includes(city);
+
   useEffect(() => {
     if (company) {
+      const cityIsCustom = isCustomCity(company.city);
       setForm({
         tradeName: company.tradeName, legalName: company.legalName, nit: company.nit,
         category: company.category, vertical: company.vertical,
-        economicActivity: company.economicActivity, description: company.description,
-        city: company.city, exportsUSD: company.exportsUSD, website: company.website || '',
+        subVertical: company.economicActivity, description: company.description,
+        city: cityIsCustom ? 'Otra' : company.city,
+        customCity: cityIsCustom ? company.city : '',
+        exportsUSD: company.exportsUSD, website: company.website || '',
       });
       const sales: Record<number, string> = {};
       Object.entries(company.salesByYear).forEach(([y, v]) => { sales[Number(y)] = String(v); });
@@ -218,12 +347,11 @@ export default function CompanyForm({ open, onClose, company }: Props) {
       setLogoUrl(company.logo || null);
       setLogoPreview(company.logo || null);
 
-      // Load field values
       const fv: Record<string, CustomFieldValue> = {};
       (company.fieldValues || []).forEach(v => { fv[v.fieldId] = v; });
       setFieldValues(fv);
     } else {
-      setForm({ tradeName: '', legalName: '', nit: '', category: 'Startup', vertical: '', economicActivity: '', description: '', city: '', exportsUSD: 0, website: '' });
+      setForm({ tradeName: '', legalName: '', nit: '', category: 'Startup', vertical: '', subVertical: '', description: '', city: '', customCity: '', exportsUSD: 0, website: '' });
       setSalesByYear({});
       setContacts([emptyContact()]);
       setNotes('');
@@ -281,10 +409,22 @@ export default function CompanyForm({ open, onClose, company }: Props) {
     const validContacts = contacts.filter(c => c.name.trim());
     if (validContacts.length > 0 && !validContacts.some(c => c.isPrimary)) validContacts[0].isPrimary = true;
 
+    // Resolve city: if "Otra" is selected, use the custom city value
+    const resolvedCity = form.city === 'Otra' ? form.customCity.trim() : form.city;
+
     const companyData: Company = {
       id: company?.id || crypto.randomUUID(),
-      ...form,
+      tradeName: form.tradeName,
+      legalName: form.legalName,
+      nit: form.nit,
+      category: form.category,
+      vertical: form.vertical,
+      economicActivity: form.subVertical, // sub-vertical stored in economicActivity column
+      description: form.description,
+      city: resolvedCity,
       salesByYear: parsedSales,
+      exportsUSD: form.exportsUSD,
+      website: form.website,
       logo: logoUrl || undefined,
       contacts: validContacts,
       actions: company?.actions || [],
@@ -305,7 +445,6 @@ export default function CompanyForm({ open, onClose, company }: Props) {
       companyId = newId;
     }
 
-    // Save field values
     const valuesToSave = Object.values(fieldValues).filter(v => v.textValue || v.numberValue !== null || Object.keys(v.yearValues || {}).length > 0);
     await saveFieldValues(companyId, valuesToSave);
     onClose();
@@ -326,12 +465,20 @@ export default function CompanyForm({ open, onClose, company }: Props) {
     }
   };
 
-  const handleAddField = async (sectionId: string | null, name: string, type: CustomFieldType, options: string[]) => {
+  const handleAddField = async (name: string, type: CustomFieldType, options: string[], sectionId: string | null) => {
     await addField({ sectionId, name, fieldType: type, options, displayOrder: 0 });
   };
 
   const handleAddSection = async (name: string) => {
     await addSection(name);
+  };
+
+  const handleEditField = async (updated: CustomField) => {
+    await updateField(updated);
+  };
+
+  const handleEditSection = async (id: string, name: string) => {
+    await updateSection(id, name);
   };
 
   const renderFieldInput = (fieldId: string, fieldType: string, options: string[]) => {
@@ -369,6 +516,9 @@ export default function CompanyForm({ open, onClose, company }: Props) {
 
   // Group fields by section
   const unsectionedFields = fields.filter(f => !f.sectionId);
+
+  // Sub-vertical options based on current vertical
+  const subVerticalOptions = SUB_VERTICALS[form.vertical] || ['Otra'];
 
   return (
     <Dialog open={open} onOpenChange={() => onClose()}>
@@ -421,15 +571,26 @@ export default function CompanyForm({ open, onClose, company }: Props) {
                     </SelectContent>
                   </Select>
                 </Field>
-                <Field label="Vertical"><VerticalCombobox value={form.vertical} onChange={v => setForm(f => ({ ...f, vertical: v }))} /></Field>
+                <Field label="Vertical">
+                  <CreatableCombobox value={form.vertical} onChange={v => setForm(f => ({ ...f, vertical: v, subVertical: '' }))} options={VERTICALS} />
+                </Field>
               </div>
-              <Field label="Actividad económica"><Input className="h-9 text-sm" value={form.economicActivity} onChange={e => setForm(f => ({ ...f, economicActivity: e.target.value }))} /></Field>
-              <Field label="Ciudad">
-                <Select value={form.city} onValueChange={v => setForm(f => ({ ...f, city: v }))}>
-                  <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                  <SelectContent>{CITIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
-              </Field>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Sub-vertical">
+                  <CreatableCombobox value={form.subVertical} onChange={v => setForm(f => ({ ...f, subVertical: v }))} options={subVerticalOptions} placeholder="Seleccionar sub-vertical..." />
+                </Field>
+                <Field label="Ciudad">
+                  <Select value={form.city} onValueChange={v => setForm(f => ({ ...f, city: v, customCity: v === 'Otra' ? f.customCity : '' }))}>
+                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+                    <SelectContent>{CITIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  </Select>
+                </Field>
+              </div>
+              {form.city === 'Otra' && (
+                <Field label="¿Cuál ciudad?">
+                  <Input className="h-9 text-sm" placeholder="Escribir nombre de la ciudad..." value={form.customCity} onChange={e => setForm(f => ({ ...f, customCity: e.target.value }))} />
+                </Field>
+              )}
             </Section>
 
             <Separator />
@@ -514,9 +675,9 @@ export default function CompanyForm({ open, onClose, company }: Props) {
             {unsectionedFields.length > 0 && (
               <>
                 <Separator />
-                <Section title="Campos personalizados" onAddField={() => setAddFieldOpen(null)}>
+                <Section title="Campos personalizados">
                   {unsectionedFields.map(f => (
-                    <Field key={f.id} label={f.name} onDelete={() => deleteField(f.id)}>
+                    <Field key={f.id} label={f.name} onDelete={() => deleteField(f.id)} onEdit={() => setEditFieldTarget(f)}>
                       {renderFieldInput(f.id, f.fieldType, f.options)}
                     </Field>
                   ))}
@@ -530,12 +691,17 @@ export default function CompanyForm({ open, onClose, company }: Props) {
               return (
                 <React.Fragment key={section.id}>
                   <Separator />
-                  <Section title={section.name} onAddField={() => setAddFieldOpen(section.id)} onDelete={() => deleteSection(section.id)}>
+                  <Section title={section.name} onAddField={() => { /* handled by global add */ }} onDelete={() => deleteSection(section.id)}>
+                    <div className="mb-1 flex justify-end">
+                      <Button variant="ghost" size="icon" className="h-5 w-5 text-muted-foreground" onClick={() => setEditSectionTarget(section)} title="Editar sección">
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                    </div>
                     {sectionFields.length === 0 ? (
-                      <p className="text-xs text-muted-foreground italic">Sin campos. Agrega uno con el botón +</p>
+                      <p className="text-xs text-muted-foreground italic">Sin campos. Agrega uno con el botón + abajo.</p>
                     ) : (
                       sectionFields.map(f => (
-                        <Field key={f.id} label={f.name} onDelete={() => deleteField(f.id)}>
+                        <Field key={f.id} label={f.name} onDelete={() => deleteField(f.id)} onEdit={() => setEditFieldTarget(f)}>
                           {renderFieldInput(f.id, f.fieldType, f.options)}
                         </Field>
                       ))
@@ -552,7 +718,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
               <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAddSectionOpen(true)}>
                 <Plus className="h-3 w-3" /> Nueva sección
               </Button>
-              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAddFieldOpen('__unsectioned')}>
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAddFieldOpen(true)}>
                 <Settings2 className="h-3 w-3" /> Nuevo campo
               </Button>
             </div>
@@ -573,9 +739,23 @@ export default function CompanyForm({ open, onClose, company }: Props) {
       </DialogContent>
 
       <AddFieldDialog
-        open={addFieldOpen !== null}
-        onClose={() => setAddFieldOpen(null)}
-        onAdd={(name, type, options) => handleAddField(addFieldOpen === '__unsectioned' ? null : addFieldOpen, name, type, options)}
+        open={addFieldOpen}
+        onClose={() => setAddFieldOpen(false)}
+        onAdd={handleAddField}
+        existingSections={sections}
+      />
+      <EditFieldDialog
+        open={editFieldTarget !== null}
+        onClose={() => setEditFieldTarget(null)}
+        field={editFieldTarget}
+        onSave={handleEditField}
+        existingSections={sections}
+      />
+      <EditSectionDialog
+        open={editSectionTarget !== null}
+        onClose={() => setEditSectionTarget(null)}
+        section={editSectionTarget}
+        onSave={handleEditSection}
       />
       <AddSectionDialog open={addSectionOpen} onClose={() => setAddSectionOpen(false)} onAdd={handleAddSection} />
     </Dialog>
