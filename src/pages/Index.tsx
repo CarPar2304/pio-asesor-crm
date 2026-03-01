@@ -19,7 +19,19 @@ export default function Index() {
   const { companies, loading, deleteCompany } = useCRM();
   const { fields } = useCustomFields();
   const [view, setView] = useState<'grid' | 'table'>('grid');
-  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<FilterState>(() => {
+    try {
+      const saved = sessionStorage.getItem('crm-filters');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_FILTERS;
+  });
+
+  // Persist filters to sessionStorage
+  const updateFilters = (f: FilterState) => {
+    setFilters(f);
+    try { sessionStorage.setItem('crm-filters', JSON.stringify(f)); } catch {}
+  };
   const [formOpen, setFormOpen] = useState(false);
   const [quickAction, setQuickAction] = useState<{ type: 'action' | 'task' | 'milestone'; companyId: string } | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -110,7 +122,7 @@ export default function Index() {
         </div>
       </div>
 
-      <CRMFilters filters={filters} onChange={setFilters} />
+      <CRMFilters filters={filters} onChange={updateFilters} />
 
       <div className="mt-6">
         {loading ? (
@@ -120,7 +132,7 @@ export default function Index() {
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16">
             <p className="text-sm text-muted-foreground">No se encontraron empresas con los filtros actuales</p>
-            <Button variant="link" size="sm" onClick={() => setFilters(DEFAULT_FILTERS)} className="mt-2">
+            <Button variant="link" size="sm" onClick={() => updateFilters(DEFAULT_FILTERS)} className="mt-2">
               Limpiar filtros
             </Button>
           </div>
