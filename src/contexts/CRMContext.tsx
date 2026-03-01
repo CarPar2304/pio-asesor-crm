@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Company, CompanyAction, Milestone, CompanyTask, Contact, SavedView, CustomProperty, MetricByYear } from '@/types/crm';
+import { Company, CompanyAction, Milestone, CompanyTask, Contact, SavedView, CustomProperty, CustomFieldValue, MetricByYear } from '@/types/crm';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -7,7 +7,7 @@ interface CRMContextType {
   companies: Company[];
   savedViews: SavedView[];
   loading: boolean;
-  addCompany: (company: Company) => Promise<void>;
+  addCompany: (company: Company) => Promise<string | null>;
   updateCompany: (company: Company) => Promise<void>;
   deleteCompany: (id: string) => Promise<void>;
   getCompany: (id: string) => Company | undefined;
@@ -20,6 +20,7 @@ interface CRMContextType {
   removeContact: (companyId: string, contactId: string) => Promise<void>;
   saveView: (view: SavedView) => Promise<void>;
   deleteView: (id: string) => Promise<void>;
+  saveFieldValues: (companyId: string, values: CustomFieldValue[]) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -35,7 +36,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     if (!session) { setCompanies([]); setSavedViews([]); setLoading(false); return; }
     setLoading(true);
 
-    const [companiesRes, contactsRes, actionsRes, milestonesRes, tasksRes, propsRes, viewsRes] = await Promise.all([
+    const [companiesRes, contactsRes, actionsRes, milestonesRes, tasksRes, propsRes, viewsRes, fieldValsRes] = await Promise.all([
       supabase.from('companies').select('*').order('created_at', { ascending: false }),
       supabase.from('contacts').select('*'),
       supabase.from('company_actions').select('*').order('date', { ascending: false }),
@@ -43,6 +44,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       supabase.from('company_tasks').select('*').order('due_date', { ascending: false }),
       supabase.from('custom_properties').select('*'),
       supabase.from('saved_views').select('*'),
+      supabase.from('custom_field_values').select('*'),
     ]);
 
     const contactsByCompany = new Map<string, Contact[]>();
@@ -80,6 +82,13 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       propsByCompany.set(p.company_id, list);
     });
 
+    const fieldValsByCompany = new Map<string, CustomFieldValue[]>();
+    (fieldValsRes.data || []).forEach((v: any) => {
+      const list = fieldValsByCompany.get(v.company_id) || [];
+      list.push({ id: v.id, companyId: v.company_id, fieldId: v.field_id, textValue: v.text_value || '', numberValue: v.number_value, yearValues: (v.year_values || {}) as MetricByYear });
+      fieldValsByCompany.set(v.company_id, list);
+    });
+
     const mapped: Company[] = (companiesRes.data || []).map((c: any) => ({
       id: c.id,
       tradeName: c.trade_name,
@@ -99,6 +108,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       milestones: milestonesByCompany.get(c.id) || [],
       tasks: tasksByCompany.get(c.id) || [],
       customProperties: propsByCompany.get(c.id) || [],
+      fieldValues: fieldValsByCompany.get(c.id) || [],
       createdAt: c.created_at,
     }));
 
@@ -111,7 +121,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
 
   const getCompany = useCallback((id: string) => companies.find(c => c.id === id), [companies]);
 
-  const addCompany = useCallback(async (company: Company) => {
+  const addCompany = useCallback(async (company: Company): Promise<string | null> => {
     const { data, error } = await supabase.from('companies').insert({
       trade_name: company.tradeName,
       legal_name: company.legalName,
@@ -127,7 +137,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       logo: company.logo,
     } as any).select().single();
 
-    if (error || !data) return;
+    if (error || !data) return null;
 
     // Insert contacts
     if (company.contacts.length > 0) {
@@ -146,6 +156,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     }
 
     await fetchAll();
+    return data.id as string;
   }, [fetchAll]);
 
   const updateCompany = useCallback(async (company: Company) => {
@@ -281,13 +292,30 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     await fetchAll();
   }, [fetchAll]);
 
+  const saveFieldValues = useCallback(async (companyId: string, values: CustomFieldValue[]) => {
+    // Delete existing and re-insert
+    await supabase.from('custom_field_values').delete().eq('company_id', companyId);
+    if (values.length > 0) {
+      await supabase.from('custom_field_values').insert(
+        values.map(v => ({
+          company_id: companyId,
+          field_id: v.fieldId,
+          text_value: v.textValue || '',
+          number_value: v.numberValue,
+          year_values: v.yearValues || {},
+        })) as any
+      );
+    }
+    await fetchAll();
+  }, [fetchAll]);
+
   return (
     <CRMContext.Provider value={{
       companies, savedViews, loading, getCompany,
       addCompany, updateCompany, deleteCompany,
       addAction, addMilestone, addTask, updateTask,
       addContact, updateContact, removeContact,
-      saveView, deleteView, refresh: fetchAll,
+      saveView, deleteView, saveFieldValues, refresh: fetchAll,
     }}>
       {children}
     </CRMContext.Provider>

@@ -10,10 +10,19 @@ export type PropertyType = 'general' | 'metric-by-year';
 
 export type ContactGender = 'male' | 'female' | 'other' | '';
 
+export type CustomFieldType = 'text' | 'number' | 'select' | 'metric_by_year';
+
 export const GENDER_LABELS: Record<string, string> = {
   male: 'Masculino',
   female: 'Femenino',
   other: 'Otro',
+};
+
+export const FIELD_TYPE_LABELS: Record<CustomFieldType, string> = {
+  text: 'Texto',
+  number: 'Número',
+  select: 'Selección',
+  metric_by_year: 'Métrica por año',
 };
 
 export interface Contact {
@@ -64,6 +73,30 @@ export interface CustomProperty {
   yearValues?: MetricByYear;
 }
 
+export interface CustomSection {
+  id: string;
+  name: string;
+  displayOrder: number;
+}
+
+export interface CustomField {
+  id: string;
+  sectionId: string | null;
+  name: string;
+  fieldType: CustomFieldType;
+  options: string[]; // for select type
+  displayOrder: number;
+}
+
+export interface CustomFieldValue {
+  id: string;
+  companyId: string;
+  fieldId: string;
+  textValue: string;
+  numberValue: number | null;
+  yearValues: MetricByYear;
+}
+
 export interface Company {
   id: string;
   tradeName: string;
@@ -83,6 +116,7 @@ export interface Company {
   milestones: Milestone[];
   tasks: CompanyTask[];
   customProperties: CustomProperty[];
+  fieldValues: CustomFieldValue[];
   createdAt: string;
 }
 
@@ -99,6 +133,7 @@ export interface FilterState {
   lastYoYMin: string;
   lastYoYMax: string;
   activeYear: number;
+  customFieldFilters: Record<string, string>; // fieldId -> value
 }
 
 export interface SavedView {
@@ -147,4 +182,5 @@ export const DEFAULT_FILTERS: FilterState = {
   lastYoYMin: '',
   lastYoYMax: '',
   activeYear: new Date().getFullYear() - 1,
+  customFieldFilters: {},
 };

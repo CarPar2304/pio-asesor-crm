@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { FilterState, SavedView, VERTICALS, CITIES, DEFAULT_FILTERS } from '@/types/crm';
 import { useCRM } from '@/contexts/CRMContext';
+import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -15,9 +16,17 @@ interface Props {
 
 export default function CRMFilters({ filters, onChange }: Props) {
   const { savedViews, saveView, deleteView } = useCRM();
+  const { sections, fields } = useCustomFields();
   const [viewName, setViewName] = useState('');
 
   const update = (partial: Partial<FilterState>) => onChange({ ...filters, ...partial });
+  const updateCustomFilter = (fieldId: string, value: string) => {
+    onChange({ ...filters, customFieldFilters: { ...filters.customFieldFilters, [fieldId]: value } });
+  };
+  const clearCustomFilter = (fieldId: string) => {
+    const { [fieldId]: _, ...rest } = filters.customFieldFilters || {};
+    onChange({ ...filters, customFieldFilters: rest });
+  };
 
   const activeChips: { label: string; clear: () => void }[] = [];
   if (filters.category) activeChips.push({ label: `Categoría: ${filters.category}`, clear: () => update({ category: '' }) });
@@ -29,6 +38,15 @@ export default function CRMFilters({ filters, onChange }: Props) {
   if (filters.avgYoYMin) activeChips.push({ label: `Avg YoY ≥ ${filters.avgYoYMin}%`, clear: () => update({ avgYoYMin: '' }) });
   if (filters.lastYoYMin) activeChips.push({ label: `Último YoY ≥ ${filters.lastYoYMin}%`, clear: () => update({ lastYoYMin: '' }) });
 
+  // Custom field filter chips
+  Object.entries(filters.customFieldFilters || {}).forEach(([fieldId, value]) => {
+    if (!value) return;
+    const field = fields.find(f => f.id === fieldId);
+    if (field) {
+      activeChips.push({ label: `${field.name}: ${value}`, clear: () => clearCustomFilter(fieldId) });
+    }
+  });
+
   const hasFilters = activeChips.length > 0 || filters.search;
 
   const handleSaveView = () => {
@@ -39,23 +57,19 @@ export default function CRMFilters({ filters, onChange }: Props) {
 
   const years = Array.from({ length: 6 }, (_, i) => 2020 + i);
 
+  // Filterable custom fields (text and select types)
+  const filterableFields = fields.filter(f => f.fieldType === 'text' || f.fieldType === 'select');
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Buscar empresa..."
-            value={filters.search}
-            onChange={e => update({ search: e.target.value })}
-            className="h-9 pl-8 text-sm"
-          />
+          <Input placeholder="Buscar empresa..." value={filters.search} onChange={e => update({ search: e.target.value })} className="h-9 pl-8 text-sm" />
         </div>
 
         <Select value={filters.category} onValueChange={v => update({ category: v === 'all' ? '' : v })}>
-          <SelectTrigger className="h-9 w-[130px] text-sm">
-            <SelectValue placeholder="Categoría" />
-          </SelectTrigger>
+          <SelectTrigger className="h-9 w-[130px] text-sm"><SelectValue placeholder="Categoría" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas</SelectItem>
             <SelectItem value="EBT">EBT</SelectItem>
@@ -64,9 +78,7 @@ export default function CRMFilters({ filters, onChange }: Props) {
         </Select>
 
         <Select value={filters.vertical} onValueChange={v => update({ vertical: v === 'all' ? '' : v })}>
-          <SelectTrigger className="h-9 w-[160px] text-sm">
-            <SelectValue placeholder="Vertical" />
-          </SelectTrigger>
+          <SelectTrigger className="h-9 w-[160px] text-sm"><SelectValue placeholder="Vertical" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas</SelectItem>
             {VERTICALS.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
@@ -74,9 +86,7 @@ export default function CRMFilters({ filters, onChange }: Props) {
         </Select>
 
         <Select value={filters.city} onValueChange={v => update({ city: v === 'all' ? '' : v })}>
-          <SelectTrigger className="h-9 w-[130px] text-sm">
-            <SelectValue placeholder="Ciudad" />
-          </SelectTrigger>
+          <SelectTrigger className="h-9 w-[130px] text-sm"><SelectValue placeholder="Ciudad" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas</SelectItem>
             {CITIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
@@ -84,12 +94,8 @@ export default function CRMFilters({ filters, onChange }: Props) {
         </Select>
 
         <Select value={String(filters.activeYear)} onValueChange={v => update({ activeYear: Number(v) })}>
-          <SelectTrigger className="h-9 w-[100px] text-sm">
-            <SelectValue placeholder="Año" />
-          </SelectTrigger>
-          <SelectContent>
-            {years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
-          </SelectContent>
+          <SelectTrigger className="h-9 w-[100px] text-sm"><SelectValue placeholder="Año" /></SelectTrigger>
+          <SelectContent>{years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
         </Select>
 
         <Popover>
@@ -134,23 +140,44 @@ export default function CRMFilters({ filters, onChange }: Props) {
                 <Input className="mt-1 h-8 text-sm" type="number" value={filters.lastYoYMax} onChange={e => update({ lastYoYMax: e.target.value })} />
               </div>
             </div>
+
+            {/* Custom field filters */}
+            {filterableFields.length > 0 && (
+              <>
+                <div className="border-t border-border pt-2">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Campos personalizados</p>
+                </div>
+                {filterableFields.map(field => (
+                  <div key={field.id}>
+                    <label className="text-xs text-muted-foreground">{field.name}</label>
+                    {field.fieldType === 'select' ? (
+                      <Select value={filters.customFieldFilters?.[field.id] || ''} onValueChange={v => v === 'all' ? clearCustomFilter(field.id) : updateCustomFilter(field.id, v)}>
+                        <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Todos" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          {field.options.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input className="mt-1 h-8 text-sm" value={filters.customFieldFilters?.[field.id] || ''} onChange={e => e.target.value ? updateCustomFilter(field.id, e.target.value) : clearCustomFilter(field.id)} placeholder="Buscar..." />
+                    )}
+                  </div>
+                ))}
+              </>
+            )}
           </PopoverContent>
         </Popover>
 
         {savedViews.length > 0 && (
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm">
-                <Bookmark className="h-3.5 w-3.5" /> Vistas
-              </Button>
+              <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm"><Bookmark className="h-3.5 w-3.5" /> Vistas</Button>
             </PopoverTrigger>
             <PopoverContent className="w-56 space-y-1" align="end">
               {savedViews.map(v => (
                 <div key={v.id} className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-secondary">
                   <button className="text-sm" onClick={() => onChange(v.filters)}>{v.name}</button>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => deleteView(v.id)}>
-                    <X className="h-3 w-3" />
-                  </Button>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => deleteView(v.id)}><X className="h-3 w-3" /></Button>
                 </div>
               ))}
             </PopoverContent>
@@ -160,9 +187,7 @@ export default function CRMFilters({ filters, onChange }: Props) {
         {hasFilters && (
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm">
-                <BookmarkPlus className="h-3.5 w-3.5" /> Guardar vista
-              </Button>
+              <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm"><BookmarkPlus className="h-3.5 w-3.5" /> Guardar vista</Button>
             </PopoverTrigger>
             <PopoverContent className="w-56 space-y-2" align="end">
               <Input className="h-8 text-sm" value={viewName} onChange={e => setViewName(e.target.value)} placeholder="Nombre de la vista" />
@@ -177,14 +202,10 @@ export default function CRMFilters({ filters, onChange }: Props) {
           {activeChips.map((chip, i) => (
             <Badge key={i} variant="secondary" className="gap-1 pr-1 text-xs">
               {chip.label}
-              <button onClick={chip.clear} className="rounded-sm p-0.5 hover:bg-muted">
-                <X className="h-3 w-3" />
-              </button>
+              <button onClick={chip.clear} className="rounded-sm p-0.5 hover:bg-muted"><X className="h-3 w-3" /></button>
             </Badge>
           ))}
-          <button className="text-xs text-muted-foreground hover:text-foreground" onClick={() => onChange(DEFAULT_FILTERS)}>
-            Limpiar todo
-          </button>
+          <button className="text-xs text-muted-foreground hover:text-foreground" onClick={() => onChange(DEFAULT_FILTERS)}>Limpiar todo</button>
         </div>
       )}
     </div>

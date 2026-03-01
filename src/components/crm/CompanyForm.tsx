@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
-import { Company, Contact, ContactGender, VERTICALS, CITIES, GENDER_LABELS } from '@/types/crm';
+import React, { useState, useEffect, useRef } from 'react';
+import { Company, Contact, ContactGender, CustomFieldValue, VERTICALS, CITIES, GENDER_LABELS, FIELD_TYPE_LABELS, CustomFieldType } from '@/types/crm';
 import { useCRM } from '@/contexts/CRMContext';
+import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
@@ -9,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Plus, Trash2, Upload, X, ChevronsUpDown, Check } from 'lucide-react';
+import { Plus, Trash2, Upload, X, ChevronsUpDown, Check, Settings2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
@@ -19,22 +20,43 @@ interface Props {
   company?: Company | null;
 }
 
-const YEARS = [2020, 2021, 2022, 2023, 2024, 2025];
+const DEFAULT_YEARS = [2020, 2021, 2022, 2023, 2024, 2025];
 
 const emptyContact = (): Contact => ({
   id: crypto.randomUUID(), name: '', position: '', email: '', phone: '', notes: '', isPrimary: false, gender: '',
 });
 
-const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+const Section = ({ title, children, onAddField, onDelete }: { title: string; children: React.ReactNode; onAddField?: () => void; onDelete?: () => void }) => (
   <div>
-    <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</h3>
+    <div className="mb-3 flex items-center justify-between">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</h3>
+      <div className="flex gap-1">
+        {onAddField && (
+          <Button variant="ghost" size="icon" className="h-5 w-5" onClick={onAddField} title="Agregar campo">
+            <Plus className="h-3 w-3" />
+          </Button>
+        )}
+        {onDelete && (
+          <Button variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={onDelete} title="Eliminar sección">
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        )}
+      </div>
+    </div>
     <div className="space-y-3">{children}</div>
   </div>
 );
 
-const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+const Field = ({ label, children, onDelete }: { label: string; children: React.ReactNode; onDelete?: () => void }) => (
   <div>
-    <label className="mb-1 block text-xs font-medium text-muted-foreground">{label}</label>
+    <div className="mb-1 flex items-center justify-between">
+      <label className="block text-xs font-medium text-muted-foreground">{label}</label>
+      {onDelete && (
+        <Button variant="ghost" size="icon" className="h-4 w-4 text-destructive" onClick={onDelete}>
+          <Trash2 className="h-2.5 w-2.5" />
+        </Button>
+      )}
+    </div>
     {children}
   </div>
 );
@@ -45,9 +67,7 @@ function VerticalCombobox({ value, onChange }: { value: string; onChange: (v: st
   const [customVerticals, setCustomVerticals] = useState<string[]>([]);
 
   const allVerticals = [...VERTICALS, ...customVerticals.filter(v => !VERTICALS.includes(v))];
-  const filtered = search
-    ? allVerticals.filter(v => v.toLowerCase().includes(search.toLowerCase()))
-    : allVerticals;
+  const filtered = search ? allVerticals.filter(v => v.toLowerCase().includes(search.toLowerCase())) : allVerticals;
   const canCreate = search.trim() && !allVerticals.some(v => v.toLowerCase() === search.toLowerCase());
 
   const handleCreate = () => {
@@ -70,43 +90,23 @@ function VerticalCombobox({ value, onChange }: { value: string; onChange: (v: st
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
         <div className="p-2">
-          <Input
-            placeholder="Buscar o crear..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="h-8 text-sm"
-            onKeyDown={e => {
-              if (e.key === 'Enter' && canCreate) { e.preventDefault(); handleCreate(); }
-            }}
-          />
+          <Input placeholder="Buscar o crear..." value={search} onChange={e => setSearch(e.target.value)} className="h-8 text-sm"
+            onKeyDown={e => { if (e.key === 'Enter' && canCreate) { e.preventDefault(); handleCreate(); } }} />
         </div>
         <ScrollArea className="max-h-48">
           <div className="p-1">
             {filtered.map(v => (
-              <button
-                key={v}
-                className={cn(
-                  'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground',
-                  value === v && 'bg-accent text-accent-foreground'
-                )}
-                onClick={() => { onChange(v); setSearch(''); setOpen(false); }}
-              >
-                <Check className={cn('h-3.5 w-3.5', value === v ? 'opacity-100' : 'opacity-0')} />
-                {v}
+              <button key={v} className={cn('flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground', value === v && 'bg-accent text-accent-foreground')}
+                onClick={() => { onChange(v); setSearch(''); setOpen(false); }}>
+                <Check className={cn('h-3.5 w-3.5', value === v ? 'opacity-100' : 'opacity-0')} />{v}
               </button>
             ))}
             {canCreate && (
-              <button
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-primary hover:bg-accent"
-                onClick={handleCreate}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Crear "{search.trim()}"
+              <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-primary hover:bg-accent" onClick={handleCreate}>
+                <Plus className="h-3.5 w-3.5" /> Crear "{search.trim()}"
               </button>
             )}
-            {filtered.length === 0 && !canCreate && (
-              <p className="px-2 py-1.5 text-xs text-muted-foreground">Sin resultados</p>
-            )}
+            {filtered.length === 0 && !canCreate && <p className="px-2 py-1.5 text-xs text-muted-foreground">Sin resultados</p>}
           </div>
         </ScrollArea>
       </PopoverContent>
@@ -114,8 +114,71 @@ function VerticalCombobox({ value, onChange }: { value: string; onChange: (v: st
   );
 }
 
+function AddFieldDialog({ open, onClose, onAdd }: { open: boolean; onClose: () => void; onAdd: (name: string, type: CustomFieldType, options: string[]) => void }) {
+  const [name, setName] = useState('');
+  const [type, setType] = useState<CustomFieldType>('text');
+  const [optionsText, setOptionsText] = useState('');
+
+  const handleAdd = () => {
+    if (!name.trim()) return;
+    const options = type === 'select' ? optionsText.split(',').map(o => o.trim()).filter(Boolean) : [];
+    onAdd(name.trim(), type, options);
+    setName(''); setType('text'); setOptionsText('');
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader><DialogTitle>Nuevo campo</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Nombre</label>
+            <Input className="mt-1 h-9 text-sm" value={name} onChange={e => setName(e.target.value)} placeholder="Ej: Tipo de cliente" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Tipo</label>
+            <Select value={type} onValueChange={v => setType(v as CustomFieldType)}>
+              <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(FIELD_TYPE_LABELS).map(([k, l]) => <SelectItem key={k} value={k}>{l}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          {type === 'select' && (
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Opciones (separadas por coma)</label>
+              <Input className="mt-1 h-9 text-sm" value={optionsText} onChange={e => setOptionsText(e.target.value)} placeholder="B2B, B2C, B2G" />
+            </div>
+          )}
+          <Button size="sm" className="w-full" onClick={handleAdd} disabled={!name.trim()}>Crear campo</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AddSectionDialog({ open, onClose, onAdd }: { open: boolean; onClose: () => void; onAdd: (name: string) => void }) {
+  const [name, setName] = useState('');
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader><DialogTitle>Nueva sección</DialogTitle></DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-muted-foreground">Nombre de la sección</label>
+            <Input className="mt-1 h-9 text-sm" value={name} onChange={e => setName(e.target.value)} placeholder="Ej: Financiamiento" />
+          </div>
+          <Button size="sm" className="w-full" onClick={() => { if (name.trim()) { onAdd(name.trim()); setName(''); onClose(); } }} disabled={!name.trim()}>Crear sección</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function CompanyForm({ open, onClose, company }: Props) {
-  const { addCompany, updateCompany } = useCRM();
+  const { addCompany, updateCompany, saveFieldValues } = useCRM();
+  const { sections, fields, addSection, addField, deleteSection, deleteField } = useCustomFields();
   const isEdit = !!company;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -124,11 +187,21 @@ export default function CompanyForm({ open, onClose, company }: Props) {
     vertical: '', economicActivity: '', description: '', city: '', exportsUSD: 0, website: '',
   });
   const [salesByYear, setSalesByYear] = useState<Record<number, string>>({});
+  const [extraYears, setExtraYears] = useState<number[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([emptyContact()]);
   const [notes, setNotes] = useState('');
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [fieldValues, setFieldValues] = useState<Record<string, CustomFieldValue>>({});
+
+  // Dialogs
+  const [addFieldOpen, setAddFieldOpen] = useState<string | null>(null); // sectionId or '__unsectioned'
+  const [addSectionOpen, setAddSectionOpen] = useState(false);
+  const [newYearValue, setNewYearValue] = useState('');
+
+  // Compute all years to show
+  const allYears = [...new Set([...DEFAULT_YEARS, ...extraYears, ...Object.keys(salesByYear).map(Number)])].sort();
 
   useEffect(() => {
     if (company) {
@@ -144,6 +217,11 @@ export default function CompanyForm({ open, onClose, company }: Props) {
       setContacts(company.contacts.length > 0 ? company.contacts : [emptyContact()]);
       setLogoUrl(company.logo || null);
       setLogoPreview(company.logo || null);
+
+      // Load field values
+      const fv: Record<string, CustomFieldValue> = {};
+      (company.fieldValues || []).forEach(v => { fv[v.fieldId] = v; });
+      setFieldValues(fv);
     } else {
       setForm({ tradeName: '', legalName: '', nit: '', category: 'Startup', vertical: '', economicActivity: '', description: '', city: '', exportsUSD: 0, website: '' });
       setSalesByYear({});
@@ -151,18 +229,18 @@ export default function CompanyForm({ open, onClose, company }: Props) {
       setNotes('');
       setLogoUrl(null);
       setLogoPreview(null);
+      setFieldValues({});
     }
+    setExtraYears([]);
   }, [company, open]);
 
   const uploadFile = async (file: File) => {
     const reader = new FileReader();
     reader.onload = (ev) => setLogoPreview(ev.target?.result as string);
     reader.readAsDataURL(file);
-
     setUploading(true);
     const ext = file.type.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
     const fileName = `${crypto.randomUUID()}.${ext}`;
-
     const { error } = await supabase.storage.from('company-logos').upload(fileName, file, { upsert: true });
     if (!error) {
       const { data } = supabase.storage.from('company-logos').getPublicUrl(fileName);
@@ -180,32 +258,28 @@ export default function CompanyForm({ open, onClose, company }: Props) {
     const handlePaste = (e: ClipboardEvent) => {
       if (!open) return;
       const item = Array.from(e.clipboardData?.items || []).find(i => i.type.startsWith('image/'));
-      if (item) {
-        e.preventDefault();
-        const file = item.getAsFile();
-        if (file) uploadFile(file);
-      }
+      if (item) { e.preventDefault(); const file = item.getAsFile(); if (file) uploadFile(file); }
     };
     document.addEventListener('paste', handlePaste);
     return () => document.removeEventListener('paste', handlePaste);
   }, [open]);
 
-  const removeLogo = () => {
-    setLogoUrl(null);
-    setLogoPreview(null);
+  const removeLogo = () => { setLogoUrl(null); setLogoPreview(null); };
+
+  const getFieldValue = (fieldId: string) => fieldValues[fieldId] || { id: '', companyId: '', fieldId, textValue: '', numberValue: null, yearValues: {} };
+  const setFieldVal = (fieldId: string, partial: Partial<CustomFieldValue>) => {
+    setFieldValues(prev => ({
+      ...prev,
+      [fieldId]: { ...getFieldValue(fieldId), ...partial, fieldId },
+    }));
   };
 
   const handleSave = async () => {
     const parsedSales: Record<number, number> = {};
-    Object.entries(salesByYear).forEach(([y, v]) => {
-      const n = Number(v);
-      if (n > 0) parsedSales[Number(y)] = n;
-    });
+    Object.entries(salesByYear).forEach(([y, v]) => { const n = Number(v); if (n > 0) parsedSales[Number(y)] = n; });
 
     const validContacts = contacts.filter(c => c.name.trim());
-    if (validContacts.length > 0 && !validContacts.some(c => c.isPrimary)) {
-      validContacts[0].isPrimary = true;
-    }
+    if (validContacts.length > 0 && !validContacts.some(c => c.isPrimary)) validContacts[0].isPrimary = true;
 
     const companyData: Company = {
       id: company?.id || crypto.randomUUID(),
@@ -217,11 +291,23 @@ export default function CompanyForm({ open, onClose, company }: Props) {
       milestones: company?.milestones || [],
       tasks: company?.tasks || [],
       customProperties: company?.customProperties || [],
+      fieldValues: [],
       createdAt: company?.createdAt || new Date().toISOString().split('T')[0],
     };
 
-    if (isEdit) await updateCompany(companyData);
-    else await addCompany(companyData);
+    let companyId: string;
+    if (isEdit) {
+      await updateCompany(companyData);
+      companyId = company!.id;
+    } else {
+      const newId = await addCompany(companyData);
+      if (!newId) return;
+      companyId = newId;
+    }
+
+    // Save field values
+    const valuesToSave = Object.values(fieldValues).filter(v => v.textValue || v.numberValue !== null || Object.keys(v.yearValues || {}).length > 0);
+    await saveFieldValues(companyId, valuesToSave);
     onClose();
   };
 
@@ -231,6 +317,58 @@ export default function CompanyForm({ open, onClose, company }: Props) {
       return { ...c, [field]: value };
     }));
   };
+
+  const handleAddYear = () => {
+    const y = Number(newYearValue);
+    if (y >= 2000 && y <= 2100 && !allYears.includes(y)) {
+      setExtraYears(prev => [...prev, y]);
+      setNewYearValue('');
+    }
+  };
+
+  const handleAddField = async (sectionId: string | null, name: string, type: CustomFieldType, options: string[]) => {
+    await addField({ sectionId, name, fieldType: type, options, displayOrder: 0 });
+  };
+
+  const handleAddSection = async (name: string) => {
+    await addSection(name);
+  };
+
+  const renderFieldInput = (fieldId: string, fieldType: string, options: string[]) => {
+    const val = getFieldValue(fieldId);
+    switch (fieldType) {
+      case 'text':
+        return <Input className="h-8 text-sm" value={val.textValue} onChange={e => setFieldVal(fieldId, { textValue: e.target.value })} />;
+      case 'number':
+        return <Input className="h-8 text-sm" type="number" value={val.numberValue ?? ''} onChange={e => setFieldVal(fieldId, { numberValue: e.target.value ? Number(e.target.value) : null })} />;
+      case 'select':
+        return (
+          <Select value={val.textValue} onValueChange={v => setFieldVal(fieldId, { textValue: v })}>
+            <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
+            <SelectContent>
+              {options.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        );
+      case 'metric_by_year':
+        return (
+          <div className="grid grid-cols-3 gap-2">
+            {allYears.map(y => (
+              <div key={y}>
+                <label className="text-[10px] text-muted-foreground">{y}</label>
+                <Input className="h-7 text-xs" type="number" value={val.yearValues?.[y] ?? ''}
+                  onChange={e => setFieldVal(fieldId, { yearValues: { ...val.yearValues, [y]: Number(e.target.value) || 0 } })} />
+              </div>
+            ))}
+          </div>
+        );
+      default:
+        return <Input className="h-8 text-sm" value={val.textValue} onChange={e => setFieldVal(fieldId, { textValue: e.target.value })} />;
+    }
+  };
+
+  // Group fields by section
+  const unsectionedFields = fields.filter(f => !f.sectionId);
 
   return (
     <Dialog open={open} onOpenChange={() => onClose()}>
@@ -246,20 +384,12 @@ export default function CompanyForm({ open, onClose, company }: Props) {
                 {logoPreview ? (
                   <div className="relative">
                     <img src={logoPreview} alt="Logo" className="h-16 w-16 rounded-lg border border-border object-cover" />
-                    <button
-                      type="button"
-                      onClick={removeLogo}
-                      className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground"
-                    >
+                    <button type="button" onClick={removeLogo} className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground">
                       <X className="h-3 w-3" />
                     </button>
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex h-16 w-16 items-center justify-center rounded-lg border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-                  >
+                  <button type="button" onClick={() => fileInputRef.current?.click()} className="flex h-16 w-16 items-center justify-center rounded-lg border-2 border-dashed border-border text-muted-foreground transition-colors hover:border-primary hover:text-primary">
                     <Upload className="h-5 w-5" />
                   </button>
                 )}
@@ -273,15 +403,9 @@ export default function CompanyForm({ open, onClose, company }: Props) {
             <Separator />
 
             <Section title="Identificación">
-              <Field label="Nombre comercial">
-                <Input className="h-9 text-sm" value={form.tradeName} onChange={e => setForm(f => ({ ...f, tradeName: e.target.value }))} />
-              </Field>
-              <Field label="Razón Social">
-                <Input className="h-9 text-sm" value={form.legalName} onChange={e => setForm(f => ({ ...f, legalName: e.target.value }))} />
-              </Field>
-              <Field label="NIT">
-                <Input className="h-9 text-sm" value={form.nit} onChange={e => setForm(f => ({ ...f, nit: e.target.value }))} />
-              </Field>
+              <Field label="Nombre comercial"><Input className="h-9 text-sm" value={form.tradeName} onChange={e => setForm(f => ({ ...f, tradeName: e.target.value }))} /></Field>
+              <Field label="Razón Social"><Input className="h-9 text-sm" value={form.legalName} onChange={e => setForm(f => ({ ...f, legalName: e.target.value }))} /></Field>
+              <Field label="NIT"><Input className="h-9 text-sm" value={form.nit} onChange={e => setForm(f => ({ ...f, nit: e.target.value }))} /></Field>
             </Section>
 
             <Separator />
@@ -297,19 +421,13 @@ export default function CompanyForm({ open, onClose, company }: Props) {
                     </SelectContent>
                   </Select>
                 </Field>
-                <Field label="Vertical">
-                  <VerticalCombobox value={form.vertical} onChange={v => setForm(f => ({ ...f, vertical: v }))} />
-                </Field>
+                <Field label="Vertical"><VerticalCombobox value={form.vertical} onChange={v => setForm(f => ({ ...f, vertical: v }))} /></Field>
               </div>
-              <Field label="Actividad económica">
-                <Input className="h-9 text-sm" value={form.economicActivity} onChange={e => setForm(f => ({ ...f, economicActivity: e.target.value }))} />
-              </Field>
+              <Field label="Actividad económica"><Input className="h-9 text-sm" value={form.economicActivity} onChange={e => setForm(f => ({ ...f, economicActivity: e.target.value }))} /></Field>
               <Field label="Ciudad">
                 <Select value={form.city} onValueChange={v => setForm(f => ({ ...f, city: v }))}>
                   <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-                  <SelectContent>
-                    {CITIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                  </SelectContent>
+                  <SelectContent>{CITIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                 </Select>
               </Field>
             </Section>
@@ -336,14 +454,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-medium text-muted-foreground">Contacto {i + 1}</p>
                     <div className="flex gap-1">
-                      <Button
-                        variant={c.isPrimary ? 'default' : 'ghost'}
-                        size="sm"
-                        className="h-6 text-[10px]"
-                        onClick={() => updateContact(c.id, 'isPrimary', true)}
-                      >
-                        Principal
-                      </Button>
+                      <Button variant={c.isPrimary ? 'default' : 'ghost'} size="sm" className="h-6 text-[10px]" onClick={() => updateContact(c.id, 'isPrimary', true)}>Principal</Button>
                       {contacts.length > 1 && (
                         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setContacts(prev => prev.filter(x => x.id !== c.id))}>
                           <Trash2 className="h-3 w-3" />
@@ -362,11 +473,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
                   <div className="grid grid-cols-2 gap-2">
                     <Select value={c.gender || ''} onValueChange={v => updateContact(c.id, 'gender', v)}>
                       <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Género" /></SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(GENDER_LABELS).map(([k, label]) => (
-                          <SelectItem key={k} value={k}>{label}</SelectItem>
-                        ))}
-                      </SelectContent>
+                      <SelectContent>{Object.entries(GENDER_LABELS).map(([k, label]) => <SelectItem key={k} value={k}>{label}</SelectItem>)}</SelectContent>
                     </Select>
                     <Input className="h-8 text-sm" placeholder="Notas" value={c.notes} onChange={e => updateContact(c.id, 'notes', e.target.value)} />
                   </div>
@@ -381,17 +488,17 @@ export default function CompanyForm({ open, onClose, company }: Props) {
 
             <Section title="Métricas — Ventas por año (COP)">
               <div className="grid grid-cols-3 gap-2">
-                {YEARS.map(y => (
+                {allYears.map(y => (
                   <Field key={y} label={String(y)}>
-                    <Input
-                      className="h-8 text-sm"
-                      type="number"
-                      placeholder="0"
-                      value={salesByYear[y] || ''}
-                      onChange={e => setSalesByYear(prev => ({ ...prev, [y]: e.target.value }))}
-                    />
+                    <Input className="h-8 text-sm" type="number" placeholder="0" value={salesByYear[y] || ''}
+                      onChange={e => setSalesByYear(prev => ({ ...prev, [y]: e.target.value }))} />
                   </Field>
                 ))}
+              </div>
+              <div className="flex items-center gap-2 mt-2">
+                <Input className="h-8 w-24 text-sm" type="number" placeholder="Año" value={newYearValue} onChange={e => setNewYearValue(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddYear(); } }} />
+                <Button variant="outline" size="sm" className="h-8 gap-1 text-xs" onClick={handleAddYear}><Plus className="h-3 w-3" /> Agregar año</Button>
               </div>
             </Section>
 
@@ -402,6 +509,53 @@ export default function CompanyForm({ open, onClose, company }: Props) {
                 <Input className="h-9 text-sm" type="number" value={form.exportsUSD || ''} onChange={e => setForm(f => ({ ...f, exportsUSD: Number(e.target.value) }))} />
               </Field>
             </Section>
+
+            {/* Unsectioned custom fields */}
+            {unsectionedFields.length > 0 && (
+              <>
+                <Separator />
+                <Section title="Campos personalizados" onAddField={() => setAddFieldOpen(null)}>
+                  {unsectionedFields.map(f => (
+                    <Field key={f.id} label={f.name} onDelete={() => deleteField(f.id)}>
+                      {renderFieldInput(f.id, f.fieldType, f.options)}
+                    </Field>
+                  ))}
+                </Section>
+              </>
+            )}
+
+            {/* Custom sections */}
+            {sections.map(section => {
+              const sectionFields = fields.filter(f => f.sectionId === section.id);
+              return (
+                <React.Fragment key={section.id}>
+                  <Separator />
+                  <Section title={section.name} onAddField={() => setAddFieldOpen(section.id)} onDelete={() => deleteSection(section.id)}>
+                    {sectionFields.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">Sin campos. Agrega uno con el botón +</p>
+                    ) : (
+                      sectionFields.map(f => (
+                        <Field key={f.id} label={f.name} onDelete={() => deleteField(f.id)}>
+                          {renderFieldInput(f.id, f.fieldType, f.options)}
+                        </Field>
+                      ))
+                    )}
+                  </Section>
+                </React.Fragment>
+              );
+            })}
+
+            <Separator />
+
+            {/* Add section / field buttons */}
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAddSectionOpen(true)}>
+                <Plus className="h-3 w-3" /> Nueva sección
+              </Button>
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={() => setAddFieldOpen('__unsectioned')}>
+                <Settings2 className="h-3 w-3" /> Nuevo campo
+              </Button>
+            </div>
 
             <Separator />
 
@@ -417,6 +571,13 @@ export default function CompanyForm({ open, onClose, company }: Props) {
           </Button>
         </div>
       </DialogContent>
+
+      <AddFieldDialog
+        open={addFieldOpen !== null}
+        onClose={() => setAddFieldOpen(null)}
+        onAdd={(name, type, options) => handleAddField(addFieldOpen === '__unsectioned' ? null : addFieldOpen, name, type, options)}
+      />
+      <AddSectionDialog open={addSectionOpen} onClose={() => setAddSectionOpen(false)} onAdd={handleAddSection} />
     </Dialog>
   );
 }

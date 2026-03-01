@@ -194,6 +194,89 @@ export type Database = {
           },
         ]
       }
+      custom_field_values: {
+        Row: {
+          company_id: string
+          created_at: string
+          field_id: string
+          id: string
+          number_value: number | null
+          text_value: string | null
+          year_values: Json | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          field_id: string
+          id?: string
+          number_value?: number | null
+          text_value?: string | null
+          year_values?: Json | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          field_id?: string
+          id?: string
+          number_value?: number | null
+          text_value?: string | null
+          year_values?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_field_values_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_field_values_field_id_fkey"
+            columns: ["field_id"]
+            isOneToOne: false
+            referencedRelation: "custom_fields"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_fields: {
+        Row: {
+          created_at: string
+          display_order: number
+          field_type: string
+          id: string
+          name: string
+          options: Json | null
+          section_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          field_type?: string
+          id?: string
+          name: string
+          options?: Json | null
+          section_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          field_type?: string
+          id?: string
+          name?: string
+          options?: Json | null
+          section_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_fields_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "custom_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       custom_properties: {
         Row: {
           company_id: string
@@ -231,6 +314,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      custom_sections: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          name?: string
+        }
+        Relationships: []
       }
       milestones: {
         Row: {

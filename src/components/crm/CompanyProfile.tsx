@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Company, GENDER_LABELS } from '@/types/crm';
+import { Company, GENDER_LABELS, FIELD_TYPE_LABELS } from '@/types/crm';
 import { calculateGrowth, formatCOP, formatPercentage, formatUSD, getLastYearSales } from '@/lib/calculations';
 import { useCRM } from '@/contexts/CRMContext';
+import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -20,20 +21,33 @@ interface Props {
 export default function CompanyProfile({ company, onBack }: Props) {
   const [quickAction, setQuickAction] = useState<'action' | 'task' | 'milestone' | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const { sections, fields } = useCustomFields();
 
   const { avgYoY, lastYoY } = calculateGrowth(company.salesByYear);
   const lastSales = getLastYearSales(company.salesByYear);
   const salesYears = Object.keys(company.salesByYear).map(Number).sort();
   const primaryContact = company.contacts.find(c => c.isPrimary);
 
+  const getFieldValueDisplay = (fieldId: string) => {
+    const val = (company.fieldValues || []).find(v => v.fieldId === fieldId);
+    if (!val) return null;
+    const field = fields.find(f => f.id === fieldId);
+    if (!field) return null;
+    if (field.fieldType === 'metric_by_year') {
+      const entries = Object.entries(val.yearValues || {}).filter(([_, v]) => v > 0);
+      if (entries.length === 0) return null;
+      return entries.sort(([a], [b]) => Number(a) - Number(b)).map(([y, v]) => `${y}: ${formatCOP(v)}`).join(' · ');
+    }
+    if (field.fieldType === 'number') return val.numberValue !== null ? String(val.numberValue) : null;
+    return val.textValue || null;
+  };
+
   return (
     <div className="container max-w-4xl py-6 animate-fade-in">
-      {/* Top nav */}
       <Button variant="ghost" size="sm" onClick={onBack} className="mb-4 gap-1.5 text-muted-foreground">
         <ArrowLeft className="h-3.5 w-3.5" /> Volver al CRM
       </Button>
 
-      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-4">
           {company.logo ? (
@@ -70,23 +84,17 @@ export default function CompanyProfile({ company, onBack }: Props) {
         </div>
       </div>
 
-      {/* Description & Website */}
-      {company.description && (
-        <p className="mt-4 text-sm text-muted-foreground">{company.description}</p>
-      )}
+      {company.description && <p className="mt-4 text-sm text-muted-foreground">{company.description}</p>}
       {company.website && (
         <div className="mt-2">
           <a href={company.website.startsWith('http') ? company.website : `https://${company.website}`} target="_blank" rel="noopener noreferrer">
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
-              <Globe className="h-3.5 w-3.5" /> Visitar página web
-            </Button>
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs"><Globe className="h-3.5 w-3.5" /> Visitar página web</Button>
           </a>
         </div>
       )}
 
       <Separator className="my-6" />
 
-      {/* Summary metrics */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <MetricCard label={lastSales ? `Ventas ${lastSales.year} (COP)` : 'Ventas (COP)'} value={lastSales ? formatCOP(lastSales.value) : '—'} />
         <MetricCard label="Avg YoY" value={formatPercentage(avgYoY)} positive={avgYoY !== null ? avgYoY > 0 : null} />
@@ -166,15 +174,68 @@ export default function CompanyProfile({ company, onBack }: Props) {
         )}
       </section>
 
+      {/* Custom sections & fields */}
+      {(() => {
+        const unsectionedFields = fields.filter(f => !f.sectionId);
+        const hasUnsectioned = unsectionedFields.some(f => getFieldValueDisplay(f.id));
+        const sectionsWithData = sections.filter(s => fields.filter(f => f.sectionId === s.id).some(f => getFieldValueDisplay(f.id)));
+
+        if (!hasUnsectioned && sectionsWithData.length === 0) return null;
+
+        return (
+          <>
+            {hasUnsectioned && (
+              <>
+                <Separator className="my-6" />
+                <section>
+                  <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Campos personalizados</h2>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {unsectionedFields.map(f => {
+                      const display = getFieldValueDisplay(f.id);
+                      if (!display) return null;
+                      return (
+                        <div key={f.id} className="rounded-lg border border-border/50 p-3">
+                          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{f.name}</p>
+                          <p className="mt-1 text-sm font-medium">{display}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              </>
+            )}
+
+            {sectionsWithData.map(section => (
+              <div key={section.id}>
+                <Separator className="my-6" />
+                <section>
+                  <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">{section.name}</h2>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {fields.filter(f => f.sectionId === section.id).map(f => {
+                      const display = getFieldValueDisplay(f.id);
+                      if (!display) return null;
+                      return (
+                        <div key={f.id} className="rounded-lg border border-border/50 p-3">
+                          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{f.name}</p>
+                          <p className="mt-1 text-sm font-medium">{display}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              </div>
+            ))}
+          </>
+        );
+      })()}
+
       <Separator className="my-6" />
 
-      {/* Activity */}
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Actividad</h2>
         <ActivityTimeline company={company} />
       </section>
 
-      {/* Dialogs */}
       <QuickActionDialog type={quickAction} companyId={company.id} onClose={() => setQuickAction(null)} />
       <CompanyForm open={editOpen} onClose={() => setEditOpen(false)} company={company} />
     </div>
