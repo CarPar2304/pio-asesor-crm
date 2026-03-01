@@ -15,6 +15,8 @@ interface Props {
   onClose: () => void;
 }
 
+const METRIC_YEARS = [2020, 2021, 2022, 2023, 2024, 2025, 2026];
+
 interface ParsedRow {
   tradeName: string;
   legalName: string;
@@ -26,13 +28,14 @@ interface ParsedRow {
   city: string;
   exportsUSD: number;
   website: string;
-  sales2020: number;
-  sales2021: number;
-  sales2022: number;
-  sales2023: number;
-  sales2024: number;
-  sales2025: number;
-  customFieldValues: Record<string, string>; // fieldId -> raw string value
+  salesByYear: Record<number, number>;
+  // contact
+  contactName: string;
+  contactPosition: string;
+  contactEmail: string;
+  contactPhone: string;
+  customFieldValues: Record<string, string>;
+  metricFieldValues: Record<string, Record<number, number>>; // fieldId -> {year -> value}
   errors: string[];
   isDuplicate: boolean;
 }
@@ -40,12 +43,13 @@ interface ParsedRow {
 const BASE_COLUMNS = [
   'Nombre Comercial', 'Razón Social', 'NIT', 'Categoría (EBT/Startup)',
   'Vertical', 'Actividad Económica', 'Descripción', 'Ciudad',
-  'Página Web', 'Exportaciones USD', 'Ventas 2020', 'Ventas 2021', 'Ventas 2022',
-  'Ventas 2023', 'Ventas 2024', 'Ventas 2025',
+  'Página Web', 'Exportaciones USD',
+  ...METRIC_YEARS.map(y => `Ventas ${y}`),
+  'Contacto Nombre', 'Contacto Cargo', 'Contacto Email', 'Contacto Teléfono',
 ];
 
 export default function BulkUploadDialog({ open, onClose }: Props) {
-  const { companies, addCompany, saveFieldValues } = useCRM();
+  const { companies, addCompany, addContact, saveFieldValues } = useCRM();
   const { fields } = useCustomFields();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [rows, setRows] = useState<ParsedRow[]>([]);
@@ -54,14 +58,33 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
 
   const existingNits = new Set(companies.map(c => c.nit.trim()));
 
-  // Only text/select/number fields for bulk upload (not metric_by_year)
-  const bulkFields = fields.filter(f => f.fieldType !== 'metric_by_year');
-  const TEMPLATE_COLUMNS = [...BASE_COLUMNS, ...bulkFields.map(f => f.name)];
+  const simpleFields = fields.filter(f => f.fieldType !== 'metric_by_year');
+  const metricFields = fields.filter(f => f.fieldType === 'metric_by_year');
+
+  // Build dynamic columns: simple fields + metric fields expanded by year
+  const dynamicColumns: { label: string; fieldId: string; year?: number }[] = [];
+  simpleFields.forEach(f => dynamicColumns.push({ label: f.name, fieldId: f.id }));
+  metricFields.forEach(f => {
+    METRIC_YEARS.forEach(y => dynamicColumns.push({ label: `${f.name} ${y}`, fieldId: f.id, year: y }));
+  });
+
+  const TEMPLATE_COLUMNS = [...BASE_COLUMNS, ...dynamicColumns.map(c => c.label)];
 
   const downloadTemplate = () => {
     const wb = XLSX.utils.book_new();
-    const exampleRow = ['Ejemplo SAS', 'Ejemplo Sociedad SAS', '900123456', 'Startup', 'FinTech', 'Desarrollo de software', 'Empresa ejemplo', 'Cali', 'https://www.ejemplo.com', 0, 0, 0, 100000000, 200000000, 300000000, 0,
-      ...bulkFields.map(f => f.fieldType === 'select' ? (f.options[0] || '') : ''),
+    const exampleRow = [
+      'Ejemplo SAS', 'Ejemplo Sociedad SAS', '900123456', 'Startup',
+      'FinTech', 'Desarrollo de software', 'Empresa ejemplo', 'Cali',
+      'https://www.ejemplo.com', 0,
+      ...METRIC_YEARS.map(() => 0),
+      'Juan Pérez', 'Gerente', 'juan@ejemplo.com', '3001234567',
+      ...dynamicColumns.map(c => {
+        const field = fields.find(f => f.id === c.fieldId);
+        if (!field) return '';
+        if (field.fieldType === 'select') return field.options[0] || '';
+        if (field.fieldType === 'number' || field.fieldType === 'metric_by_year') return 0;
+        return '';
+      }),
     ];
     const ws = XLSX.utils.aoa_to_sheet([TEMPLATE_COLUMNS, exampleRow]);
     ws['!cols'] = TEMPLATE_COLUMNS.map(() => ({ wch: 20 }));
@@ -82,6 +105,11 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
         const parsed: ParsedRow[] = [];
         const seenNits = new Set<string>();
 
+        // Index where sales years start (after first 10 base cols)
+        const salesStartIdx = 10;
+        const contactStartIdx = salesStartIdx + METRIC_YEARS.length;
+        const dynamicStartIdx = contactStartIdx + 4; // 4 contact columns
+
         for (let i = 1; i < data.length; i++) {
           const r = data[i] as any[];
           if (!r || r.length === 0 || !r[0]) continue;
@@ -99,12 +127,30 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
           if (isDuplicate) errors.push('NIT duplicado');
           seenNits.add(nit);
 
-          // Parse custom field values from columns after base columns
+          // Parse sales by year
+          const salesByYear: Record<number, number> = {};
+          METRIC_YEARS.forEach((y, idx) => {
+            const val = Number(r[salesStartIdx + idx]) || 0;
+            if (val) salesByYear[y] = val;
+          });
+
+          // Parse custom field values
           const customFieldValues: Record<string, string> = {};
-          bulkFields.forEach((field, idx) => {
-            const colIdx = BASE_COLUMNS.length + idx;
-            const val = String(r[colIdx] || '').trim();
-            if (val) customFieldValues[field.id] = val;
+          const metricFieldValues: Record<string, Record<number, number>> = {};
+
+          dynamicColumns.forEach((col, idx) => {
+            const colIdx = dynamicStartIdx + idx;
+            const rawVal = String(r[colIdx] || '').trim();
+            if (!rawVal) return;
+
+            if (col.year !== undefined) {
+              // metric_by_year
+              if (!metricFieldValues[col.fieldId]) metricFieldValues[col.fieldId] = {};
+              const num = Number(rawVal) || 0;
+              if (num) metricFieldValues[col.fieldId][col.year] = num;
+            } else {
+              customFieldValues[col.fieldId] = rawVal;
+            }
           });
 
           parsed.push({
@@ -118,13 +164,13 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
             city: String(r[7] || '').trim(),
             website: String(r[8] || '').trim(),
             exportsUSD: Number(r[9]) || 0,
-            sales2020: Number(r[10]) || 0,
-            sales2021: Number(r[11]) || 0,
-            sales2022: Number(r[12]) || 0,
-            sales2023: Number(r[13]) || 0,
-            sales2024: Number(r[14]) || 0,
-            sales2025: Number(r[15]) || 0,
+            salesByYear,
+            contactName: String(r[contactStartIdx] || '').trim(),
+            contactPosition: String(r[contactStartIdx + 1] || '').trim(),
+            contactEmail: String(r[contactStartIdx + 2] || '').trim(),
+            contactPhone: String(r[contactStartIdx + 3] || '').trim(),
             customFieldValues,
+            metricFieldValues,
             errors,
             isDuplicate,
           });
@@ -149,14 +195,6 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
 
     for (const r of validRows) {
       try {
-        const salesByYear: Record<number, number> = {};
-        if (r.sales2020) salesByYear[2020] = r.sales2020;
-        if (r.sales2021) salesByYear[2021] = r.sales2021;
-        if (r.sales2022) salesByYear[2022] = r.sales2022;
-        if (r.sales2023) salesByYear[2023] = r.sales2023;
-        if (r.sales2024) salesByYear[2024] = r.sales2024;
-        if (r.sales2025) salesByYear[2025] = r.sales2025;
-
         const company: Company = {
           id: crypto.randomUUID(),
           tradeName: r.tradeName,
@@ -168,7 +206,7 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
           description: r.description,
           city: r.city,
           website: r.website,
-          salesByYear,
+          salesByYear: r.salesByYear,
           exportsUSD: r.exportsUSD,
           contacts: [],
           actions: [],
@@ -179,18 +217,46 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
           createdAt: new Date().toISOString().split('T')[0],
         };
         const newId = await addCompany(company);
-        if (newId && Object.keys(r.customFieldValues).length > 0) {
-          const values = Object.entries(r.customFieldValues).map(([fieldId, val]) => {
-            const field = fields.find(f => f.id === fieldId);
-            return {
-              id: '', companyId: newId, fieldId,
-              textValue: field?.fieldType === 'number' ? '' : val,
-              numberValue: field?.fieldType === 'number' ? Number(val) || null : null,
-              yearValues: {},
-            };
+        if (!newId) { failed++; continue; }
+
+        // Save contact if provided
+        if (r.contactName) {
+          await addContact(newId, {
+            id: crypto.randomUUID(),
+            name: r.contactName,
+            position: r.contactPosition,
+            email: r.contactEmail,
+            phone: r.contactPhone,
+            notes: '',
+            isPrimary: true,
+            gender: '',
           });
+        }
+
+        // Save custom field values (simple + metric)
+        const hasSimple = Object.keys(r.customFieldValues).length > 0;
+        const hasMetric = Object.keys(r.metricFieldValues).length > 0;
+        if (hasSimple || hasMetric) {
+          const values = [
+            ...Object.entries(r.customFieldValues).map(([fieldId, val]) => {
+              const field = fields.find(f => f.id === fieldId);
+              return {
+                id: '', companyId: newId, fieldId,
+                textValue: field?.fieldType === 'number' ? '' : val,
+                numberValue: field?.fieldType === 'number' ? Number(val) || null : null,
+                yearValues: {},
+              };
+            }),
+            ...Object.entries(r.metricFieldValues).map(([fieldId, yearVals]) => ({
+              id: '', companyId: newId, fieldId,
+              textValue: '',
+              numberValue: null,
+              yearValues: yearVals,
+            })),
+          ];
           await saveFieldValues(newId, values);
         }
+
         success++;
       } catch {
         failed++;
@@ -220,8 +286,11 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
               <div>
                 <h3 className="text-sm font-semibold">Sube un archivo Excel con las empresas</h3>
                 <p className="mt-1 text-xs text-muted-foreground">Primero descarga la plantilla, llénala con los datos y luego súbela aquí.</p>
-                {bulkFields.length > 0 && (
-                  <p className="mt-1 text-xs text-muted-foreground">La plantilla incluye {bulkFields.length} campo(s) personalizado(s).</p>
+                {(simpleFields.length > 0 || metricFields.length > 0) && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    La plantilla incluye {simpleFields.length + metricFields.length} campo(s) personalizado(s)
+                    {metricFields.length > 0 && ` (${metricFields.length} métrica(s) por año)`}.
+                  </p>
                 )}
               </div>
             </div>
@@ -254,6 +323,7 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
                       <span className="text-muted-foreground ml-2">{r.nit}</span>
                       <span className="text-muted-foreground ml-2">{r.category}</span>
                       <span className="text-muted-foreground ml-2">{r.vertical}</span>
+                      {r.contactName && <span className="text-muted-foreground ml-2">👤 {r.contactName}</span>}
                     </div>
                     {r.errors.length > 0 ? (
                       <div className="flex items-center gap-1 text-destructive shrink-0">
