@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 
 export default function Index() {
   const navigate = useNavigate();
-  const { companies, loading } = useCRM();
+  const { companies, loading, deleteCompany } = useCRM();
   const { fields } = useCustomFields();
   const [view, setView] = useState<'grid' | 'table'>('grid');
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
@@ -117,11 +117,12 @@ export default function Index() {
                 company={c}
                 onOpenProfile={id => navigate(`/empresa/${id}`)}
                 onQuickAction={(type, companyId) => setQuickAction({ type, companyId })}
+                onDelete={deleteCompany}
               />
             ))}
           </div>
         ) : (
-          <CompanyTable companies={filtered} onOpenProfile={id => navigate(`/empresa/${id}`)} activeYear={filters.activeYear} />
+          <CompanyTable companies={filtered} onOpenProfile={id => navigate(`/empresa/${id}`)} activeYear={filters.activeYear} onDelete={deleteCompany} />
         )}
       </div>
 

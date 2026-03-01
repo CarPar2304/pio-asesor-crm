@@ -4,19 +4,20 @@ import { calculateGrowth, formatCOP, formatPercentage } from '@/lib/calculations
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronUp, ChevronDown, ExternalLink } from 'lucide-react';
+import { ChevronUp, ChevronDown, ExternalLink, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Props {
   companies: Company[];
   onOpenProfile: (id: string) => void;
   activeYear: number;
+  onDelete?: (id: string) => void;
 }
 
 type SortKey = 'tradeName' | 'category' | 'vertical' | 'city' | 'sales' | 'avgYoY' | 'lastYoY' | 'tasks';
 type SortDir = 'asc' | 'desc';
 
-export default function CompanyTable({ companies, onOpenProfile, activeYear }: Props) {
+export default function CompanyTable({ companies, onOpenProfile, activeYear, onDelete }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('tradeName');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
 
@@ -97,10 +98,17 @@ export default function CompanyTable({ companies, onOpenProfile, activeYear }: P
                     </span>
                   ) : <span className="text-xs text-muted-foreground">—</span>}
                 </TableCell>
-                <TableCell>
-                  <Button variant="ghost" size="icon" className="h-7 w-7">
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </Button>
+                <TableCell onClick={e => e.stopPropagation()}>
+                  <div className="flex gap-0.5">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onOpenProfile(c.id)}>
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Button>
+                    {onDelete && (
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => { if (confirm(`¿Eliminar "${c.tradeName}"?`)) onDelete(c.id); }}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             );

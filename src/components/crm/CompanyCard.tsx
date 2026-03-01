@@ -4,15 +4,16 @@ import { cn } from '@/lib/utils';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { User, Phone, CheckSquare, Flag, ChevronRight, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { User, Phone, CheckSquare, Flag, ChevronRight, TrendingUp, TrendingDown, Minus, Trash2 } from 'lucide-react';
 
 interface Props {
   company: Company;
   onOpenProfile: (id: string) => void;
   onQuickAction: (type: 'action' | 'task' | 'milestone', companyId: string) => void;
+  onDelete?: (id: string) => void;
 }
 
-export default function CompanyCard({ company, onOpenProfile, onQuickAction }: Props) {
+export default function CompanyCard({ company, onOpenProfile, onQuickAction, onDelete }: Props) {
   const { avgYoY, lastYoY } = calculateGrowth(company.salesByYear);
   const lastSales = getLastYearSales(company.salesByYear);
   const pendingTasks = company.tasks.filter(t => t.status === 'pending').length;
@@ -119,6 +120,11 @@ export default function CompanyCard({ company, onOpenProfile, onQuickAction }: P
             <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => onQuickAction('milestone', company.id)} title="Registrar hito">
               <Flag className="h-3.5 w-3.5" />
             </Button>
+            {onDelete && (
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => { if (confirm(`¿Eliminar "${company.tradeName}"?`)) onDelete(company.id); }} title="Eliminar empresa">
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
           </div>
         </div>
       </CardFooter>
