@@ -32,7 +32,7 @@ export default function CRMFilters({ filters, onChange }: Props) {
   if (filters.category) activeChips.push({ label: `Categoría: ${filters.category}`, clear: () => update({ category: '' }) });
   if (filters.vertical) activeChips.push({ label: `Vertical: ${filters.vertical}`, clear: () => update({ vertical: '' }) });
   if (filters.city) activeChips.push({ label: `Ciudad: ${filters.city}`, clear: () => update({ city: '' }) });
-  if (filters.economicActivity) activeChips.push({ label: `Act. Económica: ${filters.economicActivity}`, clear: () => update({ economicActivity: '' }) });
+  if (filters.economicActivity) activeChips.push({ label: `Sub-vertical: ${filters.economicActivity}`, clear: () => update({ economicActivity: '' }) });
   if (filters.salesMin) activeChips.push({ label: `Ventas ≥ ${filters.salesMin}`, clear: () => update({ salesMin: '' }) });
   if (filters.salesMax) activeChips.push({ label: `Ventas ≤ ${filters.salesMax}`, clear: () => update({ salesMax: '' }) });
   if (filters.avgYoYMin) activeChips.push({ label: `Avg YoY ≥ ${filters.avgYoYMin}%`, clear: () => update({ avgYoYMin: '' }) });
@@ -107,7 +107,7 @@ export default function CRMFilters({ filters, onChange }: Props) {
           <PopoverContent className="w-72 space-y-3" align="end">
             <p className="text-sm font-medium">Filtros avanzados</p>
             <div>
-              <label className="text-xs text-muted-foreground">Actividad económica</label>
+              <label className="text-xs text-muted-foreground">Sub-vertical</label>
               <Input className="mt-1 h-8 text-sm" value={filters.economicActivity} onChange={e => update({ economicActivity: e.target.value })} placeholder="Buscar..." />
             </div>
             <div className="grid grid-cols-2 gap-2">

@@ -64,6 +64,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
             <div className="mt-2 flex flex-wrap gap-1.5">
               <Badge variant="outline" className="text-xs">{company.category}</Badge>
               <Badge variant="secondary" className="text-xs">{company.vertical}</Badge>
+              {company.economicActivity && <Badge variant="outline" className="text-xs">{company.economicActivity}</Badge>}
               <Badge variant="secondary" className="text-xs">{company.city}</Badge>
             </div>
           </div>
