@@ -42,7 +42,7 @@ interface ParsedRow {
 
 const BASE_COLUMNS = [
   'Nombre Comercial', 'Razón Social', 'NIT', 'Categoría (EBT/Startup)',
-  'Vertical', 'Actividad Económica', 'Descripción', 'Ciudad',
+  'Vertical', 'Sub-vertical', 'Descripción', 'Ciudad',
   'Página Web', 'Exportaciones USD',
   ...METRIC_YEARS.map(y => `Ventas ${y}`),
   'Contacto Nombre', 'Contacto Cargo', 'Contacto Email', 'Contacto Teléfono',
