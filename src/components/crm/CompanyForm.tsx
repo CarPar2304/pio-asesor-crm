@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Company, Contact, ContactGender, CustomFieldValue, CustomSection, CustomField, VERTICALS, CITIES, GENDER_LABELS, FIELD_TYPE_LABELS, CustomFieldType } from '@/types/crm';
 import { useCRM } from '@/contexts/CRMContext';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
@@ -121,18 +121,50 @@ function CreatableCombobox({ value, onChange, options: baseOptions, placeholder 
   );
 }
 
-// Sub-vertical options per vertical
-const SUB_VERTICALS: Record<string, string[]> = {
-  'Biotecnología': ['Bioinformática', 'Bioprocesos', 'Diagnóstico', 'Terapéutica', 'Otra'],
-  'AgriTech': ['Agricultura de precisión', 'Insumos biológicos', 'Monitoreo de cultivos', 'Otra'],
-  'IA / Machine Learning': ['NLP', 'Visión por computador', 'Analítica predictiva', 'Automatización', 'Otra'],
-  'HealthTech': ['Telemedicina', 'Dispositivos médicos', 'Salud digital', 'Otra'],
-  'CleanTech': ['Energías renovables', 'Gestión de residuos', 'Eficiencia energética', 'Otra'],
-  'FinTech': ['Pagos', 'Lending', 'Seguros', 'Blockchain', 'Otra'],
-  'EdTech': ['E-learning', 'Gestión educativa', 'Contenido digital', 'Otra'],
-  'LogTech': ['Última milla', 'Gestión de flotas', 'Cadena de suministro', 'Otra'],
-  'FoodTech': ['Delivery', 'Alimentos alternativos', 'Trazabilidad', 'Otra'],
+// Sub-vertical default options per vertical
+const DEFAULT_SUB_VERTICALS: Record<string, string[]> = {
+  'Biotecnología': ['Bioinformática', 'Bioprocesos', 'Diagnóstico', 'Terapéutica'],
+  'AgriTech': ['Agricultura de precisión', 'Insumos biológicos', 'Monitoreo de cultivos'],
+  'IA / Machine Learning': ['NLP', 'Visión por computador', 'Analítica predictiva', 'Automatización'],
+  'HealthTech': ['Telemedicina', 'Dispositivos médicos', 'Salud digital'],
+  'CleanTech': ['Energías renovables', 'Gestión de residuos', 'Eficiencia energética'],
+  'FinTech': ['Pagos', 'Lending', 'Seguros', 'Blockchain'],
+  'EdTech': ['E-learning', 'Gestión educativa', 'Contenido digital'],
+  'LogTech': ['Última milla', 'Gestión de flotas', 'Cadena de suministro'],
+  'FoodTech': ['Delivery', 'Alimentos alternativos', 'Trazabilidad'],
 };
+
+// Build global verticals and sub-verticals from existing companies
+function useGlobalVerticals() {
+  const { companies } = useCRM();
+  return useMemo(() => {
+    const extraVerticals = new Set<string>();
+    const extraSubVerticals: Record<string, Set<string>> = {};
+
+    companies.forEach(c => {
+      if (c.vertical && !VERTICALS.includes(c.vertical)) {
+        extraVerticals.add(c.vertical);
+      }
+      if (c.vertical && c.economicActivity) {
+        const defaults = DEFAULT_SUB_VERTICALS[c.vertical] || [];
+        if (!defaults.includes(c.economicActivity)) {
+          if (!extraSubVerticals[c.vertical]) extraSubVerticals[c.vertical] = new Set();
+          extraSubVerticals[c.vertical].add(c.economicActivity);
+        }
+      }
+    });
+
+    const allVerticals = [...VERTICALS, ...Array.from(extraVerticals).filter(v => !VERTICALS.includes(v))];
+
+    const getSubVerticals = (vertical: string) => {
+      const defaults = DEFAULT_SUB_VERTICALS[vertical] || [];
+      const extras = extraSubVerticals[vertical] ? Array.from(extraSubVerticals[vertical]) : [];
+      return [...defaults, ...extras.filter(e => !defaults.includes(e)), 'Otra'];
+    };
+
+    return { allVerticals, getSubVerticals };
+  }, [companies]);
+}
 
 function AddFieldDialog({ open, onClose, onAdd, existingSections }: { open: boolean; onClose: () => void; onAdd: (name: string, type: CustomFieldType, options: string[], sectionId: string | null) => void; existingSections: CustomSection[] }) {
   const [name, setName] = useState('');
@@ -299,6 +331,7 @@ function AddSectionDialog({ open, onClose, onAdd }: { open: boolean; onClose: ()
 
 export default function CompanyForm({ open, onClose, company }: Props) {
   const { addCompany, updateCompany, saveFieldValues } = useCRM();
+  const { allVerticals, getSubVerticals } = useGlobalVerticals();
   const { sections, fields, addSection, addField, deleteSection, deleteField, updateField, updateSection } = useCustomFields();
   const isEdit = !!company;
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -518,7 +551,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
   const unsectionedFields = fields.filter(f => !f.sectionId);
 
   // Sub-vertical options based on current vertical
-  const subVerticalOptions = SUB_VERTICALS[form.vertical] || ['Otra'];
+  const subVerticalOptions = getSubVerticals(form.vertical);
 
   return (
     <Dialog open={open} onOpenChange={() => onClose()}>
@@ -572,7 +605,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
                   </Select>
                 </Field>
                 <Field label="Vertical">
-                  <CreatableCombobox value={form.vertical} onChange={v => setForm(f => ({ ...f, vertical: v, subVertical: '' }))} options={VERTICALS} />
+                  <CreatableCombobox value={form.vertical} onChange={v => setForm(f => ({ ...f, vertical: v, subVertical: '' }))} options={allVerticals} />
                 </Field>
               </div>
               <div className="grid grid-cols-2 gap-3">
