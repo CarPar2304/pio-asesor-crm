@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCRM } from '@/contexts/CRMContext';
+import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { FilterState, DEFAULT_FILTERS } from '@/types/crm';
 import { calculateGrowth } from '@/lib/calculations';
 import CompanyCard from '@/components/crm/CompanyCard';
@@ -16,6 +17,7 @@ import { cn } from '@/lib/utils';
 export default function Index() {
   const navigate = useNavigate();
   const { companies, loading } = useCRM();
+  const { fields } = useCustomFields();
   const [view, setView] = useState<'grid' | 'table'>('grid');
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [formOpen, setFormOpen] = useState(false);
@@ -43,9 +45,24 @@ export default function Index() {
       if (filters.lastYoYMin && (lastYoY === null || lastYoY < Number(filters.lastYoYMin))) return false;
       if (filters.lastYoYMax && (lastYoY === null || lastYoY > Number(filters.lastYoYMax))) return false;
 
+      // Custom field filters
+      const customFilters = filters.customFieldFilters || {};
+      for (const [fieldId, filterValue] of Object.entries(customFilters)) {
+        if (!filterValue) continue;
+        const field = fields.find(f => f.id === fieldId);
+        if (!field) continue;
+        const val = (c.fieldValues || []).find(v => v.fieldId === fieldId);
+        if (!val) return false;
+        if (field.fieldType === 'select') {
+          if (val.textValue !== filterValue) return false;
+        } else {
+          if (!val.textValue.toLowerCase().includes(filterValue.toLowerCase())) return false;
+        }
+      }
+
       return true;
     });
-  }, [companies, filters]);
+  }, [companies, filters, fields]);
 
   return (
     <div className="container py-6">

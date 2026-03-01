@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import { Company, VERTICALS, CITIES } from '@/types/crm';
 import { useCRM } from '@/contexts/CRMContext';
+import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,36 +32,42 @@ interface ParsedRow {
   sales2023: number;
   sales2024: number;
   sales2025: number;
+  customFieldValues: Record<string, string>; // fieldId -> raw string value
   errors: string[];
   isDuplicate: boolean;
 }
 
-const TEMPLATE_COLUMNS = [
+const BASE_COLUMNS = [
   'Nombre Comercial', 'Razón Social', 'NIT', 'Categoría (EBT/Startup)',
   'Vertical', 'Actividad Económica', 'Descripción', 'Ciudad',
   'Página Web', 'Exportaciones USD', 'Ventas 2020', 'Ventas 2021', 'Ventas 2022',
   'Ventas 2023', 'Ventas 2024', 'Ventas 2025',
 ];
 
-function downloadTemplate() {
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet([
-    TEMPLATE_COLUMNS,
-    ['Ejemplo SAS', 'Ejemplo Sociedad SAS', '900123456', 'Startup', 'FinTech', 'Desarrollo de software', 'Empresa ejemplo', 'Cali', 'https://www.ejemplo.com', 0, 0, 0, 100000000, 200000000, 300000000, 0],
-  ]);
-  ws['!cols'] = TEMPLATE_COLUMNS.map(() => ({ wch: 20 }));
-  XLSX.utils.book_append_sheet(wb, ws, 'Empresas');
-  XLSX.writeFile(wb, 'plantilla_empresas.xlsx');
-}
-
 export default function BulkUploadDialog({ open, onClose }: Props) {
-  const { companies, addCompany } = useCRM();
+  const { companies, addCompany, saveFieldValues } = useCRM();
+  const { fields } = useCustomFields();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [step, setStep] = useState<'upload' | 'preview' | 'loading' | 'done'>('upload');
   const [uploadResults, setUploadResults] = useState({ success: 0, failed: 0 });
 
   const existingNits = new Set(companies.map(c => c.nit.trim()));
+
+  // Only text/select/number fields for bulk upload (not metric_by_year)
+  const bulkFields = fields.filter(f => f.fieldType !== 'metric_by_year');
+  const TEMPLATE_COLUMNS = [...BASE_COLUMNS, ...bulkFields.map(f => f.name)];
+
+  const downloadTemplate = () => {
+    const wb = XLSX.utils.book_new();
+    const exampleRow = ['Ejemplo SAS', 'Ejemplo Sociedad SAS', '900123456', 'Startup', 'FinTech', 'Desarrollo de software', 'Empresa ejemplo', 'Cali', 'https://www.ejemplo.com', 0, 0, 0, 100000000, 200000000, 300000000, 0,
+      ...bulkFields.map(f => f.fieldType === 'select' ? (f.options[0] || '') : ''),
+    ];
+    const ws = XLSX.utils.aoa_to_sheet([TEMPLATE_COLUMNS, exampleRow]);
+    ws['!cols'] = TEMPLATE_COLUMNS.map(() => ({ wch: 20 }));
+    XLSX.utils.book_append_sheet(wb, ws, 'Empresas');
+    XLSX.writeFile(wb, 'plantilla_empresas.xlsx');
+  };
 
   const parseFile = (file: File) => {
     const reader = new FileReader();
@@ -70,10 +77,7 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
         const ws = wb.Sheets[wb.SheetNames[0]];
         const data = XLSX.utils.sheet_to_json<any>(ws, { header: 1 });
 
-        if (data.length < 2) {
-          toast.error('El archivo no tiene datos');
-          return;
-        }
+        if (data.length < 2) { toast.error('El archivo no tiene datos'); return; }
 
         const parsed: ParsedRow[] = [];
         const seenNits = new Set<string>();
@@ -95,6 +99,14 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
           if (isDuplicate) errors.push('NIT duplicado');
           seenNits.add(nit);
 
+          // Parse custom field values from columns after base columns
+          const customFieldValues: Record<string, string> = {};
+          bulkFields.forEach((field, idx) => {
+            const colIdx = BASE_COLUMNS.length + idx;
+            const val = String(r[colIdx] || '').trim();
+            if (val) customFieldValues[field.id] = val;
+          });
+
           parsed.push({
             tradeName,
             legalName: String(r[1] || '').trim(),
@@ -112,6 +124,7 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
             sales2023: Number(r[13]) || 0,
             sales2024: Number(r[14]) || 0,
             sales2025: Number(r[15]) || 0,
+            customFieldValues,
             errors,
             isDuplicate,
           });
@@ -162,9 +175,22 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
           milestones: [],
           tasks: [],
           customProperties: [],
+          fieldValues: [],
           createdAt: new Date().toISOString().split('T')[0],
         };
-        await addCompany(company);
+        const newId = await addCompany(company);
+        if (newId && Object.keys(r.customFieldValues).length > 0) {
+          const values = Object.entries(r.customFieldValues).map(([fieldId, val]) => {
+            const field = fields.find(f => f.id === fieldId);
+            return {
+              id: '', companyId: newId, fieldId,
+              textValue: field?.fieldType === 'number' ? '' : val,
+              numberValue: field?.fieldType === 'number' ? Number(val) || null : null,
+              yearValues: {},
+            };
+          });
+          await saveFieldValues(newId, values);
+        }
         success++;
       } catch {
         failed++;
@@ -175,16 +201,8 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
     setStep('done');
   };
 
-  const reset = () => {
-    setRows([]);
-    setStep('upload');
-    setUploadResults({ success: 0, failed: 0 });
-  };
-
-  const handleClose = () => {
-    reset();
-    onClose();
-  };
+  const reset = () => { setRows([]); setStep('upload'); setUploadResults({ success: 0, failed: 0 }); };
+  const handleClose = () => { reset(); onClose(); };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -202,9 +220,11 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
               <div>
                 <h3 className="text-sm font-semibold">Sube un archivo Excel con las empresas</h3>
                 <p className="mt-1 text-xs text-muted-foreground">Primero descarga la plantilla, llénala con los datos y luego súbela aquí.</p>
+                {bulkFields.length > 0 && (
+                  <p className="mt-1 text-xs text-muted-foreground">La plantilla incluye {bulkFields.length} campo(s) personalizado(s).</p>
+                )}
               </div>
             </div>
-
             <div className="flex justify-center gap-3">
               <Button variant="outline" size="sm" className="gap-1.5" onClick={downloadTemplate}>
                 <Download className="h-3.5 w-3.5" /> Descargar plantilla
@@ -220,14 +240,8 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
         {step === 'preview' && (
           <>
             <div className="px-6 pt-4 pb-2 flex items-center gap-3">
-              <Badge variant="outline" className="gap-1">
-                <CheckCircle2 className="h-3 w-3 text-success" /> {validRows.length} válidas
-              </Badge>
-              {invalidRows.length > 0 && (
-                <Badge variant="destructive" className="gap-1">
-                  <XCircle className="h-3 w-3" /> {invalidRows.length} con errores
-                </Badge>
-              )}
+              <Badge variant="outline" className="gap-1"><CheckCircle2 className="h-3 w-3 text-success" /> {validRows.length} válidas</Badge>
+              {invalidRows.length > 0 && <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" /> {invalidRows.length} con errores</Badge>}
               <span className="text-xs text-muted-foreground">de {rows.length} filas</span>
             </div>
             <ScrollArea className="max-h-[calc(90vh-220px)] px-6">
@@ -243,8 +257,7 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
                     </div>
                     {r.errors.length > 0 ? (
                       <div className="flex items-center gap-1 text-destructive shrink-0">
-                        <AlertTriangle className="h-3 w-3" />
-                        <span>{r.errors.join(', ')}</span>
+                        <AlertTriangle className="h-3 w-3" /><span>{r.errors.join(', ')}</span>
                       </div>
                     ) : (
                       <CheckCircle2 className="h-3.5 w-3.5 text-success shrink-0" />
@@ -255,9 +268,7 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
             </ScrollArea>
             <div className="flex justify-between gap-2 border-t border-border px-6 py-3">
               <Button variant="outline" size="sm" onClick={reset}>Volver</Button>
-              <Button size="sm" onClick={handleUpload} disabled={validRows.length === 0} className="gap-1.5">
-                Cargar {validRows.length} empresas
-              </Button>
+              <Button size="sm" onClick={handleUpload} disabled={validRows.length === 0} className="gap-1.5">Cargar {validRows.length} empresas</Button>
             </div>
           </>
         )}
