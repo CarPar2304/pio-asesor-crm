@@ -56,7 +56,7 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
   const [step, setStep] = useState<'upload' | 'preview' | 'loading' | 'done'>('upload');
   const [uploadResults, setUploadResults] = useState({ success: 0, failed: 0 });
 
-  const existingNits = new Set(companies.map(c => c.nit.trim()));
+  const existingNits = new Set(companies.map(c => c.nit.trim()).filter(n => n && n !== '0'));
 
   const simpleFields = fields.filter(f => f.fieldType !== 'metric_by_year');
   const metricFields = fields.filter(f => f.fieldType === 'metric_by_year');
@@ -120,12 +120,12 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
           const category = String(r[3] || '').trim();
 
           if (!tradeName) errors.push('Nombre comercial requerido');
-          if (!nit) errors.push('NIT requerido');
           if (category && !['EBT', 'Startup'].includes(category)) errors.push('Categoría inválida');
 
-          const isDuplicate = existingNits.has(nit) || seenNits.has(nit);
+          const hasValidNit = nit && nit !== '0';
+          const isDuplicate = hasValidNit && (existingNits.has(nit) || seenNits.has(nit));
           if (isDuplicate) errors.push('NIT duplicado');
-          seenNits.add(nit);
+          if (hasValidNit) seenNits.add(nit);
 
           // Parse sales by year
           const salesByYear: Record<number, number> = {};
