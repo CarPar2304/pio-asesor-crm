@@ -46,6 +46,8 @@ export default function Index() {
       if (filters.vertical && c.vertical !== filters.vertical) return false;
       if (filters.city && c.city !== filters.city) return false;
       if (filters.economicActivity && c.economicActivity !== filters.economicActivity) return false;
+      if (filters.nitFilter === 'has' && (!c.nit || c.nit === '0')) return false;
+      if (filters.nitFilter === 'no' && c.nit && c.nit !== '0') return false;
 
       const yearSales = c.salesByYear[filters.activeYear];
       if (filters.salesMin && (yearSales === undefined || yearSales < Number(filters.salesMin) * 1_000_000)) return false;

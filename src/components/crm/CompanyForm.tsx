@@ -362,7 +362,19 @@ export default function CompanyForm({ open, onClose, company }: Props) {
   // City logic: if stored city is not in CITIES, it's a custom city
   const isCustomCity = (city: string) => city && !CITIES.includes(city);
 
+  // Track which company we've initialized to avoid resetting on reference changes
+  const initializedRef = useRef<string | null>(null);
+
   useEffect(() => {
+    const companyId = company?.id ?? null;
+    // Only reset form when dialog opens fresh or company actually changes
+    if (!open) {
+      initializedRef.current = null;
+      return;
+    }
+    if (initializedRef.current === (companyId ?? '__new__')) return;
+    initializedRef.current = companyId ?? '__new__';
+
     if (company) {
       const cityIsCustom = isCustomCity(company.city);
       setForm({
@@ -393,7 +405,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
       setFieldValues({});
     }
     setExtraYears([]);
-  }, [company, open]);
+  }, [company?.id, open]);
 
   const uploadFile = async (file: File) => {
     const reader = new FileReader();
