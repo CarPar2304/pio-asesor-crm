@@ -136,6 +136,7 @@ export interface FilterState {
   lastYoYMin: string;
   lastYoYMax: string;
   activeYear: number;
+  nitFilter: '' | 'has' | 'no';
   customFieldFilters: Record<string, string>; // fieldId -> value
   sortField: SortField;
   sortDirection: SortDirection;
@@ -187,6 +188,7 @@ export const DEFAULT_FILTERS: FilterState = {
   lastYoYMin: '',
   lastYoYMax: '',
   activeYear: new Date().getFullYear() - 1,
+  nitFilter: '',
   customFieldFilters: {},
   sortField: 'tradeName',
   sortDirection: 'asc',

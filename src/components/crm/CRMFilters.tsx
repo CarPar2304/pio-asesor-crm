@@ -60,6 +60,7 @@ export default function CRMFilters({ filters, onChange }: Props) {
   if (filters.vertical) activeChips.push({ label: `Vertical: ${filters.vertical}`, clear: () => update({ vertical: '' }) });
   if (filters.city) activeChips.push({ label: `Ciudad: ${filters.city}`, clear: () => update({ city: '' }) });
   if (filters.economicActivity) activeChips.push({ label: `Sub-vertical: ${filters.economicActivity}`, clear: () => update({ economicActivity: '' }) });
+  if (filters.nitFilter) activeChips.push({ label: filters.nitFilter === 'has' ? 'Con NIT' : 'Sin NIT', clear: () => update({ nitFilter: '' }) });
   if (filters.salesMin) activeChips.push({ label: `Ventas ≥ ${filters.salesMin}`, clear: () => update({ salesMin: '' }) });
   if (filters.salesMax) activeChips.push({ label: `Ventas ≤ ${filters.salesMax}`, clear: () => update({ salesMax: '' }) });
   if (filters.avgYoYMin) activeChips.push({ label: `Avg YoY ≥ ${filters.avgYoYMin}%`, clear: () => update({ avgYoYMin: '' }) });
@@ -120,6 +121,15 @@ export default function CRMFilters({ filters, onChange }: Props) {
           <SelectContent>
             <SelectItem value="all">Todas</SelectItem>
             {allCities.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+          </SelectContent>
+        </Select>
+
+        <Select value={filters.nitFilter || 'all'} onValueChange={v => update({ nitFilter: v === 'all' ? '' : v as 'has' | 'no' })}>
+          <SelectTrigger className="h-9 w-[130px] text-sm"><SelectValue placeholder="NIT" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">NIT: Todos</SelectItem>
+            <SelectItem value="has">Con NIT</SelectItem>
+            <SelectItem value="no">Sin NIT</SelectItem>
           </SelectContent>
         </Select>
 
