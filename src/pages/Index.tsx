@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCRM } from '@/contexts/CRMContext';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
@@ -10,8 +10,8 @@ import CRMFilters from '@/components/crm/CRMFilters';
 import CompanyForm from '@/components/crm/CompanyForm';
 import BulkUploadDialog from '@/components/crm/BulkUploadDialog';
 import QuickActionDialog from '@/components/crm/QuickActionDialog';
-import { Button } from '@/components/ui/button';
-import { LayoutGrid, List, Plus, FileSpreadsheet } from 'lucide-react';
+import { ExpandableTabs } from '@/components/ui/expandable-tabs';
+import { LayoutGrid, List, FileSpreadsheet, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function Index() {
