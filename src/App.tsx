@@ -22,8 +22,7 @@ const App = () => (
       <AuthProvider>
         <CRMProvider>
           <CustomFieldsProvider>
-          <Toaster />
-          <Sonner />
+          <Toaster position="bottom-right" />
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Login />} />
