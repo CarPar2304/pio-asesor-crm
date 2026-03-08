@@ -27,6 +27,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
   const handleDelete = async () => {
     if (confirm(`¿Eliminar "${company.tradeName}"? Esta acción no se puede deshacer.`)) {
       await deleteCompany(company.id);
+      showSuccess('Empresa eliminada', `"${company.tradeName}" fue eliminada`);
       onBack();
     }
   };
