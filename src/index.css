@@ -120,3 +120,12 @@
     background-color: hsl(var(--warning-light));
   }
 }
+
+/* Sileo toast text colors on dark fill */
+[data-sileo-toaster] [class*="title"],
+[data-sileo-toaster] [class*="description"],
+[data-sileo-toaster] p,
+[data-sileo-toaster] span:not([class*="badge"]) {
+  color: white !important;
+}
+
