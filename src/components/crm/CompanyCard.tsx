@@ -1,9 +1,11 @@
+import { useCallback } from 'react';
 import { Company } from '@/types/crm';
 import { calculateGrowth, formatPercentage, getLastYearSales, formatCOP } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ExpandableTabs } from '@/components/ui/expandable-tabs';
 import { User, Phone, CheckSquare, Flag, ChevronRight, TrendingUp, TrendingDown, Minus, Trash2 } from 'lucide-react';
 
 interface Props {
