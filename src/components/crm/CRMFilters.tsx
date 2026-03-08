@@ -57,21 +57,21 @@ export default function CRMFilters({ filters, onChange }: Props) {
     onChange({ ...filters, customFieldFilters: rest });
   };
 
-  const activeChips: { label: string; clear: () => void }[] = [];
-  if (filters.category) activeChips.push({ label: `Categoría: ${filters.category}`, clear: () => update({ category: '' }) });
-  if (filters.vertical) activeChips.push({ label: `Vertical: ${filters.vertical}`, clear: () => update({ vertical: '' }) });
-  if (filters.city) activeChips.push({ label: `Ciudad: ${filters.city}`, clear: () => update({ city: '' }) });
-  if (filters.economicActivity) activeChips.push({ label: `Sub-vertical: ${filters.economicActivity}`, clear: () => update({ economicActivity: '' }) });
-  if (filters.nitFilter) activeChips.push({ label: filters.nitFilter === 'has' ? 'Con NIT' : 'Sin NIT', clear: () => update({ nitFilter: '' }) });
-  if (filters.salesMin) activeChips.push({ label: `Ventas ≥ ${filters.salesMin}M`, clear: () => update({ salesMin: '' }) });
-  if (filters.salesMax) activeChips.push({ label: `Ventas ≤ ${filters.salesMax}M`, clear: () => update({ salesMax: '' }) });
-  if (filters.avgYoYMin) activeChips.push({ label: `Avg YoY ≥ ${filters.avgYoYMin}%`, clear: () => update({ avgYoYMin: '' }) });
-  if (filters.lastYoYMin) activeChips.push({ label: `Último YoY ≥ ${filters.lastYoYMin}%`, clear: () => update({ lastYoYMin: '' }) });
+  const activeChips: { label: string; value: string; clear: () => void }[] = [];
+  if (filters.category) activeChips.push({ label: 'Categoría', value: filters.category, clear: () => update({ category: '' }) });
+  if (filters.vertical) activeChips.push({ label: 'Vertical', value: filters.vertical, clear: () => update({ vertical: '' }) });
+  if (filters.city) activeChips.push({ label: 'Ciudad', value: filters.city, clear: () => update({ city: '' }) });
+  if (filters.economicActivity) activeChips.push({ label: 'Sub-vertical', value: filters.economicActivity, clear: () => update({ economicActivity: '' }) });
+  if (filters.nitFilter) activeChips.push({ label: 'NIT', value: filters.nitFilter === 'has' ? 'Con NIT' : 'Sin NIT', clear: () => update({ nitFilter: '' }) });
+  if (filters.salesMin) activeChips.push({ label: 'Ventas ≥', value: `${filters.salesMin}M`, clear: () => update({ salesMin: '' }) });
+  if (filters.salesMax) activeChips.push({ label: 'Ventas ≤', value: `${filters.salesMax}M`, clear: () => update({ salesMax: '' }) });
+  if (filters.avgYoYMin) activeChips.push({ label: 'Avg YoY ≥', value: `${filters.avgYoYMin}%`, clear: () => update({ avgYoYMin: '' }) });
+  if (filters.lastYoYMin) activeChips.push({ label: 'Último YoY ≥', value: `${filters.lastYoYMin}%`, clear: () => update({ lastYoYMin: '' }) });
 
-  Object.entries(filters.customFieldFilters || {}).forEach(([fieldId, value]) => {
-    if (!value) return;
+  Object.entries(filters.customFieldFilters || {}).forEach(([fieldId, val]) => {
+    if (!val) return;
     const field = fields.find(f => f.id === fieldId);
-    if (field) activeChips.push({ label: `${field.name}: ${value}`, clear: () => clearCustomFilter(fieldId) });
+    if (field) activeChips.push({ label: field.name, value: val, clear: () => clearCustomFilter(fieldId) });
   });
 
   const hasFilters = activeChips.length > 0 || filters.search;
