@@ -7,7 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Search, X, SlidersHorizontal, Bookmark, BookmarkPlus, ArrowUpDown } from 'lucide-react';
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
+import { Search, X, SlidersHorizontal, Bookmark, BookmarkPlus, ArrowUpDown, ChevronDown, Filter } from 'lucide-react';
 
 const SORT_LABELS: Record<SortField, string> = {
   tradeName: 'Nombre',
@@ -27,7 +30,6 @@ export default function CRMFilters({ filters, onChange }: Props) {
   const { sections, fields } = useCustomFields();
   const [viewName, setViewName] = useState('');
 
-  // Dynamic options from existing companies
   const { allVerticals, allCities, allSubVerticals } = useMemo(() => {
     const vertSet = new Set<string>(VERTICALS);
     const citySet = new Set<string>(CITIES);
@@ -61,8 +63,8 @@ export default function CRMFilters({ filters, onChange }: Props) {
   if (filters.city) activeChips.push({ label: `Ciudad: ${filters.city}`, clear: () => update({ city: '' }) });
   if (filters.economicActivity) activeChips.push({ label: `Sub-vertical: ${filters.economicActivity}`, clear: () => update({ economicActivity: '' }) });
   if (filters.nitFilter) activeChips.push({ label: filters.nitFilter === 'has' ? 'Con NIT' : 'Sin NIT', clear: () => update({ nitFilter: '' }) });
-  if (filters.salesMin) activeChips.push({ label: `Ventas ≥ ${filters.salesMin}`, clear: () => update({ salesMin: '' }) });
-  if (filters.salesMax) activeChips.push({ label: `Ventas ≤ ${filters.salesMax}`, clear: () => update({ salesMax: '' }) });
+  if (filters.salesMin) activeChips.push({ label: `Ventas ≥ ${filters.salesMin}M`, clear: () => update({ salesMin: '' }) });
+  if (filters.salesMax) activeChips.push({ label: `Ventas ≤ ${filters.salesMax}M`, clear: () => update({ salesMax: '' }) });
   if (filters.avgYoYMin) activeChips.push({ label: `Avg YoY ≥ ${filters.avgYoYMin}%`, clear: () => update({ avgYoYMin: '' }) });
   if (filters.lastYoYMin) activeChips.push({ label: `Último YoY ≥ ${filters.lastYoYMin}%`, clear: () => update({ lastYoYMin: '' }) });
 
@@ -85,72 +87,130 @@ export default function CRMFilters({ filters, onChange }: Props) {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card/70 p-2 shadow-sm backdrop-blur-sm">
+        {/* Search */}
         <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Buscar empresa..." value={filters.search} onChange={e => update({ search: e.target.value })} className="h-9 pl-8 text-sm" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Buscar empresa..."
+            value={filters.search}
+            onChange={e => update({ search: e.target.value })}
+            className="h-9 pl-9 text-sm bg-background/80 border-border shadow-sm shadow-black/5"
+          />
         </div>
 
-        <Select value={filters.category} onValueChange={v => update({ category: v === 'all' ? '' : v })}>
-          <SelectTrigger className="h-9 w-[130px] text-sm"><SelectValue placeholder="Categoría" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            <SelectItem value="EBT">EBT</SelectItem>
-            <SelectItem value="Startup">Startup</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* Category dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm shadow-sm shadow-black/5">
+              {filters.category || 'Categoría'}
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem onClick={() => update({ category: '' })}>Todas</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => update({ category: 'EBT' })}>EBT</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => update({ category: 'Startup' })}>Startup</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-        <Select value={filters.vertical} onValueChange={v => update({ vertical: v === 'all' ? '' : v })}>
-          <SelectTrigger className="h-9 w-[160px] text-sm"><SelectValue placeholder="Vertical" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            {allVerticals.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        {/* Vertical dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm shadow-sm shadow-black/5">
+              {filters.vertical || 'Vertical'}
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
+            <DropdownMenuItem onClick={() => update({ vertical: '' })}>Todas</DropdownMenuItem>
+            {allVerticals.map(v => (
+              <DropdownMenuItem key={v} onClick={() => update({ vertical: v })}>{v}</DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-        <Select value={filters.economicActivity} onValueChange={v => update({ economicActivity: v === 'all' ? '' : v })}>
-          <SelectTrigger className="h-9 w-[160px] text-sm"><SelectValue placeholder="Sub-vertical" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            {allSubVerticals.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        {/* City dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm shadow-sm shadow-black/5">
+              {filters.city || 'Ciudad'}
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
+            <DropdownMenuItem onClick={() => update({ city: '' })}>Todas</DropdownMenuItem>
+            {allCities.map(c => (
+              <DropdownMenuItem key={c} onClick={() => update({ city: c })}>{c}</DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-        <Select value={filters.city} onValueChange={v => update({ city: v === 'all' ? '' : v })}>
-          <SelectTrigger className="h-9 w-[130px] text-sm"><SelectValue placeholder="Ciudad" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            {allCities.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        {/* Sub-vertical dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm shadow-sm shadow-black/5">
+              {filters.economicActivity || 'Sub-vertical'}
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
+            <DropdownMenuItem onClick={() => update({ economicActivity: '' })}>Todas</DropdownMenuItem>
+            {allSubVerticals.map(v => (
+              <DropdownMenuItem key={v} onClick={() => update({ economicActivity: v })}>{v}</DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-        <Select value={filters.nitFilter || 'all'} onValueChange={v => update({ nitFilter: v === 'all' ? '' : v as 'has' | 'no' })}>
-          <SelectTrigger className="h-9 w-[130px] text-sm"><SelectValue placeholder="NIT" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">NIT: Todos</SelectItem>
-            <SelectItem value="has">Con NIT</SelectItem>
-            <SelectItem value="no">Sin NIT</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* NIT dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm shadow-sm shadow-black/5">
+              {filters.nitFilter === 'has' ? 'Con NIT' : filters.nitFilter === 'no' ? 'Sin NIT' : 'NIT'}
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem onClick={() => update({ nitFilter: '' })}>Todos</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => update({ nitFilter: 'has' })}>Con NIT</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => update({ nitFilter: 'no' })}>Sin NIT</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-        <Select value={String(filters.activeYear)} onValueChange={v => update({ activeYear: Number(v) })}>
-          <SelectTrigger className="h-9 w-[100px] text-sm"><SelectValue placeholder="Año" /></SelectTrigger>
-          <SelectContent>{years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
-        </Select>
+        {/* Year dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm shadow-sm shadow-black/5">
+              {filters.activeYear}
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            {years.map(y => (
+              <DropdownMenuItem key={y} onClick={() => update({ activeYear: y })}>{y}</DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
-        {/* Sorter */}
+        {/* Divider */}
+        <div className="mx-0.5 h-6 w-px bg-border" />
+
+        {/* Sort */}
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm">
-              <ArrowUpDown className="h-3.5 w-3.5" /> {SORT_LABELS[filters.sortField]} {filters.sortDirection === 'asc' ? '↑' : '↓'}
+            <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm shadow-sm shadow-black/5">
+              <ArrowUpDown className="h-3.5 w-3.5" />
+              {SORT_LABELS[filters.sortField]}
+              <span className="text-muted-foreground">{filters.sortDirection === 'asc' ? '↑' : '↓'}</span>
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-56 space-y-2" align="end">
-            <p className="text-sm font-medium">Ordenar por</p>
+          <PopoverContent className="w-56 space-y-1 p-2" align="end">
+            <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">Ordenar por</p>
             {(Object.entries(SORT_LABELS) as [SortField, string][]).map(([field, label]) => (
               <button
                 key={field}
-                className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm hover:bg-secondary ${filters.sortField === field ? 'bg-secondary font-medium' : ''}`}
+                className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors hover:bg-accent ${filters.sortField === field ? 'bg-accent font-medium text-accent-foreground' : 'text-foreground'}`}
                 onClick={() => {
                   if (filters.sortField === field) {
                     update({ sortDirection: filters.sortDirection === 'asc' ? 'desc' : 'asc' });
@@ -168,42 +228,43 @@ export default function CRMFilters({ filters, onChange }: Props) {
           </PopoverContent>
         </Popover>
 
+        {/* Advanced filters */}
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm">
+            <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm shadow-sm shadow-black/5">
               <SlidersHorizontal className="h-3.5 w-3.5" /> Más filtros
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-72 space-y-3" align="end">
-            <p className="text-sm font-medium">Filtros avanzados</p>
+          <PopoverContent className="w-72 space-y-3 p-4" align="end">
+            <p className="text-sm font-medium text-foreground">Filtros avanzados</p>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-xs text-muted-foreground">Ventas mín (M)</label>
-                <Input className="mt-1 h-8 text-sm" type="number" value={filters.salesMin} onChange={e => update({ salesMin: e.target.value })} placeholder="0" />
+                <Input className="mt-1 h-8 text-sm bg-background/80" type="number" value={filters.salesMin} onChange={e => update({ salesMin: e.target.value })} placeholder="0" />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Ventas máx (M)</label>
-                <Input className="mt-1 h-8 text-sm" type="number" value={filters.salesMax} onChange={e => update({ salesMax: e.target.value })} placeholder="∞" />
+                <Input className="mt-1 h-8 text-sm bg-background/80" type="number" value={filters.salesMax} onChange={e => update({ salesMax: e.target.value })} placeholder="∞" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-xs text-muted-foreground">Avg YoY mín %</label>
-                <Input className="mt-1 h-8 text-sm" type="number" value={filters.avgYoYMin} onChange={e => update({ avgYoYMin: e.target.value })} />
+                <Input className="mt-1 h-8 text-sm bg-background/80" type="number" value={filters.avgYoYMin} onChange={e => update({ avgYoYMin: e.target.value })} />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Avg YoY máx %</label>
-                <Input className="mt-1 h-8 text-sm" type="number" value={filters.avgYoYMax} onChange={e => update({ avgYoYMax: e.target.value })} />
+                <Input className="mt-1 h-8 text-sm bg-background/80" type="number" value={filters.avgYoYMax} onChange={e => update({ avgYoYMax: e.target.value })} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="text-xs text-muted-foreground">Último YoY mín %</label>
-                <Input className="mt-1 h-8 text-sm" type="number" value={filters.lastYoYMin} onChange={e => update({ lastYoYMin: e.target.value })} />
+                <Input className="mt-1 h-8 text-sm bg-background/80" type="number" value={filters.lastYoYMin} onChange={e => update({ lastYoYMin: e.target.value })} />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground">Último YoY máx %</label>
-                <Input className="mt-1 h-8 text-sm" type="number" value={filters.lastYoYMax} onChange={e => update({ lastYoYMax: e.target.value })} />
+                <Input className="mt-1 h-8 text-sm bg-background/80" type="number" value={filters.lastYoYMax} onChange={e => update({ lastYoYMax: e.target.value })} />
               </div>
             </div>
 
@@ -224,7 +285,7 @@ export default function CRMFilters({ filters, onChange }: Props) {
                         </SelectContent>
                       </Select>
                     ) : (
-                      <Input className="mt-1 h-8 text-sm" value={filters.customFieldFilters?.[field.id] || ''} onChange={e => e.target.value ? updateCustomFilter(field.id, e.target.value) : clearCustomFilter(field.id)} placeholder="Buscar..." />
+                      <Input className="mt-1 h-8 text-sm bg-background/80" value={filters.customFieldFilters?.[field.id] || ''} onChange={e => e.target.value ? updateCustomFilter(field.id, e.target.value) : clearCustomFilter(field.id)} placeholder="Buscar..." />
                     )}
                   </div>
                 ))}
@@ -233,14 +294,17 @@ export default function CRMFilters({ filters, onChange }: Props) {
           </PopoverContent>
         </Popover>
 
+        {/* Saved views */}
         {savedViews.length > 0 && (
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm"><Bookmark className="h-3.5 w-3.5" /> Vistas</Button>
+              <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm shadow-sm shadow-black/5">
+                <Bookmark className="h-3.5 w-3.5" /> Vistas
+              </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-56 space-y-1" align="end">
+            <PopoverContent className="w-56 space-y-1 p-2" align="end">
               {savedViews.map(v => (
-                <div key={v.id} className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-secondary">
+                <div key={v.id} className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-accent">
                   <button className="text-sm" onClick={() => onChange(v.filters)}>{v.name}</button>
                   <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => deleteView(v.id)}><X className="h-3 w-3" /></Button>
                 </div>
@@ -252,9 +316,11 @@ export default function CRMFilters({ filters, onChange }: Props) {
         {hasFilters && (
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm"><BookmarkPlus className="h-3.5 w-3.5" /> Guardar vista</Button>
+              <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm shadow-sm shadow-black/5">
+                <BookmarkPlus className="h-3.5 w-3.5" /> Guardar
+              </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-56 space-y-2" align="end">
+            <PopoverContent className="w-56 space-y-2 p-3" align="end">
               <Input className="h-8 text-sm" value={viewName} onChange={e => setViewName(e.target.value)} placeholder="Nombre de la vista" />
               <Button size="sm" className="w-full" onClick={handleSaveView}>Guardar</Button>
             </PopoverContent>
@@ -262,15 +328,24 @@ export default function CRMFilters({ filters, onChange }: Props) {
         )}
       </div>
 
+      {/* Active filter chips */}
       {activeChips.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
+          <Filter className="h-3.5 w-3.5 text-muted-foreground" />
           {activeChips.map((chip, i) => (
-            <Badge key={i} variant="secondary" className="gap-1 pr-1 text-xs">
+            <Badge key={i} variant="secondary" className="gap-1 pr-1 text-xs font-medium shadow-sm">
               {chip.label}
-              <button onClick={chip.clear} className="rounded-sm p-0.5 hover:bg-muted"><X className="h-3 w-3" /></button>
+              <button onClick={chip.clear} className="rounded-full p-0.5 hover:bg-muted-foreground/20 transition-colors">
+                <X className="h-3 w-3" />
+              </button>
             </Badge>
           ))}
-          <button className="text-xs text-muted-foreground hover:text-foreground" onClick={() => onChange(DEFAULT_FILTERS)}>Limpiar todo</button>
+          <button
+            className="ml-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => onChange(DEFAULT_FILTERS)}
+          >
+            Limpiar todo
+          </button>
         </div>
       )}
     </div>
