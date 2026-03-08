@@ -4,7 +4,7 @@ import { useCRM } from '@/contexts/CRMContext';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { FilterBadge } from '@/components/ui/filter-badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
@@ -57,21 +57,21 @@ export default function CRMFilters({ filters, onChange }: Props) {
     onChange({ ...filters, customFieldFilters: rest });
   };
 
-  const activeChips: { label: string; clear: () => void }[] = [];
-  if (filters.category) activeChips.push({ label: `Categoría: ${filters.category}`, clear: () => update({ category: '' }) });
-  if (filters.vertical) activeChips.push({ label: `Vertical: ${filters.vertical}`, clear: () => update({ vertical: '' }) });
-  if (filters.city) activeChips.push({ label: `Ciudad: ${filters.city}`, clear: () => update({ city: '' }) });
-  if (filters.economicActivity) activeChips.push({ label: `Sub-vertical: ${filters.economicActivity}`, clear: () => update({ economicActivity: '' }) });
-  if (filters.nitFilter) activeChips.push({ label: filters.nitFilter === 'has' ? 'Con NIT' : 'Sin NIT', clear: () => update({ nitFilter: '' }) });
-  if (filters.salesMin) activeChips.push({ label: `Ventas ≥ ${filters.salesMin}M`, clear: () => update({ salesMin: '' }) });
-  if (filters.salesMax) activeChips.push({ label: `Ventas ≤ ${filters.salesMax}M`, clear: () => update({ salesMax: '' }) });
-  if (filters.avgYoYMin) activeChips.push({ label: `Avg YoY ≥ ${filters.avgYoYMin}%`, clear: () => update({ avgYoYMin: '' }) });
-  if (filters.lastYoYMin) activeChips.push({ label: `Último YoY ≥ ${filters.lastYoYMin}%`, clear: () => update({ lastYoYMin: '' }) });
+  const activeChips: { label: string; value: string; clear: () => void }[] = [];
+  if (filters.category) activeChips.push({ label: 'Categoría', value: filters.category, clear: () => update({ category: '' }) });
+  if (filters.vertical) activeChips.push({ label: 'Vertical', value: filters.vertical, clear: () => update({ vertical: '' }) });
+  if (filters.city) activeChips.push({ label: 'Ciudad', value: filters.city, clear: () => update({ city: '' }) });
+  if (filters.economicActivity) activeChips.push({ label: 'Sub-vertical', value: filters.economicActivity, clear: () => update({ economicActivity: '' }) });
+  if (filters.nitFilter) activeChips.push({ label: 'NIT', value: filters.nitFilter === 'has' ? 'Con NIT' : 'Sin NIT', clear: () => update({ nitFilter: '' }) });
+  if (filters.salesMin) activeChips.push({ label: 'Ventas ≥', value: `${filters.salesMin}M`, clear: () => update({ salesMin: '' }) });
+  if (filters.salesMax) activeChips.push({ label: 'Ventas ≤', value: `${filters.salesMax}M`, clear: () => update({ salesMax: '' }) });
+  if (filters.avgYoYMin) activeChips.push({ label: 'Avg YoY ≥', value: `${filters.avgYoYMin}%`, clear: () => update({ avgYoYMin: '' }) });
+  if (filters.lastYoYMin) activeChips.push({ label: 'Último YoY ≥', value: `${filters.lastYoYMin}%`, clear: () => update({ lastYoYMin: '' }) });
 
-  Object.entries(filters.customFieldFilters || {}).forEach(([fieldId, value]) => {
-    if (!value) return;
+  Object.entries(filters.customFieldFilters || {}).forEach(([fieldId, val]) => {
+    if (!val) return;
     const field = fields.find(f => f.id === fieldId);
-    if (field) activeChips.push({ label: `${field.name}: ${value}`, clear: () => clearCustomFilter(fieldId) });
+    if (field) activeChips.push({ label: field.name, value: val, clear: () => clearCustomFilter(fieldId) });
   });
 
   const hasFilters = activeChips.length > 0 || filters.search;
@@ -333,12 +333,13 @@ export default function CRMFilters({ filters, onChange }: Props) {
         <div className="flex flex-wrap items-center gap-1.5">
           <Filter className="h-3.5 w-3.5 text-muted-foreground" />
           {activeChips.map((chip, i) => (
-            <Badge key={i} variant="secondary" className="gap-1 pr-1 text-xs font-medium shadow-sm">
-              {chip.label}
-              <button onClick={chip.clear} className="rounded-full p-0.5 hover:bg-muted-foreground/20 transition-colors">
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
+            <FilterBadge
+              key={i}
+              variant="pill"
+              label={chip.label}
+              value={chip.value}
+              onRemove={chip.clear}
+            />
           ))}
           <button
             className="ml-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
