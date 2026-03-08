@@ -11,7 +11,7 @@ export default function Stats() {
         El módulo de estadísticas y reportes está en desarrollo. Aquí verás indicadores consolidados del portafolio de empresas.
       </p>
       <div className="mt-6 rounded-full bg-secondary px-4 py-1.5">
-        <span className="text-xs font-medium text-muted-foreground">Próximamente</span>
+        <span className="text-xs font-medium text-secondary-foreground">Próximamente</span>
       </div>
     </div>
   );

@@ -63,7 +63,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
           {company.logo ? (
             <img src={company.logo} alt="" className="h-20 w-20 rounded-xl border border-border/40 bg-white object-contain p-1.5" />
           ) : (
-            <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-secondary text-2xl font-bold text-muted-foreground">
+            <div className="flex h-20 w-20 items-center justify-center rounded-xl bg-secondary text-2xl font-bold text-secondary-foreground">
               {company.tradeName.charAt(0)}
             </div>
           )}
