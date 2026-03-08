@@ -22,7 +22,7 @@ const App = () => (
       <AuthProvider>
         <CRMProvider>
           <CustomFieldsProvider>
-          <Toaster position="bottom-right" />
+          <Toaster position="bottom-right" options={{ fill: "#f8f9ff", roundness: 14 }} />
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Login />} />
