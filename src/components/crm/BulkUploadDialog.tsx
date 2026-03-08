@@ -179,7 +179,7 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
         setRows(parsed);
         setStep('preview');
       } catch {
-        toast.error('Error al leer el archivo');
+        showError('Error al leer el archivo');
       }
     };
     reader.readAsBinaryString(file);
