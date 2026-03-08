@@ -1,69 +1,35 @@
 
 
-## Sileo -- Biblioteca de Toast Notifications para React
+## Problemas identificados
 
-**Sileo** es una biblioteca de notificaciones toast con animaciones SVG morphing y spring physics. Reemplazaría las dos librerías de toast actuales (sonner + radix toast) con una sola, más moderna visualmente.
+1. **Tipeo de una sola letra:** Los componentes `Section` y `Field` estan definidos dentro del cuerpo de `CompanyForm`. Cada cambio de estado los recrea, lo que causa que React desmonte y vuelva a montar los inputs, perdiendo el foco tras cada tecla.
 
-### Estado actual del proyecto
+2. **Bordes poco definidos:** Los inputs usan la variable `--input: 230 14% 90%` que es demasiado sutil contra el fondo claro.
 
-El proyecto usa **dos sistemas de toast en paralelo**:
-1. **Sonner** (`sonner`) -- usado en `BulkUploadDialog.tsx` con `toast.error()` / `toast.success()`
-2. **Radix Toast** (`@radix-ui/react-toast`) -- usado via `useToast()` hook, montado con `<Toaster />` en `App.tsx`
+3. **Modal estrecho:** Actualmente usa `max-w-2xl` (672px).
 
-Ambos `<Toaster />` y `<Sonner />` están montados en `App.tsx`.
+---
 
-### Uso actual (bajo)
+## Plan de cambios
 
-Solo hay **un archivo** que realmente invoca toasts: `BulkUploadDialog.tsx` (usa `sonner` directamente con `toast.error()`). El resto es infraestructura sin uso activo.
+### 1. Mover `Section` y `Field` fuera del componente (CompanyForm.tsx)
 
-### Plan de implementación
+Extraer las definiciones de `Section` y `Field` fuera de la funcion `CompanyForm` para que no se recreen en cada render. Esto resuelve por completo el problema de tipeo.
 
-**1. Instalar Sileo**
-```
-npm install sileo
-```
+### 2. Mejorar bordes de inputs (index.css)
 
-**2. Reemplazar ambos Toasters en `App.tsx`**
-- Quitar `<Toaster />` (radix) y `<Sonner />` (sonner)
-- Agregar `<Toaster />` de Sileo con posición `bottom-right`
+Oscurecer la variable `--input` en el tema claro para que los bordes sean mas visibles:
+- Cambiar de `230 14% 90%` a `230 14% 82%` (mas contraste)
+- Tambien ajustar `--border` de `230 14% 90%` a `230 14% 85%`
 
-```tsx
-import { Toaster } from "sileo";
-// Remove old toaster imports
-```
+### 3. Ampliar el modal (CompanyForm.tsx)
 
-**3. Migrar `BulkUploadDialog.tsx`**
-- Cambiar `import { toast } from 'sonner'` por `import { sileo } from 'sileo'`
-- Reemplazar `toast.error('msg')` con `sileo.error({ title: 'msg' })`
-- Reemplazar `toast.success('msg')` con `sileo.success({ title: 'msg' })`
+Cambiar la clase del `DialogContent` de `max-w-2xl` a `max-w-3xl` (768px) para dar mas espacio al formulario.
 
-**4. Crear helper wrapper (opcional)**
-- Crear `src/lib/toast.ts` que exporte funciones simples (`showSuccess`, `showError`, etc.) usando `sileo` internamente, para facilitar uso futuro en toda la app
+---
 
-**5. Limpiar dependencias antiguas**
-- Los archivos `src/components/ui/sonner.tsx`, `src/components/ui/toaster.tsx`, `src/components/ui/toast.tsx`, `src/hooks/use-toast.ts`, `src/components/ui/use-toast.ts` pueden eliminarse
-- Desinstalar `sonner` y `@radix-ui/react-toast` del `package.json`
+## Archivos a modificar
 
-### API de Sileo (referencia)
-
-```tsx
-import { sileo } from "sileo";
-
-sileo.success({ title: "Guardado", description: "Empresa creada" });
-sileo.error({ title: "Error", description: "No se pudo guardar" });
-sileo.warning({ title: "Advertencia" });
-sileo.info({ title: "Info" });
-sileo.promise(asyncFn(), {
-  loading: { title: "Cargando..." },
-  success: { title: "Listo" },
-  error: { title: "Error" },
-});
-```
-
-### Impacto
-
-- Cambio de bajo riesgo (solo 1 archivo usa toasts activamente)
-- Mejora visual significativa con las animaciones SVG morphing
-- Simplifica de 2 sistemas de toast a 1
-- Elimina 5 archivos de infraestructura innecesaria
+- `src/components/crm/CompanyForm.tsx` — Extraer componentes y ampliar modal
+- `src/index.css` — Ajustar variables de borde
 

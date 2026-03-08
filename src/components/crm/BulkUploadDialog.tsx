@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Download, Upload, AlertTriangle, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { showError } from '@/lib/toast';
 
 interface Props {
   open: boolean;
@@ -100,7 +100,7 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
         const ws = wb.Sheets[wb.SheetNames[0]];
         const data = XLSX.utils.sheet_to_json<any>(ws, { header: 1 });
 
-        if (data.length < 2) { toast.error('El archivo no tiene datos'); return; }
+        if (data.length < 2) { showError('El archivo no tiene datos'); return; }
 
         const parsed: ParsedRow[] = [];
         const seenNits = new Set<string>();
@@ -179,7 +179,7 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
         setRows(parsed);
         setStep('preview');
       } catch {
-        toast.error('Error al leer el archivo');
+        showError('Error al leer el archivo');
       }
     };
     reader.readAsBinaryString(file);

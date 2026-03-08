@@ -1,5 +1,4 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
+import { Toaster } from "sileo";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -23,8 +22,7 @@ const App = () => (
       <AuthProvider>
         <CRMProvider>
           <CustomFieldsProvider>
-          <Toaster />
-          <Sonner />
+          <Toaster position="bottom-right" />
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Login />} />
