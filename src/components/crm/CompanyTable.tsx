@@ -74,7 +74,7 @@ export default function CompanyTable({ companies, onOpenProfile, activeYear, onD
             const pending = c.tasks.filter(t => t.status === 'pending').length;
             const overdue = c.tasks.filter(t => t.status === 'pending' && new Date(t.dueDate) < new Date()).length;
             return (
-              <TableRow key={c.id} className="cursor-pointer hover:bg-secondary/40" onClick={() => onOpenProfile(c.id)}>
+              <TableRow key={c.id} className="cursor-pointer hover:bg-muted/60" onClick={() => onOpenProfile(c.id)}>
                 <TableCell>
                   <div>
                     <p className="text-sm font-semibold">{c.tradeName}</p>
