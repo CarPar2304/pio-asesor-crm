@@ -6,6 +6,7 @@ import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { FilterState, DEFAULT_FILTERS } from '@/types/crm';
 import { calculateGrowth } from '@/lib/calculations';
 import CompanyCard from '@/components/crm/CompanyCard';
+import { CompanyGridSkeleton, CompanyTableSkeleton } from '@/components/crm/CompanySkeleton';
 import CompanyTable from '@/components/crm/CompanyTable';
 import CRMFilters from '@/components/crm/CRMFilters';
 import CompanyForm from '@/components/crm/CompanyForm';
