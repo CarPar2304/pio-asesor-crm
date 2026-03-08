@@ -118,26 +118,7 @@ export default function Index() {
           <p className="text-sm text-muted-foreground">{filtered.length} de {companies.length} empresas</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex rounded-lg border border-border p-0.5">
-            <button
-              className={cn('rounded-md px-2.5 py-1 text-xs font-medium transition-colors', view === 'grid' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
-              onClick={() => setView('grid')}
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-            </button>
-            <button
-              className={cn('rounded-md px-2.5 py-1 text-xs font-medium transition-colors', view === 'table' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
-              onClick={() => setView('table')}
-            >
-              <List className="h-3.5 w-3.5" />
-            </button>
-          </div>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setBulkOpen(true)}>
-            <FileSpreadsheet className="h-3.5 w-3.5" /> Carga masiva
-          </Button>
-          <Button size="sm" className="gap-1.5" onClick={() => setFormOpen(true)}>
-            <Plus className="h-3.5 w-3.5" /> Nueva empresa
-          </Button>
+          <ExpandableTabs tabs={dashboardTabs} onChange={handleDashboardTab} />
         </div>
       </div>
 
