@@ -56,9 +56,11 @@ export default function Layout() {
           </Button>
         </div>
       </header>
-      <main>
-        <Outlet />
-      </main>
+      <InfiniteGridBackground className="flex-1">
+        <main>
+          <Outlet />
+        </main>
+      </InfiniteGridBackground>
     </div>
   );
 }
