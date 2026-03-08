@@ -1,9 +1,11 @@
+import { useCallback } from 'react';
 import { Company } from '@/types/crm';
 import { calculateGrowth, formatPercentage, getLastYearSales, formatCOP } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ExpandableTabs } from '@/components/ui/expandable-tabs';
 import { User, Phone, CheckSquare, Flag, ChevronRight, TrendingUp, TrendingDown, Minus, Trash2 } from 'lucide-react';
 
 interface Props {
@@ -110,16 +112,20 @@ export default function CompanyCard({ company, onOpenProfile, onQuickAction, onD
           <Button size="sm" variant="ghost" onClick={() => onOpenProfile(company.id)} className="gap-1 text-xs h-7 px-2 text-primary hover:text-primary">
             Abrir perfil <ChevronRight className="h-3 w-3" />
           </Button>
-          <div className="flex gap-0.5">
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => onQuickAction('action', company.id)} title="Registrar acción">
-              <Phone className="h-3.5 w-3.5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => onQuickAction('task', company.id)} title="Crear tarea">
-              <CheckSquare className="h-3.5 w-3.5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => onQuickAction('milestone', company.id)} title="Registrar hito">
-              <Flag className="h-3.5 w-3.5" />
-            </Button>
+          <div className="flex items-center gap-1">
+            <ExpandableTabs
+              tabs={[
+                { title: 'Acción', icon: Phone },
+                { title: 'Tarea', icon: CheckSquare },
+                { title: 'Hito', icon: Flag },
+              ]}
+              className="border-none shadow-none p-0.5 bg-transparent"
+              onChange={(index) => {
+                if (index === null) return;
+                const types = ['action', 'task', 'milestone'] as const;
+                onQuickAction(types[index], company.id);
+              }}
+            />
             {onDelete && (
               <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => { if (confirm(`¿Eliminar "${company.tradeName}"?`)) onDelete(company.id); }} title="Eliminar empresa">
                 <Trash2 className="h-3.5 w-3.5" />

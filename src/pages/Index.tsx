@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCRM } from '@/contexts/CRMContext';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
@@ -10,8 +10,9 @@ import CRMFilters from '@/components/crm/CRMFilters';
 import CompanyForm from '@/components/crm/CompanyForm';
 import BulkUploadDialog from '@/components/crm/BulkUploadDialog';
 import QuickActionDialog from '@/components/crm/QuickActionDialog';
+import { ExpandableTabs } from '@/components/ui/expandable-tabs';
+import { LayoutGrid, List, FileSpreadsheet, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { LayoutGrid, List, Plus, FileSpreadsheet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function Index() {
@@ -35,6 +36,22 @@ export default function Index() {
   const [formOpen, setFormOpen] = useState(false);
   const [quickAction, setQuickAction] = useState<{ type: 'action' | 'task' | 'milestone'; companyId: string } | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
+
+  const dashboardTabs = [
+    { title: 'Cuadrícula', icon: LayoutGrid },
+    { title: 'Tabla', icon: List },
+    { type: 'separator' as const },
+    { title: 'Carga masiva', icon: FileSpreadsheet },
+    { title: 'Nueva empresa', icon: Plus },
+  ];
+
+  const handleDashboardTab = useCallback((index: number | null) => {
+    if (index === null) return;
+    if (index === 0) setView('grid');
+    else if (index === 1) setView('table');
+    else if (index === 3) setBulkOpen(true);
+    else if (index === 4) setFormOpen(true);
+  }, []);
 
   const filtered = useMemo(() => {
     const result = companies.filter(c => {
@@ -101,26 +118,7 @@ export default function Index() {
           <p className="text-sm text-muted-foreground">{filtered.length} de {companies.length} empresas</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex rounded-lg border border-border p-0.5">
-            <button
-              className={cn('rounded-md px-2.5 py-1 text-xs font-medium transition-colors', view === 'grid' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
-              onClick={() => setView('grid')}
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-            </button>
-            <button
-              className={cn('rounded-md px-2.5 py-1 text-xs font-medium transition-colors', view === 'table' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
-              onClick={() => setView('table')}
-            >
-              <List className="h-3.5 w-3.5" />
-            </button>
-          </div>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setBulkOpen(true)}>
-            <FileSpreadsheet className="h-3.5 w-3.5" /> Carga masiva
-          </Button>
-          <Button size="sm" className="gap-1.5" onClick={() => setFormOpen(true)}>
-            <Plus className="h-3.5 w-3.5" /> Nueva empresa
-          </Button>
+          <ExpandableTabs tabs={dashboardTabs} onChange={handleDashboardTab} />
         </div>
       </div>
 
