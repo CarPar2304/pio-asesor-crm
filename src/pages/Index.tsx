@@ -12,6 +12,7 @@ import BulkUploadDialog from '@/components/crm/BulkUploadDialog';
 import QuickActionDialog from '@/components/crm/QuickActionDialog';
 import { ExpandableTabs } from '@/components/ui/expandable-tabs';
 import { LayoutGrid, List, FileSpreadsheet, Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export default function Index() {
