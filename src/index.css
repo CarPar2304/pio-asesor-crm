@@ -121,10 +121,8 @@
   }
 }
 
-/* Sileo toast border */
-[data-sileo-toast] svg rect,
-[data-sileo-toast] svg path {
-  stroke: #313b8e;
-  stroke-width: 1.5;
+/* Sileo toast brand border */
+[data-sileo-toaster] > div > div {
+  filter: drop-shadow(0 0 0.5px #313b8e) drop-shadow(0 0 0.5px #313b8e);
 }
 
