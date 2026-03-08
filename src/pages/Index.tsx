@@ -6,6 +6,7 @@ import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { FilterState, DEFAULT_FILTERS } from '@/types/crm';
 import { calculateGrowth } from '@/lib/calculations';
 import CompanyCard from '@/components/crm/CompanyCard';
+import { CompanyGridSkeleton, CompanyTableSkeleton } from '@/components/crm/CompanySkeleton';
 import CompanyTable from '@/components/crm/CompanyTable';
 import CRMFilters from '@/components/crm/CRMFilters';
 import CompanyForm from '@/components/crm/CompanyForm';
@@ -127,9 +128,7 @@ export default function Index() {
 
       <div className="mt-6">
         {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-          </div>
+          view === 'grid' ? <CompanyGridSkeleton /> : <CompanyTableSkeleton />
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16">
             <p className="text-sm text-muted-foreground">No se encontraron empresas con los filtros actuales</p>
