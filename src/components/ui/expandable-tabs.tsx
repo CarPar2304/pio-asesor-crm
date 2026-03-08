@@ -9,16 +9,16 @@ import { LucideIcon } from "lucide-react";
 interface Tab {
   title: string;
   icon: LucideIcon;
-  type?: never;
+  type?: undefined;
 }
 
 interface Separator {
   type: "separator";
-  title?: never;
-  icon?: never;
+  title?: undefined;
+  icon?: undefined;
 }
 
-type TabItem = Tab | Separator;
+export type TabItem = Tab | Separator;
 
 interface ExpandableTabsProps {
   tabs: TabItem[];
