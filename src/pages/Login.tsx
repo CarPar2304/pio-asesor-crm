@@ -45,7 +45,7 @@ export default function Login() {
         }
       `}</style>
 
-      <Card className="card-animate w-full max-w-lg border-border/60 bg-card/85 shadow-xl backdrop-blur-xl">
+      <Card className="card-animate w-full max-w-xl border-border/60 bg-card/85 shadow-xl backdrop-blur-xl">
         <CardHeader className="space-y-3 text-center">
           <div className="flex justify-center">
             <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-14 w-auto" />
