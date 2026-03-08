@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCRM } from '@/contexts/CRMContext';
+import { showSuccess } from '@/lib/toast';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { FilterState, DEFAULT_FILTERS } from '@/types/crm';
 import { calculateGrowth } from '@/lib/calculations';
@@ -144,12 +145,12 @@ export default function Index() {
                 company={c}
                 onOpenProfile={id => navigate(`/empresa/${id}`)}
                 onQuickAction={(type, companyId) => setQuickAction({ type, companyId })}
-                onDelete={deleteCompany}
+                onDelete={async (id) => { const name = companies.find(c => c.id === id)?.tradeName; await deleteCompany(id); showSuccess('Empresa eliminada', `"${name}" fue eliminada`); }}
               />
             ))}
           </div>
         ) : (
-          <CompanyTable companies={filtered} onOpenProfile={id => navigate(`/empresa/${id}`)} activeYear={filters.activeYear} onDelete={deleteCompany} />
+          <CompanyTable companies={filtered} onOpenProfile={id => navigate(`/empresa/${id}`)} activeYear={filters.activeYear} onDelete={async (id) => { const name = companies.find(c => c.id === id)?.tradeName; await deleteCompany(id); showSuccess('Empresa eliminada', `"${name}" fue eliminada`); }} />
         )}
       </div>
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Company, Contact, ContactGender, CustomFieldValue, CustomSection, CustomField, VERTICALS, CITIES, GENDER_LABELS, FIELD_TYPE_LABELS, CustomFieldType } from '@/types/crm';
 import { useCRM } from '@/contexts/CRMContext';
+import { showSuccess } from '@/lib/toast';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -484,10 +485,12 @@ export default function CompanyForm({ open, onClose, company }: Props) {
     if (isEdit) {
       await updateCompany(companyData);
       companyId = company!.id;
+      showSuccess('Empresa actualizada', `"${companyData.tradeName}" guardada exitosamente`);
     } else {
       const newId = await addCompany(companyData);
       if (!newId) return;
       companyId = newId;
+      showSuccess('Empresa creada', `"${companyData.tradeName}" creada exitosamente`);
     }
 
     const valuesToSave = Object.values(fieldValues).filter(v => v.textValue || v.numberValue !== null || Object.keys(v.yearValues || {}).length > 0);

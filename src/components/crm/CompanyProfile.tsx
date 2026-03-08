@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Company, GENDER_LABELS, FIELD_TYPE_LABELS } from '@/types/crm';
 import { calculateGrowth, formatCOP, formatPercentage, formatUSD, getLastYearSales } from '@/lib/calculations';
 import { useCRM } from '@/contexts/CRMContext';
+import { showSuccess } from '@/lib/toast';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
   const handleDelete = async () => {
     if (confirm(`¿Eliminar "${company.tradeName}"? Esta acción no se puede deshacer.`)) {
       await deleteCompany(company.id);
+      showSuccess('Empresa eliminada', `"${company.tradeName}" fue eliminada`);
       onBack();
     }
   };

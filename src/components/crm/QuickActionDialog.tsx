@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
+import { showSuccess } from '@/lib/toast';
 import { es } from 'date-fns/locale';
 import { CompanyAction, ActionType, Milestone, MilestoneType, CompanyTask, ACTION_TYPE_LABELS, MILESTONE_TYPE_LABELS } from '@/types/crm';
 import { useCRM } from '@/contexts/CRMContext';
@@ -39,7 +40,7 @@ export default function QuickActionDialog({ type, companyId, onClose }: Props) {
     setNotes('');
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (type === 'action') {
       const action: CompanyAction = {
         id: crypto.randomUUID(),
@@ -48,7 +49,8 @@ export default function QuickActionDialog({ type, companyId, onClose }: Props) {
         date: format(date, 'yyyy-MM-dd'),
         notes: notes || undefined,
       };
-      addAction(companyId, action);
+      await addAction(companyId, action);
+      showSuccess('Acción registrada', `${ACTION_TYPE_LABELS[actionType]} guardada exitosamente`);
     } else if (type === 'milestone') {
       const milestone: Milestone = {
         id: crypto.randomUUID(),
@@ -57,7 +59,8 @@ export default function QuickActionDialog({ type, companyId, onClose }: Props) {
         description,
         date: format(date, 'yyyy-MM-dd'),
       };
-      addMilestone(companyId, milestone);
+      await addMilestone(companyId, milestone);
+      showSuccess('Hito registrado', `"${title}" guardado exitosamente`);
     } else if (type === 'task') {
       const task: CompanyTask = {
         id: crypto.randomUUID(),
@@ -66,7 +69,8 @@ export default function QuickActionDialog({ type, companyId, onClose }: Props) {
         status: 'pending',
         dueDate: format(dueDate, 'yyyy-MM-dd'),
       };
-      addTask(companyId, task);
+      await addTask(companyId, task);
+      showSuccess('Tarea creada', `"${title}" creada exitosamente`);
     }
     reset();
     onClose();
