@@ -145,7 +145,7 @@ export default function Index() {
                 company={c}
                 onOpenProfile={id => navigate(`/empresa/${id}`)}
                 onQuickAction={(type, companyId) => setQuickAction({ type, companyId })}
-                onDelete={deleteCompany}
+                onDelete={async (id) => { const name = companies.find(c => c.id === id)?.tradeName; await deleteCompany(id); showSuccess('Empresa eliminada', `"${name}" fue eliminada`); }}
               />
             ))}
           </div>
