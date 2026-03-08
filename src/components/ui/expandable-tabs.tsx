@@ -88,7 +88,7 @@ export function ExpandableTabs({
         const Icon = t.icon;
         return (
           <motion.button
-            key={tab.title}
+            key={t.title}
             variants={buttonVariants}
             initial={false}
             animate="animate"
