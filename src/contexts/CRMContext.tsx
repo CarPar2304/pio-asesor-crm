@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Company, CompanyAction, Milestone, CompanyTask, Contact, SavedView, CustomProperty, CustomFieldValue, MetricByYear } from '@/types/crm';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -31,10 +31,11 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
   const [loading, setLoading] = useState(true);
+  const hasLoadedOnce = useRef(false);
 
   const fetchAll = useCallback(async () => {
     if (!session) { setCompanies([]); setSavedViews([]); setLoading(false); return; }
-    setLoading(true);
+    if (!hasLoadedOnce.current) setLoading(true);
 
     const [companiesRes, contactsRes, actionsRes, milestonesRes, tasksRes, propsRes, viewsRes, fieldValsRes] = await Promise.all([
       supabase.from('companies').select('*').order('created_at', { ascending: false }),
@@ -115,6 +116,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     setCompanies(mapped);
     setSavedViews((viewsRes.data || []).map((v: any) => ({ id: v.id, name: v.name, filters: v.filters })));
     setLoading(false);
+    hasLoadedOnce.current = true;
   }, [session]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
