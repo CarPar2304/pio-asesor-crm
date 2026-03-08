@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCRM } from '@/contexts/CRMContext';
+import { showSuccess } from '@/lib/toast';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { FilterState, DEFAULT_FILTERS } from '@/types/crm';
 import { calculateGrowth } from '@/lib/calculations';
