@@ -36,6 +36,23 @@ export default function Index() {
   const [quickAction, setQuickAction] = useState<{ type: 'action' | 'task' | 'milestone'; companyId: string } | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
 
+  const dashboardTabs = [
+    { title: 'Cuadrícula', icon: LayoutGrid },
+    { title: 'Tabla', icon: List },
+    { type: 'separator' as const },
+    { title: 'Carga masiva', icon: FileSpreadsheet },
+    { title: 'Nueva empresa', icon: Plus },
+  ];
+
+  const handleDashboardTab = useCallback((index: number | null) => {
+    if (index === null) return;
+    if (index === 0) setView('grid');
+    else if (index === 1) setView('table');
+    else if (index === 3) setBulkOpen(true);
+    else if (index === 4) setFormOpen(true);
+  }, []);
+  const [bulkOpen, setBulkOpen] = useState(false);
+
   const filtered = useMemo(() => {
     const result = companies.filter(c => {
       if (filters.search) {
