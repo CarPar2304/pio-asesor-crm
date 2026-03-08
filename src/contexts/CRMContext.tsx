@@ -116,6 +116,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     setCompanies(mapped);
     setSavedViews((viewsRes.data || []).map((v: any) => ({ id: v.id, name: v.name, filters: v.filters })));
     setLoading(false);
+    hasLoadedOnce.current = true;
   }, [session]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
