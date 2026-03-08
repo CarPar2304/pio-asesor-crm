@@ -4,7 +4,7 @@ import { useCRM } from '@/contexts/CRMContext';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { FilterBadge } from '@/components/ui/filter-badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
