@@ -27,25 +27,25 @@ export default function Login() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 bg-gradient-to-br from-[hsl(234,49%,92%)] via-[hsl(260,40%,88%)] to-[hsl(270,45%,85%)]">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 bg-gradient-to-br from-[hsl(210,60%,95%)] via-[hsl(220,55%,90%)] to-[hsl(234,49%,85%)]">
       {/* Animated decorative blobs */}
       <motion.div
-        className="pointer-events-none absolute -left-32 -top-32 h-[500px] w-[500px] rounded-full bg-[hsl(234,49%,37%)] opacity-[0.12] blur-3xl"
+        className="pointer-events-none absolute -left-32 -top-32 h-[500px] w-[500px] rounded-full bg-[hsl(214,80%,50%)] opacity-[0.12] blur-3xl"
         animate={{ x: [0, 60, -30, 0], y: [0, -40, 50, 0] }}
         transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
-        className="pointer-events-none absolute -bottom-32 -right-32 h-[500px] w-[500px] rounded-full bg-[hsl(270,50%,45%)] opacity-[0.12] blur-3xl"
+        className="pointer-events-none absolute -bottom-32 -right-32 h-[500px] w-[500px] rounded-full bg-[hsl(234,49%,37%)] opacity-[0.12] blur-3xl"
         animate={{ x: [0, -50, 40, 0], y: [0, 50, -30, 0] }}
         transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
-        className="pointer-events-none absolute left-1/3 top-1/4 h-80 w-80 rounded-full bg-[hsl(250,45%,50%)] opacity-[0.08] blur-3xl"
+        className="pointer-events-none absolute left-1/3 top-1/4 h-80 w-80 rounded-full bg-[hsl(220,60%,55%)] opacity-[0.08] blur-3xl"
         animate={{ x: [0, 40, -60, 0], y: [0, 60, -20, 0] }}
         transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
       />
       <motion.div
-        className="pointer-events-none absolute right-1/4 bottom-1/3 h-64 w-64 rounded-full bg-[hsl(234,55%,55%)] opacity-[0.06] blur-3xl"
+        className="pointer-events-none absolute right-1/4 bottom-1/3 h-64 w-64 rounded-full bg-[hsl(210,70%,45%)] opacity-[0.06] blur-3xl"
         animate={{ x: [0, -30, 50, 0], y: [0, -50, 30, 0] }}
         transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
       />
