@@ -150,7 +150,7 @@ export default function Index() {
             ))}
           </div>
         ) : (
-          <CompanyTable companies={filtered} onOpenProfile={id => navigate(`/empresa/${id}`)} activeYear={filters.activeYear} onDelete={deleteCompany} />
+          <CompanyTable companies={filtered} onOpenProfile={id => navigate(`/empresa/${id}`)} activeYear={filters.activeYear} onDelete={async (id) => { const name = companies.find(c => c.id === id)?.tradeName; await deleteCompany(id); showSuccess('Empresa eliminada', `"${name}" fue eliminada`); }} />
         )}
       </div>
 
