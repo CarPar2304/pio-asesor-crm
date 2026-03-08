@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
+import { showSuccess } from '@/lib/toast';
 import { es } from 'date-fns/locale';
 import { CompanyAction, ActionType, Milestone, MilestoneType, CompanyTask, ACTION_TYPE_LABELS, MILESTONE_TYPE_LABELS } from '@/types/crm';
 import { useCRM } from '@/contexts/CRMContext';
