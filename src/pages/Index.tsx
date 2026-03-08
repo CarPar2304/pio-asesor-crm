@@ -51,7 +51,6 @@ export default function Index() {
     else if (index === 3) setBulkOpen(true);
     else if (index === 4) setFormOpen(true);
   }, []);
-  const [bulkOpen, setBulkOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const result = companies.filter(c => {
