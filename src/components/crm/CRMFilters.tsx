@@ -333,12 +333,13 @@ export default function CRMFilters({ filters, onChange }: Props) {
         <div className="flex flex-wrap items-center gap-1.5">
           <Filter className="h-3.5 w-3.5 text-muted-foreground" />
           {activeChips.map((chip, i) => (
-            <Badge key={i} variant="secondary" className="gap-1 pr-1 text-xs font-medium shadow-sm">
-              {chip.label}
-              <button onClick={chip.clear} className="rounded-full p-0.5 hover:bg-muted-foreground/20 transition-colors">
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
+            <FilterBadge
+              key={i}
+              variant="pill"
+              label={chip.label}
+              value={chip.value}
+              onRemove={chip.clear}
+            />
           ))}
           <button
             className="ml-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
