@@ -120,3 +120,11 @@
     background-color: hsl(var(--warning-light));
   }
 }
+
+/* Sileo toast border */
+[data-sileo-toast] svg rect,
+[data-sileo-toast] svg path {
+  stroke: #313b8e;
+  stroke-width: 1.5;
+}
+
