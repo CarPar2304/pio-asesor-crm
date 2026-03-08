@@ -120,9 +120,3 @@
     background-color: hsl(var(--warning-light));
   }
 }
-
-/* Sileo toast brand border */
-[data-sileo-toaster] > div > div {
-  filter: drop-shadow(0 0 0.5px #313b8e) drop-shadow(0 0 0.5px #313b8e);
-}
-
