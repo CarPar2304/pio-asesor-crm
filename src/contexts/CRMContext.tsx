@@ -31,10 +31,11 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
   const [loading, setLoading] = useState(true);
+  const hasLoadedOnce = useRef(false);
 
   const fetchAll = useCallback(async () => {
     if (!session) { setCompanies([]); setSavedViews([]); setLoading(false); return; }
-    setLoading(true);
+    if (!hasLoadedOnce.current) setLoading(true);
 
     const [companiesRes, contactsRes, actionsRes, milestonesRes, tasksRes, propsRes, viewsRes, fieldValsRes] = await Promise.all([
       supabase.from('companies').select('*').order('created_at', { ascending: false }),
