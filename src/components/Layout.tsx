@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { Building2, Compass, BarChart3, LogOut } from 'lucide-react';
+import { InfiniteGridBackground } from '@/components/ui/the-infinite-grid';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -55,9 +56,11 @@ export default function Layout() {
           </Button>
         </div>
       </header>
-      <main>
-        <Outlet />
-      </main>
+      <InfiniteGridBackground className="flex-1">
+        <main>
+          <Outlet />
+        </main>
+      </InfiniteGridBackground>
     </div>
   );
 }
