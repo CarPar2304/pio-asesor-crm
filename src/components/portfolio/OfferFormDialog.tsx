@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { PortfolioOffer, OfferType, OfferStatus } from '@/types/portfolio';
+import { PortfolioOffer, OfferStatus } from '@/types/portfolio';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,22 +16,38 @@ interface Props {
   offer?: PortfolioOffer;
 }
 
-const TYPE_LABELS: Record<OfferType, string> = { product: 'Producto', service: 'Servicio' };
 const STATUS_LABELS: Record<OfferStatus, string> = { active: 'Activo', inactive: 'Inactivo', draft: 'Borrador' };
 
 export default function OfferFormDialog({ open, onClose, offer }: Props) {
-  const { categories, createCategory, createOffer, updateOffer } = usePortfolio();
-  const [name, setName] = useState(offer?.name ?? '');
-  const [description, setDescription] = useState(offer?.description ?? '');
-  const [type, setType] = useState<OfferType>(offer?.type ?? 'service');
-  const [categoryId, setCategoryId] = useState<string>(offer?.categoryId ?? '');
-  const [startDate, setStartDate] = useState(offer?.startDate ?? '');
-  const [endDate, setEndDate] = useState(offer?.endDate ?? '');
-  const [status, setStatus] = useState<OfferStatus>(offer?.status ?? 'active');
+  const { categories, offerTypes, createCategory, createOfferType, createOffer, updateOffer } = usePortfolio();
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [type, setType] = useState('');
+  const [categoryId, setCategoryId] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [status, setStatus] = useState<OfferStatus>('active');
   const [saving, setSaving] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [newCatColor, setNewCatColor] = useState('#6366f1');
   const [showNewCat, setShowNewCat] = useState(false);
+  const [newTypeName, setNewTypeName] = useState('');
+  const [showNewType, setShowNewType] = useState(false);
+
+  // Reset form when offer changes or dialog opens
+  useEffect(() => {
+    if (open) {
+      setName(offer?.name ?? '');
+      setDescription(offer?.description ?? '');
+      setType(offer?.type ?? (offerTypes[0]?.name || ''));
+      setCategoryId(offer?.categoryId ?? '');
+      setStartDate(offer?.startDate ?? '');
+      setEndDate(offer?.endDate ?? '');
+      setStatus(offer?.status ?? 'active');
+      setShowNewCat(false);
+      setShowNewType(false);
+    }
+  }, [open, offer]);
 
   const handleAddCategory = async () => {
     if (!newCatName.trim()) return;
@@ -39,11 +55,18 @@ export default function OfferFormDialog({ open, onClose, offer }: Props) {
     if (cat) { setCategoryId(cat.id); setShowNewCat(false); setNewCatName(''); }
   };
 
+  const handleAddType = async () => {
+    if (!newTypeName.trim()) return;
+    const t = await createOfferType(newTypeName.trim());
+    if (t) { setType(t.name); setShowNewType(false); setNewTypeName(''); }
+  };
+
   const handleSubmit = async () => {
-    if (!name.trim()) return;
+    if (!name.trim() || !type) return;
     setSaving(true);
     const payload = {
-      name: name.trim(), description, type, categoryId: categoryId || null,
+      name: name.trim(), description, type,
+      categoryId: categoryId || null,
       startDate: startDate || null, endDate: endDate || null, status,
     };
     if (offer) {
@@ -74,16 +97,31 @@ export default function OfferFormDialog({ open, onClose, offer }: Props) {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
+            {/* Type - dynamic like categories */}
             <div className="space-y-1.5">
-              <Label>Tipo</Label>
-              <Select value={type} onValueChange={v => setType(v as OfferType)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(TYPE_LABELS) as OfferType[]).map(t => (
-                    <SelectItem key={t} value={t}>{TYPE_LABELS[t]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Tipo *</Label>
+              <div className="flex gap-1.5">
+                <Select value={type || 'placeholder'} onValueChange={v => v !== 'placeholder' && setType(v)}>
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Seleccionar tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {offerTypes.map(t => (
+                      <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button type="button" variant="outline" size="icon" className="shrink-0" onClick={() => setShowNewType(v => !v)}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              {showNewType && (
+                <div className="flex items-center gap-2 rounded-md border border-border p-2">
+                  <Input value={newTypeName} onChange={e => setNewTypeName(e.target.value)} placeholder="Nuevo tipo" className="h-8 flex-1" onKeyDown={e => e.key === 'Enter' && handleAddType()} />
+                  <Button type="button" size="sm" onClick={handleAddType}>Crear</Button>
+                  <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowNewType(false)}><X className="h-3.5 w-3.5" /></Button>
+                </div>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Estado</Label>
@@ -102,11 +140,12 @@ export default function OfferFormDialog({ open, onClose, offer }: Props) {
           <div className="space-y-1.5">
             <Label>Categoría</Label>
             <div className="flex gap-2">
-              <Select value={categoryId} onValueChange={setCategoryId}>
+              <Select value={categoryId || 'none'} onValueChange={v => setCategoryId(v === 'none' ? '' : v)}>
                 <SelectTrigger className="flex-1">
                   <SelectValue placeholder="Seleccionar categoría" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="none">Sin categoría</SelectItem>
                   {categories.map(c => (
                     <SelectItem key={c.id} value={c.id}>
                       <div className="flex items-center gap-2">
@@ -149,7 +188,7 @@ export default function OfferFormDialog({ open, onClose, offer }: Props) {
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button onClick={handleSubmit} disabled={saving || !name.trim()}>
+            <Button onClick={handleSubmit} disabled={saving || !name.trim() || !type}>
               {saving ? 'Guardando...' : offer ? 'Guardar cambios' : 'Crear oferta'}
             </Button>
           </div>

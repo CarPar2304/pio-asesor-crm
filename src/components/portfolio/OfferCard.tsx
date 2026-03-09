@@ -14,7 +14,12 @@ const STATUS_CONFIG = {
   draft:    { label: 'Borrador',  className: 'bg-amber-500/10 text-amber-600 border-amber-500/30' },
 };
 
-const TYPE_ICON = { product: Package, service: Wrench };
+const TYPE_ICONS: Record<string, typeof Package> = { 
+  'Producto': Package, 
+  'Servicio': Wrench,
+  'product': Package,
+  'service': Wrench,
+};
 
 interface Props {
   offer: PortfolioOffer;
@@ -27,7 +32,7 @@ export default function OfferCard({ offer, onEdit, onViewPipeline }: Props) {
   const category = categories.find(c => c.id === offer.categoryId);
   const stageCount = getStagesForOffer(offer.id).length;
   const entryCount = getEntriesForOffer(offer.id).length;
-  const TypeIcon = TYPE_ICON[offer.type];
+  const TypeIcon = TYPE_ICONS[offer.type] || Package;
   const statusCfg = STATUS_CONFIG[offer.status];
 
   const handleDelete = () => {

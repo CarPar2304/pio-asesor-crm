@@ -11,34 +11,22 @@ import OfferCard from '@/components/portfolio/OfferCard';
 import OfferFormDialog from '@/components/portfolio/OfferFormDialog';
 import PipelineBoard from '@/components/portfolio/PipelineBoard';
 import { Skeleton } from '@/components/ui/skeleton';
-
-const PIPELINE_STATE_KEY = 'portafolio_viewing_pipeline';
+import { useSearchParams } from 'react-router-dom';
 
 export default function Portafolio() {
-  const { offers, categories, loading, getStagesForOffer, getEntriesForOffer } = usePortfolio();
-  const [tab, setTab] = useState<'oferta' | 'pipeline'>(() => {
-    return sessionStorage.getItem(PIPELINE_STATE_KEY) ? 'pipeline' : 'oferta';
-  });
+  const { offers, categories, offerTypes, loading, getStagesForOffer, getEntriesForOffer } = usePortfolio();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Pipeline view state from URL
+  const pipelineOfferId = searchParams.get('pipeline');
+  const viewingPipeline = pipelineOfferId ? offers.find(o => o.id === pipelineOfferId) ?? null : null;
+
+  const [tab, setTab] = useState<'oferta' | 'pipeline'>(() => pipelineOfferId ? 'pipeline' : 'oferta');
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterType, setFilterType] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editingOffer, setEditingOffer] = useState<PortfolioOffer | undefined>();
-  const [viewingPipeline, setViewingPipeline] = useState<PortfolioOffer | null>(null);
-
-  // Restore pipeline view from sessionStorage after offers load
-  useEffect(() => {
-    if (loading || offers.length === 0) return;
-    const savedId = sessionStorage.getItem(PIPELINE_STATE_KEY);
-    if (savedId) {
-      const found = offers.find(o => o.id === savedId);
-      if (found) {
-        setViewingPipeline(found);
-      } else {
-        sessionStorage.removeItem(PIPELINE_STATE_KEY);
-      }
-    }
-  }, [loading, offers]);
 
   const filteredOffers = offers.filter(o => {
     if (search && !o.name.toLowerCase().includes(search.toLowerCase())) return false;
@@ -53,14 +41,12 @@ export default function Portafolio() {
   };
 
   const handleViewPipeline = (offer: PortfolioOffer) => {
-    setViewingPipeline(offer);
-    sessionStorage.setItem(PIPELINE_STATE_KEY, offer.id);
+    setSearchParams({ pipeline: offer.id });
     setTab('pipeline');
   };
 
   const handleClosePipeline = () => {
-    setViewingPipeline(null);
-    sessionStorage.removeItem(PIPELINE_STATE_KEY);
+    setSearchParams({});
   };
 
   const handleCloseForm = () => {
@@ -124,8 +110,9 @@ export default function Portafolio() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="product">Producto</SelectItem>
-                <SelectItem value="service">Servicio</SelectItem>
+                {offerTypes.map(t => (
+                  <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -178,7 +165,7 @@ export default function Portafolio() {
                 return (
                   <button
                     key={offer.id}
-                    onClick={() => setViewingPipeline(offer)}
+                    onClick={() => handleViewPipeline(offer)}
                     className="flex items-center gap-3 rounded-lg border border-border/60 bg-card p-4 text-left transition-all hover:border-primary/30 hover:shadow-sm"
                   >
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
@@ -188,7 +175,7 @@ export default function Portafolio() {
                       <p className="truncate text-sm font-semibold">{offer.name}</p>
                       <p className="text-xs text-muted-foreground">{stageCount} etapas · {entryCount} empresas</p>
                     </div>
-                    <Badge variant="secondary" className="shrink-0 text-[10px]">{offer.type === 'product' ? 'Producto' : 'Servicio'}</Badge>
+                    <Badge variant="secondary" className="shrink-0 text-[10px]">{offer.type}</Badge>
                   </button>
                 );
               })}
