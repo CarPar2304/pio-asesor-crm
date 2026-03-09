@@ -8,11 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Phone, CheckSquare, Flag, Pencil, Mail, User, Star, Globe, Trash2 } from 'lucide-react';
+import { ArrowLeft, Phone, CheckSquare, Flag, Pencil, Mail, User, Star, Globe, Trash2, GitBranch } from 'lucide-react';
 import ActivityTimeline from './ActivityTimeline';
 import QuickActionDialog from './QuickActionDialog';
 import CompanyForm from './CompanyForm';
 import SalesChart from './SalesChart';
+import AddToPipelineDialog from '@/components/portfolio/AddToPipelineDialog';
 import { cn } from '@/lib/utils';
 
 interface Props {
