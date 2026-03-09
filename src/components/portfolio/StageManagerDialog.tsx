@@ -20,7 +20,7 @@ export default function StageManagerDialog({ open, onClose, offerId }: Props) {
   const stagesForOffer = getStagesForOffer(offerId);
 
   const [newName, setNewName] = useState('');
-  const [newColor, setNewColor] = useState(STAGE_COLORS[0]);
+  const [newColor, setNewColor] = useState<string>(STAGE_COLORS[0]);
   const [newIcon, setNewIcon] = useState('Circle');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
