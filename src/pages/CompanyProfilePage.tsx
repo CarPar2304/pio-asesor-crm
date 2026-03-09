@@ -20,5 +20,5 @@ export default function CompanyProfilePage() {
     );
   }
 
-  return <CompanyProfile company={company} onBack={() => navigate('/')} />;
+  return <CompanyProfile company={company} onBack={() => navigate(-1)} />;
 }
