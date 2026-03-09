@@ -12,6 +12,7 @@ import { ArrowLeft, Phone, CheckSquare, Flag, Pencil, Mail, User, Star, Globe, T
 import ActivityTimeline from './ActivityTimeline';
 import QuickActionDialog from './QuickActionDialog';
 import CompanyForm from './CompanyForm';
+import SalesChart from './SalesChart';
 import { cn } from '@/lib/utils';
 
 interface Props {
