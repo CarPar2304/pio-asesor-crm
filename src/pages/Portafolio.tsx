@@ -70,7 +70,7 @@ export default function Portafolio() {
 
   // If viewing a specific pipeline
   if (viewingPipeline) {
-    return <PipelineBoard offer={viewingPipeline} onBack={() => setViewingPipeline(null)} />;
+    return <PipelineBoard offer={viewingPipeline} onBack={handleClosePipeline} />;
   }
 
   return (
