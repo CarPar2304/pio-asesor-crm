@@ -13,7 +13,7 @@ import PipelineBoard from '@/components/portfolio/PipelineBoard';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Portafolio() {
-  const { offers, categories, loading } = usePortfolio();
+  const { offers, categories, loading, getStagesForOffer, getEntriesForOffer } = usePortfolio();
   const [tab, setTab] = useState<'oferta' | 'pipeline'>('oferta');
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
