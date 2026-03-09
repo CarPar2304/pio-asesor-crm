@@ -5,12 +5,13 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { CRMProvider } from "@/contexts/CRMContext";
 import { CustomFieldsProvider } from "@/contexts/CustomFieldsContext";
+import { PortfolioProvider } from "@/contexts/PortfolioContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Layout from "@/components/Layout";
 import Index from "./pages/Index";
 import CompanyProfilePage from "./pages/CompanyProfilePage";
 import Tasks from "./pages/Tasks";
-import Enrutador from "./pages/Enrutador";
+import Portafolio from "./pages/Portafolio";
 import Stats from "./pages/Stats";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
@@ -23,6 +24,7 @@ const App = () => (
       <AuthProvider>
         <CRMProvider>
           <CustomFieldsProvider>
+          <PortfolioProvider>
           <Toaster position="bottom-right" options={{ fill: "#171717", roundness: 14, styles: { title: "!text-white", description: "!text-white/75" } }} />
           <BrowserRouter>
             <Routes>
@@ -31,12 +33,13 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/empresa/:id" element={<CompanyProfilePage />} />
                 <Route path="/tareas" element={<Tasks />} />
-                <Route path="/enrutador" element={<Enrutador />} />
+                <Route path="/portafolio" element={<Portafolio />} />
                 <Route path="/stats" element={<Stats />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
+          </PortfolioProvider>
           </CustomFieldsProvider>
         </CRMProvider>
       </AuthProvider>

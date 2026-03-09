@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useState } from 'react';
 import { Company } from '@/types/crm';
 import { calculateGrowth, formatPercentage, getLastYearSales, formatCOP } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
@@ -6,7 +6,8 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ExpandableTabs } from '@/components/ui/expandable-tabs';
-import { User, Phone, CheckSquare, Flag, ChevronRight, TrendingUp, TrendingDown, Minus, Trash2 } from 'lucide-react';
+import { User, Phone, CheckSquare, Flag, ChevronRight, TrendingUp, TrendingDown, Minus, Trash2, GitBranch } from 'lucide-react';
+import AddToPipelineDialog from '@/components/portfolio/AddToPipelineDialog';
 
 interface Props {
   company: Company;
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export default function CompanyCard({ company, onOpenProfile, onQuickAction, onDelete }: Props) {
+  const [pipelineOpen, setPipelineOpen] = useState(false);
   const { avgYoY, lastYoY } = calculateGrowth(company.salesByYear);
   const lastSales = getLastYearSales(company.salesByYear);
   const pendingTasks = company.tasks.filter(t => t.status === 'pending').length;
@@ -126,6 +128,9 @@ export default function CompanyCard({ company, onOpenProfile, onQuickAction, onD
                 onQuickAction(types[index], company.id);
               }}
             />
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => setPipelineOpen(true)} title="Agregar a pipeline">
+              <GitBranch className="h-3.5 w-3.5" />
+            </Button>
             {onDelete && (
               <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => { if (confirm(`¿Eliminar "${company.tradeName}"?`)) onDelete(company.id); }} title="Eliminar empresa">
                 <Trash2 className="h-3.5 w-3.5" />
@@ -134,6 +139,8 @@ export default function CompanyCard({ company, onOpenProfile, onQuickAction, onD
           </div>
         </div>
       </CardFooter>
+
+      <AddToPipelineDialog open={pipelineOpen} onClose={() => setPipelineOpen(false)} companyId={company.id} companyName={company.tradeName} />
     </Card>
   );
 }

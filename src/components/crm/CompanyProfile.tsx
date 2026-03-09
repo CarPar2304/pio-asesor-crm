@@ -8,11 +8,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Phone, CheckSquare, Flag, Pencil, Mail, User, Star, Globe, Trash2 } from 'lucide-react';
+import { ArrowLeft, Phone, CheckSquare, Flag, Pencil, Mail, User, Star, Globe, Trash2, GitBranch } from 'lucide-react';
 import ActivityTimeline from './ActivityTimeline';
 import QuickActionDialog from './QuickActionDialog';
 import CompanyForm from './CompanyForm';
 import SalesChart from './SalesChart';
+import AddToPipelineDialog from '@/components/portfolio/AddToPipelineDialog';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -23,6 +24,7 @@ interface Props {
 export default function CompanyProfile({ company, onBack }: Props) {
   const [quickAction, setQuickAction] = useState<'action' | 'task' | 'milestone' | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [pipelineOpen, setPipelineOpen] = useState(false);
   const { sections, fields } = useCustomFields();
   const { deleteCompany } = useCRM();
 
@@ -89,6 +91,9 @@ export default function CompanyProfile({ company, onBack }: Props) {
           </Button>
           <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setQuickAction('milestone')}>
             <Flag className="h-3.5 w-3.5" /> Hito
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setPipelineOpen(true)}>
+            <GitBranch className="h-3.5 w-3.5" /> Pipeline
           </Button>
           <Button size="sm" className="gap-1.5 text-xs" onClick={() => setEditOpen(true)}>
             <Pencil className="h-3.5 w-3.5" /> Editar
@@ -254,6 +259,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
 
       <QuickActionDialog type={quickAction} companyId={company.id} onClose={() => setQuickAction(null)} />
       <CompanyForm open={editOpen} onClose={() => setEditOpen(false)} company={company} />
+      <AddToPipelineDialog open={pipelineOpen} onClose={() => setPipelineOpen(false)} companyId={company.id} companyName={company.tradeName} />
     </div>
   );
 }
