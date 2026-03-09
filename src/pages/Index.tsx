@@ -5,6 +5,7 @@ import { showSuccess } from '@/lib/toast';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { FilterState, DEFAULT_FILTERS } from '@/types/crm';
 import { calculateGrowth } from '@/lib/calculations';
+import { exportCompaniesToExcel } from '@/lib/exportExcel';
 import CompanyCard from '@/components/crm/CompanyCard';
 import { CompanyGridSkeleton, CompanyTableSkeleton } from '@/components/crm/CompanySkeleton';
 import CompanyTable from '@/components/crm/CompanyTable';
@@ -13,7 +14,7 @@ import CompanyForm from '@/components/crm/CompanyForm';
 import BulkUploadDialog from '@/components/crm/BulkUploadDialog';
 import QuickActionDialog from '@/components/crm/QuickActionDialog';
 import { ExpandableTabs } from '@/components/ui/expandable-tabs';
-import { LayoutGrid, List, FileSpreadsheet, Plus } from 'lucide-react';
+import { LayoutGrid, List, FileSpreadsheet, Plus, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 

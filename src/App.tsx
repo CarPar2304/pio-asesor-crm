@@ -9,6 +9,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import Layout from "@/components/Layout";
 import Index from "./pages/Index";
 import CompanyProfilePage from "./pages/CompanyProfilePage";
+import Tasks from "./pages/Tasks";
 import Enrutador from "./pages/Enrutador";
 import Stats from "./pages/Stats";
 import Login from "./pages/Login";
