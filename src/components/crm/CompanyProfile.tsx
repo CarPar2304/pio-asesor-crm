@@ -259,6 +259,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
 
       <QuickActionDialog type={quickAction} companyId={company.id} onClose={() => setQuickAction(null)} />
       <CompanyForm open={editOpen} onClose={() => setEditOpen(false)} company={company} />
+      <AddToPipelineDialog open={pipelineOpen} onClose={() => setPipelineOpen(false)} companyId={company.id} companyName={company.tradeName} />
     </div>
   );
 }
