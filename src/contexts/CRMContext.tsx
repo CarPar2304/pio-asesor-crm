@@ -237,11 +237,11 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
 
   const updateTask = useCallback(async (companyId: string, taskId: string, updates: Partial<CompanyTask>) => {
     const mapped: any = {};
-    if (updates.status) mapped.status = updates.status;
-    if (updates.completedDate) mapped.completed_date = updates.completedDate;
-    if (updates.title) mapped.title = updates.title;
-    if (updates.description) mapped.description = updates.description;
-    if (updates.dueDate) mapped.due_date = updates.dueDate;
+    if (Object.prototype.hasOwnProperty.call(updates, 'status')) mapped.status = updates.status;
+    if (Object.prototype.hasOwnProperty.call(updates, 'completedDate')) mapped.completed_date = updates.completedDate;
+    if (Object.prototype.hasOwnProperty.call(updates, 'title')) mapped.title = updates.title;
+    if (Object.prototype.hasOwnProperty.call(updates, 'description')) mapped.description = updates.description;
+    if (Object.prototype.hasOwnProperty.call(updates, 'dueDate')) mapped.due_date = updates.dueDate;
 
     await supabase.from('company_tasks').update(mapped).eq('id', taskId);
     await fetchAll();

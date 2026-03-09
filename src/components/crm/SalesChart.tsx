@@ -1,0 +1,62 @@
+import { useMemo } from 'react';
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+} from 'recharts';
+import { MetricByYear } from '@/types/crm';
+import { formatCOP, formatFullCOP } from '@/lib/calculations';
+
+interface Props {
+  salesByYear: MetricByYear;
+}
+
+export default function SalesChart({ salesByYear }: Props) {
+  const data = useMemo(() => {
+    return Object.entries(salesByYear)
+      .map(([year, value]) => ({ year: Number(year), sales: Number(value) || 0 }))
+      .sort((a, b) => a.year - b.year);
+  }, [salesByYear]);
+
+  if (data.length < 2) return null;
+
+  return (
+    <div className="h-64 w-full rounded-lg border border-border/50 bg-card p-3">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
+          <CartesianGrid strokeDasharray="3 3" className="stroke-border/60" />
+          <XAxis dataKey="year" className="fill-muted-foreground text-xs" tickLine={false} axisLine={false} />
+          <YAxis
+            className="fill-muted-foreground text-xs"
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(value: number) => formatCOP(value)}
+          />
+          <Tooltip
+            cursor={{ className: 'fill-muted/40' }}
+            contentStyle={{
+              background: 'hsl(var(--card))',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: '0.5rem',
+              color: 'hsl(var(--foreground))',
+            }}
+            formatter={(value: number) => [formatFullCOP(value), 'Ventas']}
+            labelFormatter={(label) => `Año ${label}`}
+          />
+          <Line
+            type="monotone"
+            dataKey="sales"
+            stroke="hsl(var(--primary))"
+            strokeWidth={2.5}
+            dot={{ r: 3, fill: 'hsl(var(--primary))' }}
+            activeDot={{ r: 5 }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
