@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Building2, Compass, BarChart3, LogOut } from 'lucide-react';
+import { Building2, Compass, BarChart3, ListChecks, LogOut } from 'lucide-react';
 import { InfiniteGridBackground } from '@/components/ui/the-infinite-grid';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +8,7 @@ import logoCCC from '@/assets/logo-ccc.png';
 
 const navItems = [
   { to: '/', label: 'CRM', icon: Building2 },
+  { to: '/tareas', label: 'Tareas', icon: ListChecks },
   { to: '/enrutador', label: 'Enrutador', icon: Compass },
   { to: '/stats', label: 'Stats', icon: BarChart3 },
 ];
