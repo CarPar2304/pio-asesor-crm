@@ -17,6 +17,7 @@ interface Props {
 }
 
 export default function CompanyCard({ company, onOpenProfile, onQuickAction, onDelete }: Props) {
+  const [pipelineOpen, setPipelineOpen] = useState(false);
   const { avgYoY, lastYoY } = calculateGrowth(company.salesByYear);
   const lastSales = getLastYearSales(company.salesByYear);
   const pendingTasks = company.tasks.filter(t => t.status === 'pending').length;
