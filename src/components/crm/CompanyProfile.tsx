@@ -92,6 +92,9 @@ export default function CompanyProfile({ company, onBack }: Props) {
           <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setQuickAction('milestone')}>
             <Flag className="h-3.5 w-3.5" /> Hito
           </Button>
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setPipelineOpen(true)}>
+            <GitBranch className="h-3.5 w-3.5" /> Pipeline
+          </Button>
           <Button size="sm" className="gap-1.5 text-xs" onClick={() => setEditOpen(true)}>
             <Pencil className="h-3.5 w-3.5" /> Editar
           </Button>
