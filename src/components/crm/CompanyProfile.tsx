@@ -154,6 +154,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
       {/* Metrics by year */}
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Métricas por año</h2>
+        <SalesChart salesByYear={company.salesByYear} />
         {salesYears.length === 0 ? (
           <p className="text-sm text-muted-foreground">Sin datos de ventas</p>
         ) : (
