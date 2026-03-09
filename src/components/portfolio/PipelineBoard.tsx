@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCRM } from '@/contexts/CRMContext';
-import { PortfolioOffer, PipelineStage } from '@/types/portfolio';
+import { PortfolioOffer, PipelineEntry } from '@/types/portfolio';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Settings, Plus, ArrowLeft, Building2, X, ExternalLink } from 'lucide-react';
+import { Settings, Plus, ArrowLeft, Building2, X, ExternalLink, GripVertical } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import StageManagerDialog from './StageManagerDialog';
 import AddCompaniesToPipelineDialog from './AddCompaniesToPipelineDialog';
 import { useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface Props {
   offer: PortfolioOffer;
@@ -26,12 +27,53 @@ export default function PipelineBoard({ offer, onBack }: Props) {
   const [stageManagerOpen, setStageManagerOpen] = useState(false);
   const [addCompaniesOpen, setAddCompaniesOpen] = useState(false);
 
+  // Drag & drop state
+  const [draggedEntry, setDraggedEntry] = useState<PipelineEntry | null>(null);
+  const [dragOverStageId, setDragOverStageId] = useState<string | null>(null);
+
   const IconComponent = ({ name, ...props }: { name: string; className?: string; style?: React.CSSProperties }) => {
     const Comp = (Icons as any)[name] || Icons.Circle;
     return <Comp {...props} />;
   };
 
   const getCompany = (id: string) => companies.find(c => c.id === id);
+
+  const handleDragStart = (e: React.DragEvent, entry: PipelineEntry) => {
+    setDraggedEntry(entry);
+    e.dataTransfer.effectAllowed = 'move';
+    // Make drag image semi-transparent
+    if (e.currentTarget instanceof HTMLElement) {
+      e.dataTransfer.setDragImage(e.currentTarget, 50, 20);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent, stageId: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverStageId(stageId);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    // Only clear if leaving the column entirely
+    const relatedTarget = e.relatedTarget as HTMLElement;
+    if (!e.currentTarget.contains(relatedTarget)) {
+      setDragOverStageId(null);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent, stageId: string) => {
+    e.preventDefault();
+    if (draggedEntry && draggedEntry.stageId !== stageId) {
+      moveCompanyToStage(draggedEntry.id, stageId);
+    }
+    setDraggedEntry(null);
+    setDragOverStageId(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedEntry(null);
+    setDragOverStageId(null);
+  };
 
   return (
     <div className="container py-6 animate-fade-in">
@@ -58,8 +100,21 @@ export default function PipelineBoard({ offer, onBack }: Props) {
       <div className="flex gap-4 overflow-x-auto pb-4">
         {stages.map(stage => {
           const stageEntries = entries.filter(e => e.stageId === stage.id);
+          const isDropTarget = dragOverStageId === stage.id && draggedEntry?.stageId !== stage.id;
+
           return (
-            <div key={stage.id} className="flex w-72 shrink-0 flex-col rounded-xl border border-border/60 bg-card">
+            <div
+              key={stage.id}
+              className={cn(
+                "flex w-72 shrink-0 flex-col rounded-xl border bg-card transition-all duration-200",
+                isDropTarget
+                  ? "border-primary/50 bg-primary/5 shadow-md shadow-primary/10"
+                  : "border-border/60"
+              )}
+              onDragOver={(e) => handleDragOver(e, stage.id)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, stage.id)}
+            >
               {/* Stage header */}
               <div className="flex items-center gap-2 border-b border-border/40 px-3 py-2.5">
                 <div className="flex h-6 w-6 items-center justify-center rounded-md" style={{ backgroundColor: stage.color + '20' }}>
@@ -71,62 +126,72 @@ export default function PipelineBoard({ offer, onBack }: Props) {
 
               {/* Entries */}
               <div className="flex-1 space-y-2 p-2 min-h-[120px]">
-                {stageEntries.map(entry => {
-                  const company = getCompany(entry.companyId);
-                  if (!company) return null;
-                  return (
-                    <div key={entry.id} className="group rounded-lg border border-border/50 bg-background p-2.5 transition-colors hover:border-primary/30">
-                      <div className="flex items-start gap-2">
-                        {company.logo ? (
-                          <img src={company.logo} alt="" className="h-8 w-8 shrink-0 rounded-md border border-border/40 object-contain bg-white p-0.5" />
-                        ) : (
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
-                            {company.tradeName.charAt(0)}
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs font-medium">{company.tradeName}</p>
-                          <p className="truncate text-[10px] text-muted-foreground">{company.vertical}</p>
-                        </div>
-                        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => navigate(`/empresa/${company.id}`)}
-                            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                            title="Ver perfil"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                          </button>
-                          <button
-                            onClick={() => removeEntry(entry.id)}
-                            className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                            title="Remover del pipeline"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      </div>
+                <AnimatePresence mode="popLayout">
+                  {stageEntries.map(entry => {
+                    const company = getCompany(entry.companyId);
+                    if (!company) return null;
+                    const isDragging = draggedEntry?.id === entry.id;
 
-                      {/* Move to stage selector */}
-                      <div className="mt-2">
-                        <Select value={entry.stageId} onValueChange={newId => moveCompanyToStage(entry.id, newId)}>
-                          <SelectTrigger className="h-6 text-[10px] px-2">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {stages.map(s => (
-                              <SelectItem key={s.id} value={s.id} className="text-xs">{s.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  );
-                })}
+                    return (
+                      <motion.div
+                        key={entry.id}
+                        layout
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: isDragging ? 0.4 : 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        transition={{ duration: 0.2 }}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e as unknown as React.DragEvent, entry)}
+                        onDragEnd={handleDragEnd}
+                        className={cn(
+                          "group cursor-grab active:cursor-grabbing rounded-lg border bg-background p-2.5 transition-colors",
+                          isDragging
+                            ? "border-primary/40 shadow-lg"
+                            : "border-border/50 hover:border-primary/30"
+                        )}
+                      >
+                        <div className="flex items-start gap-2">
+                          <GripVertical className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
+                          {company.logo ? (
+                            <img src={company.logo} alt="" className="h-8 w-8 shrink-0 rounded-md border border-border/40 object-contain bg-white p-0.5" />
+                          ) : (
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
+                              {company.tradeName.charAt(0)}
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-medium">{company.tradeName}</p>
+                            <p className="truncate text-[10px] text-muted-foreground">{company.vertical}</p>
+                          </div>
+                          <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => navigate(`/empresa/${company.id}`)}
+                              className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                              title="Ver perfil"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => removeEntry(entry.id)}
+                              className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                              title="Remover del pipeline"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
 
                 {stageEntries.length === 0 && (
-                  <div className="flex flex-col items-center justify-center h-20 text-center text-xs text-muted-foreground">
+                  <div className={cn(
+                    "flex flex-col items-center justify-center h-20 text-center text-xs text-muted-foreground rounded-lg border-2 border-dashed transition-colors",
+                    isDropTarget ? "border-primary/40 bg-primary/5" : "border-transparent"
+                  )}>
                     <Building2 className="h-5 w-5 mb-1 opacity-30" />
-                    Sin empresas
+                    {isDropTarget ? 'Soltar aquí' : 'Sin empresas'}
                   </div>
                 )}
               </div>
