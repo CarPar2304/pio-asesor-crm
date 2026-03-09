@@ -54,7 +54,13 @@ export default function Portafolio() {
 
   const handleViewPipeline = (offer: PortfolioOffer) => {
     setViewingPipeline(offer);
+    sessionStorage.setItem(PIPELINE_STATE_KEY, offer.id);
     setTab('pipeline');
+  };
+
+  const handleClosePipeline = () => {
+    setViewingPipeline(null);
+    sessionStorage.removeItem(PIPELINE_STATE_KEY);
   };
 
   const handleCloseForm = () => {
