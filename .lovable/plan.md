@@ -1,35 +1,47 @@
 
+## Plan: Features 2, 4 and 5
 
-## Problemas identificados
+### What we're building
 
-1. **Tipeo de una sola letra:** Los componentes `Section` y `Field` estan definidos dentro del cuerpo de `CompanyForm`. Cada cambio de estado los recrea, lo que causa que React desmonte y vuelva a montar los inputs, perdiendo el foco tras cada tecla.
+**2. Sales chart in company profile** — A Recharts bar chart showing sales evolution by year, placed above the existing metrics table in each company's profile page.
 
-2. **Bordes poco definidos:** Los inputs usan la variable `--input: 230 14% 90%` que es demasiado sutil contra el fondo claro.
+**4. Global tasks view** — A new `/tareas` page in the navigation listing all tasks across all companies, with tabs to filter by All / Pending / Overdue / Completed, and an inline "Mark complete" button.
 
-3. **Modal estrecho:** Actualmente usa `max-w-2xl` (672px).
-
----
-
-## Plan de cambios
-
-### 1. Mover `Section` y `Field` fuera del componente (CompanyForm.tsx)
-
-Extraer las definiciones de `Section` y `Field` fuera de la funcion `CompanyForm` para que no se recreen en cada render. Esto resuelve por completo el problema de tipeo.
-
-### 2. Mejorar bordes de inputs (index.css)
-
-Oscurecer la variable `--input` en el tema claro para que los bordes sean mas visibles:
-- Cambiar de `230 14% 90%` a `230 14% 82%` (mas contraste)
-- Tambien ajustar `--border` de `230 14% 90%` a `230 14% 85%`
-
-### 3. Ampliar el modal (CompanyForm.tsx)
-
-Cambiar la clase del `DialogContent` de `max-w-2xl` a `max-w-3xl` (768px) para dar mas espacio al formulario.
+**5. Excel export** — An "Exportar" button in the CRM toolbar that downloads the currently-filtered companies as an `.xlsx` file (all fields + sales by year + primary contact).
 
 ---
 
-## Archivos a modificar
+### Files to create / modify
 
-- `src/components/crm/CompanyForm.tsx` — Extraer componentes y ampliar modal
-- `src/index.css` — Ajustar variables de borde
+```text
+CREATE  src/components/crm/SalesChart.tsx      ← Recharts BarChart component
+CREATE  src/pages/Tasks.tsx                    ← Global tasks page
+CREATE  src/lib/exportExcel.ts                 ← xlsx export utility
+MODIFY  src/components/crm/CompanyProfile.tsx  ← Inject SalesChart above the table
+MODIFY  src/App.tsx                            ← Add /tareas route
+MODIFY  src/components/Layout.tsx              ← Add "Tareas" nav item
+MODIFY  src/pages/Index.tsx                    ← Add Exportar tab (index 5)
+```
 
+---
+
+### Implementation details
+
+**SalesChart** (`recharts` already installed)
+- `ResponsiveContainer` + `BarChart` with one `Bar` for COP sales per year.
+- Custom `Tooltip` formatting values with `formatCOP`.
+- A second `Line` (or colored bar fill) can encode YoY sign (green/red) per bar.
+- Placed between the summary metric cards and the year-by-year table.
+
+**Tasks page** (`/tareas`)
+- Reads `companies` from `useCRM()` and flattens all `company.tasks`.
+- Four counters at top: Total, Pendientes, Vencidas (pending + dueDate < today), Completadas.
+- Tab selector for filter; sorted by due date ascending.
+- Each row: company name (clickable → navigates to `/empresa/:id`), task title, due date badge (red if overdue), inline "Completar" button calling `updateTask`.
+- Nav item added to `Layout.tsx` with `CheckSquare` icon.
+
+**Excel export** (`xlsx` already installed)
+- `exportCompaniesToExcel(companies, activeYear)` in `src/lib/exportExcel.ts`.
+- Builds flat rows: trade/legal name, NIT, category, vertical, city, activity, website, exports USD, one column per sales year (auto-detected), avg YoY %, last YoY %, primary contact name/role/email/phone/gender.
+- `xlsx.utils.json_to_sheet` → `book_append_sheet` → `writeFile` triggers browser download.
+- New tab in `ExpandableTabs` at index 5 (`Download` icon, title "Exportar").
