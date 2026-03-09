@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { PortfolioOffer } from '@/types/portfolio';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -12,15 +12,33 @@ import OfferFormDialog from '@/components/portfolio/OfferFormDialog';
 import PipelineBoard from '@/components/portfolio/PipelineBoard';
 import { Skeleton } from '@/components/ui/skeleton';
 
+const PIPELINE_STATE_KEY = 'portafolio_viewing_pipeline';
+
 export default function Portafolio() {
   const { offers, categories, loading, getStagesForOffer, getEntriesForOffer } = usePortfolio();
-  const [tab, setTab] = useState<'oferta' | 'pipeline'>('oferta');
+  const [tab, setTab] = useState<'oferta' | 'pipeline'>(() => {
+    return sessionStorage.getItem(PIPELINE_STATE_KEY) ? 'pipeline' : 'oferta';
+  });
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterType, setFilterType] = useState('');
   const [formOpen, setFormOpen] = useState(false);
   const [editingOffer, setEditingOffer] = useState<PortfolioOffer | undefined>();
   const [viewingPipeline, setViewingPipeline] = useState<PortfolioOffer | null>(null);
+
+  // Restore pipeline view from sessionStorage after offers load
+  useEffect(() => {
+    if (loading || offers.length === 0) return;
+    const savedId = sessionStorage.getItem(PIPELINE_STATE_KEY);
+    if (savedId) {
+      const found = offers.find(o => o.id === savedId);
+      if (found) {
+        setViewingPipeline(found);
+      } else {
+        sessionStorage.removeItem(PIPELINE_STATE_KEY);
+      }
+    }
+  }, [loading, offers]);
 
   const filteredOffers = offers.filter(o => {
     if (search && !o.name.toLowerCase().includes(search.toLowerCase())) return false;
@@ -36,7 +54,13 @@ export default function Portafolio() {
 
   const handleViewPipeline = (offer: PortfolioOffer) => {
     setViewingPipeline(offer);
+    sessionStorage.setItem(PIPELINE_STATE_KEY, offer.id);
     setTab('pipeline');
+  };
+
+  const handleClosePipeline = () => {
+    setViewingPipeline(null);
+    sessionStorage.removeItem(PIPELINE_STATE_KEY);
   };
 
   const handleCloseForm = () => {
@@ -46,7 +70,7 @@ export default function Portafolio() {
 
   // If viewing a specific pipeline
   if (viewingPipeline) {
-    return <PipelineBoard offer={viewingPipeline} onBack={() => setViewingPipeline(null)} />;
+    return <PipelineBoard offer={viewingPipeline} onBack={handleClosePipeline} />;
   }
 
   return (
