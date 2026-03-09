@@ -1,10 +1,11 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { OfferCategory, PortfolioOffer, PipelineStage, PipelineEntry } from '@/types/portfolio';
+import { OfferCategory, OfferType, PortfolioOffer, PipelineStage, PipelineEntry } from '@/types/portfolio';
 import { showSuccess, showError } from '@/lib/toast';
 
 interface PortfolioContextValue {
   categories: OfferCategory[];
+  offerTypes: OfferType[];
   offers: PortfolioOffer[];
   stages: PipelineStage[];
   entries: PipelineEntry[];
@@ -12,6 +13,9 @@ interface PortfolioContextValue {
 
   createCategory: (name: string, color: string) => Promise<OfferCategory | null>;
   deleteCategory: (id: string) => Promise<void>;
+
+  createOfferType: (name: string) => Promise<OfferType | null>;
+  deleteOfferType: (id: string) => Promise<void>;
 
   createOffer: (data: Omit<PortfolioOffer, 'id' | 'createdAt' | 'updatedAt' | 'category' | 'stages'>) => Promise<PortfolioOffer | null>;
   updateOffer: (id: string, data: Partial<PortfolioOffer>) => Promise<void>;
@@ -36,6 +40,7 @@ const PortfolioContext = createContext<PortfolioContextValue | null>(null);
 
 export function PortfolioProvider({ children }: { children: ReactNode }) {
   const [categories, setCategories] = useState<OfferCategory[]>([]);
+  const [offerTypes, setOfferTypes] = useState<OfferType[]>([]);
   const [offers, setOffers] = useState<PortfolioOffer[]>([]);
   const [stages, setStages] = useState<PipelineStage[]>([]);
   const [entries, setEntries] = useState<PipelineEntry[]>([]);
@@ -44,8 +49,9 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [catRes, offRes, stgRes, entRes] = await Promise.all([
+      const [catRes, typRes, offRes, stgRes, entRes] = await Promise.all([
         supabase.from('portfolio_offer_categories').select('*').order('display_order'),
+        supabase.from('portfolio_offer_types').select('*').order('created_at'),
         supabase.from('portfolio_offers').select('*').order('created_at', { ascending: false }),
         supabase.from('pipeline_stages').select('*').order('display_order'),
         supabase.from('pipeline_entries').select('*').order('created_at'),
@@ -56,9 +62,13 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
         displayOrder: r.display_order, createdAt: r.created_at,
       })));
 
+      if (typRes.data) setOfferTypes(typRes.data.map(r => ({
+        id: r.id, name: r.name, createdAt: r.created_at,
+      })));
+
       if (offRes.data) setOffers(offRes.data.map(r => ({
         id: r.id, name: r.name, description: r.description,
-        type: r.type as any, categoryId: r.category_id,
+        type: r.type, categoryId: r.category_id,
         startDate: r.start_date, endDate: r.end_date,
         status: r.status as any, createdAt: r.created_at, updatedAt: r.updated_at,
       })));
@@ -98,6 +108,23 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     setCategories(prev => prev.filter(c => c.id !== id));
   };
 
+  // Offer types
+  const createOfferType = async (name: string): Promise<OfferType | null> => {
+    const { data, error } = await supabase
+      .from('portfolio_offer_types')
+      .insert({ name })
+      .select().single();
+    if (error || !data) { showError('Error', 'No se pudo crear el tipo'); return null; }
+    const t: OfferType = { id: data.id, name: data.name, createdAt: data.created_at };
+    setOfferTypes(prev => [...prev, t]);
+    return t;
+  };
+
+  const deleteOfferType = async (id: string) => {
+    await supabase.from('portfolio_offer_types').delete().eq('id', id);
+    setOfferTypes(prev => prev.filter(t => t.id !== id));
+  };
+
   // Offers
   const createOffer = async (data: Omit<PortfolioOffer, 'id' | 'createdAt' | 'updatedAt' | 'category' | 'stages'>): Promise<PortfolioOffer | null> => {
     const { data: row, error } = await supabase
@@ -112,7 +139,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
 
     const offer: PortfolioOffer = {
       id: row.id, name: row.name, description: row.description,
-      type: row.type as any, categoryId: row.category_id,
+      type: row.type, categoryId: row.category_id,
       startDate: row.start_date, endDate: row.end_date,
       status: row.status as any, createdAt: row.created_at, updatedAt: row.updated_at,
     };
@@ -183,7 +210,6 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteStage = async (id: string, offerId: string) => {
-    // Move entries from deleted stage to the first remaining stage
     const remaining = stages.filter(s => s.offerId === offerId && s.id !== id).sort((a, b) => a.displayOrder - b.displayOrder);
     if (remaining.length > 0) {
       await supabase.from('pipeline_entries').update({ stage_id: remaining[0].id }).eq('stage_id', id);
@@ -242,8 +268,9 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
 
   return (
     <PortfolioContext.Provider value={{
-      categories, offers, stages, entries, loading,
+      categories, offerTypes, offers, stages, entries, loading,
       createCategory, deleteCategory,
+      createOfferType, deleteOfferType,
       createOffer, updateOffer, deleteOffer,
       getStagesForOffer, createStage, updateStage, deleteStage, reorderStages,
       getEntriesForOffer, addCompanyToStage, moveCompanyToStage, removeEntry, isCompanyInOffer,

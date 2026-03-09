@@ -6,14 +6,19 @@ export interface OfferCategory {
   createdAt: string;
 }
 
-export type OfferType = 'product' | 'service';
+export interface OfferType {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
 export type OfferStatus = 'active' | 'inactive' | 'draft';
 
 export interface PortfolioOffer {
   id: string;
   name: string;
   description: string;
-  type: OfferType;
+  type: string; // now a free string matching OfferType.name
   categoryId: string | null;
   category?: OfferCategory;
   startDate: string | null;
