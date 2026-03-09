@@ -137,14 +137,39 @@ export default function Portafolio() {
         </TabsContent>
 
         <TabsContent value="pipeline" className="space-y-4">
-          <div className="rounded-lg border border-border/60 bg-card p-6">
-            <div className="flex flex-col items-center justify-center text-center">
-              <GitBranch className="h-10 w-10 text-muted-foreground/30 mb-3" />
-              <h3 className="text-sm font-medium mb-1">Selecciona una oferta</h3>
-              <p className="text-xs text-muted-foreground mb-4">Elige una oferta desde el tab "Oferta" para ver su pipeline</p>
-              <Button variant="outline" size="sm" onClick={() => setTab('oferta')}>Ver ofertas</Button>
+          {offers.length === 0 ? (
+            <div className="rounded-lg border border-border/60 bg-card p-6">
+              <div className="flex flex-col items-center justify-center text-center">
+                <GitBranch className="h-10 w-10 text-muted-foreground/30 mb-3" />
+                <h3 className="text-sm font-medium mb-1">No hay ofertas</h3>
+                <p className="text-xs text-muted-foreground mb-4">Crea una oferta primero para ver su pipeline</p>
+                <Button variant="outline" size="sm" onClick={() => { setTab('oferta'); setFormOpen(true); }}>Crear oferta</Button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {offers.map(offer => {
+                const stageCount = getStagesForOffer(offer.id).length;
+                const entryCount = getEntriesForOffer(offer.id).length;
+                return (
+                  <button
+                    key={offer.id}
+                    onClick={() => setViewingPipeline(offer)}
+                    className="flex items-center gap-3 rounded-lg border border-border/60 bg-card p-4 text-left transition-all hover:border-primary/30 hover:shadow-sm"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                      <GitBranch className="h-4 w-4 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold">{offer.name}</p>
+                      <p className="text-xs text-muted-foreground">{stageCount} etapas · {entryCount} empresas</p>
+                    </div>
+                    <Badge variant="secondary" className="shrink-0 text-[10px]">{offer.type === 'product' ? 'Producto' : 'Servicio'}</Badge>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
