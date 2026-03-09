@@ -49,15 +49,6 @@ export default function Index() {
     { title: 'Exportar', icon: Download },
   ];
 
-  const handleDashboardTab = useCallback((index: number | null) => {
-    if (index === null) return;
-    if (index === 0) setView('grid');
-    else if (index === 1) setView('table');
-    else if (index === 3) setBulkOpen(true);
-    else if (index === 4) setFormOpen(true);
-    else if (index === 5) exportCompaniesToExcel(filtered, filters.activeYear);
-  }, [filtered, filters.activeYear]);
-
   const filtered = useMemo(() => {
     const result = companies.filter(c => {
       if (filters.search) {
