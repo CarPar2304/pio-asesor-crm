@@ -485,6 +485,24 @@ export type Database = {
         }
         Relationships: []
       }
+      portfolio_offer_types: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       portfolio_offers: {
         Row: {
           category_id: string | null
