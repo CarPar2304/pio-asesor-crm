@@ -128,6 +128,9 @@ export default function CompanyCard({ company, onOpenProfile, onQuickAction, onD
                 onQuickAction(types[index], company.id);
               }}
             />
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={() => setPipelineOpen(true)} title="Agregar a pipeline">
+              <GitBranch className="h-3.5 w-3.5" />
+            </Button>
             {onDelete && (
               <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => { if (confirm(`¿Eliminar "${company.tradeName}"?`)) onDelete(company.id); }} title="Eliminar empresa">
                 <Trash2 className="h-3.5 w-3.5" />
@@ -136,6 +139,8 @@ export default function CompanyCard({ company, onOpenProfile, onQuickAction, onD
           </div>
         </div>
       </CardFooter>
+
+      <AddToPipelineDialog open={pipelineOpen} onClose={() => setPipelineOpen(false)} companyId={company.id} companyName={company.tradeName} />
     </Card>
   );
 }
