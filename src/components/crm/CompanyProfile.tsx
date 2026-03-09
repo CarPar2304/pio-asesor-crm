@@ -24,6 +24,7 @@ interface Props {
 export default function CompanyProfile({ company, onBack }: Props) {
   const [quickAction, setQuickAction] = useState<'action' | 'task' | 'milestone' | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [pipelineOpen, setPipelineOpen] = useState(false);
   const { sections, fields } = useCustomFields();
   const { deleteCompany } = useCRM();
 
