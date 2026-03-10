@@ -97,13 +97,11 @@ export default function AddCompaniesToPipelineDialog({ open, onClose, offerId }:
     if (salesMin && salesM < Number(salesMin)) return false;
     if (salesMax && salesM > Number(salesMax)) return false;
 
-    const avgYoY = calculateAvgYoY(c.salesByYear);
-    if (avgYoYMin && (avgYoY === null || avgYoY < Number(avgYoYMin))) return false;
-    if (avgYoYMax && (avgYoY === null || avgYoY > Number(avgYoYMax))) return false;
-
-    const lastYoY = calculateLastYoY(c.salesByYear);
-    if (lastYoYMin && (lastYoY === null || lastYoY < Number(lastYoYMin))) return false;
-    if (lastYoYMax && (lastYoY === null || lastYoY > Number(lastYoYMax))) return false;
+    const growth = calculateGrowth(c.salesByYear);
+    if (avgYoYMin && (growth.avgYoY === null || growth.avgYoY < Number(avgYoYMin))) return false;
+    if (avgYoYMax && (growth.avgYoY === null || growth.avgYoY > Number(avgYoYMax))) return false;
+    if (lastYoYMin && (growth.lastYoY === null || growth.lastYoY < Number(lastYoYMin))) return false;
+    if (lastYoYMax && (growth.lastYoY === null || growth.lastYoY > Number(lastYoYMax))) return false;
 
     // Custom field filters
     for (const [fieldId, val] of Object.entries(customFieldFilters)) {
