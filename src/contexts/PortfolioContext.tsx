@@ -143,7 +143,8 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
 
     const offer: PortfolioOffer = {
       id: row.id, name: row.name, description: row.description,
-      type: row.type, categoryId: row.category_id,
+      type: row.type, product: (row as any).product || '',
+      categoryId: row.category_id,
       startDate: row.start_date, endDate: row.end_date,
       status: row.status as any, createdAt: row.created_at, updatedAt: row.updated_at,
     };
