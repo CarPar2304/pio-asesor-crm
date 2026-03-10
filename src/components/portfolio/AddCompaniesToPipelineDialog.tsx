@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCRM } from '@/contexts/CRMContext';
+import { VERTICALS, CITIES } from '@/types/crm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Search, Building2, Check } from 'lucide-react';
+import { Search, Check, X } from 'lucide-react';
 
 interface Props {
   open: boolean;
@@ -18,6 +19,9 @@ export default function AddCompaniesToPipelineDialog({ open, onClose, offerId }:
   const { getStagesForOffer, addCompanyToStage, isCompanyInOffer } = usePortfolio();
   const { companies } = useCRM();
   const [search, setSearch] = useState('');
+  const [filterCategory, setFilterCategory] = useState('');
+  const [filterVertical, setFilterVertical] = useState('');
+  const [filterCity, setFilterCity] = useState('');
   const [selectedStageId, setSelectedStageId] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
@@ -25,10 +29,25 @@ export default function AddCompaniesToPipelineDialog({ open, onClose, offerId }:
   const stages = getStagesForOffer(offerId);
   const defaultStageId = stages[0]?.id ?? '';
 
-  const filtered = companies.filter(c =>
-    (c.tradeName.toLowerCase().includes(search.toLowerCase()) ||
-     c.legalName.toLowerCase().includes(search.toLowerCase()))
-  );
+  // Derive unique values from companies
+  const uniqueVerticals = useMemo(() => [...new Set(companies.map(c => c.vertical).filter(Boolean))].sort(), [companies]);
+  const uniqueCities = useMemo(() => [...new Set(companies.map(c => c.city).filter(Boolean))].sort(), [companies]);
+
+  const filtered = useMemo(() => companies.filter(c => {
+    if (search && !c.tradeName.toLowerCase().includes(search.toLowerCase()) && !c.legalName.toLowerCase().includes(search.toLowerCase())) return false;
+    if (filterCategory && c.category !== filterCategory) return false;
+    if (filterVertical && c.vertical !== filterVertical) return false;
+    if (filterCity && c.city !== filterCity) return false;
+    return true;
+  }), [companies, search, filterCategory, filterVertical, filterCity]);
+
+  const hasFilters = filterCategory || filterVertical || filterCity;
+
+  const clearFilters = () => {
+    setFilterCategory('');
+    setFilterVertical('');
+    setFilterCity('');
+  };
 
   const toggle = (id: string) => {
     setSelectedIds(prev => {
@@ -77,6 +96,47 @@ export default function AddCompaniesToPipelineDialog({ open, onClose, offerId }:
             <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar empresas..." className="pl-9" />
           </div>
 
+          {/* Filters */}
+          <div className="flex flex-wrap gap-2">
+            <Select value={filterCategory || 'all'} onValueChange={v => setFilterCategory(v === 'all' ? '' : v)}>
+              <SelectTrigger className="h-8 w-[120px] text-xs">
+                <SelectValue placeholder="Categoría" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Categoría</SelectItem>
+                <SelectItem value="EBT">EBT</SelectItem>
+                <SelectItem value="Startup">Startup</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterVertical || 'all'} onValueChange={v => setFilterVertical(v === 'all' ? '' : v)}>
+              <SelectTrigger className="h-8 w-[130px] text-xs">
+                <SelectValue placeholder="Vertical" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Vertical</SelectItem>
+                {uniqueVerticals.map(v => (
+                  <SelectItem key={v} value={v}>{v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filterCity || 'all'} onValueChange={v => setFilterCity(v === 'all' ? '' : v)}>
+              <SelectTrigger className="h-8 w-[120px] text-xs">
+                <SelectValue placeholder="Ciudad" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Ciudad</SelectItem>
+                {uniqueCities.map(c => (
+                  <SelectItem key={c} value={c}>{c}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {hasFilters && (
+              <Button variant="ghost" size="sm" className="h-8 px-2 text-xs gap-1" onClick={clearFilters}>
+                <X className="h-3 w-3" /> Limpiar
+              </Button>
+            )}
+          </div>
+
           {selectedIds.size > 0 && (
             <div className="text-xs text-muted-foreground">{selectedIds.size} empresa(s) seleccionada(s)</div>
           )}
@@ -99,9 +159,13 @@ export default function AddCompaniesToPipelineDialog({ open, onClose, offerId }:
                   <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors ${selected ? 'border-primary bg-primary' : 'border-border'}`}>
                     {selected && <Check className="h-3 w-3 text-primary-foreground" />}
                   </div>
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
-                    {company.tradeName.charAt(0)}
-                  </div>
+                  {company.logo ? (
+                    <img src={company.logo} alt="" className="h-8 w-8 shrink-0 rounded-md border border-border/40 object-contain bg-white p-0.5" />
+                  ) : (
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
+                      {company.tradeName.charAt(0)}
+                    </div>
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{company.tradeName}</p>
                     <p className="truncate text-xs text-muted-foreground">{company.vertical} · {company.city}</p>
@@ -110,6 +174,9 @@ export default function AddCompaniesToPipelineDialog({ open, onClose, offerId }:
                 </button>
               );
             })}
+            {filtered.length === 0 && (
+              <div className="text-center py-8 text-sm text-muted-foreground">No se encontraron empresas</div>
+            )}
           </div>
 
           <div className="flex justify-end gap-2 pt-1 border-t border-border/40">

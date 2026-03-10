@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 import { supabase } from '@/integrations/supabase/client';
 import { OfferCategory, OfferType, PortfolioOffer, PipelineStage, PipelineEntry } from '@/types/portfolio';
 import { showSuccess, showError } from '@/lib/toast';
+import { useAuth } from '@/hooks/useAuth';
 
 interface PortfolioContextValue {
   categories: OfferCategory[];
@@ -39,6 +40,7 @@ interface PortfolioContextValue {
 const PortfolioContext = createContext<PortfolioContextValue | null>(null);
 
 export function PortfolioProvider({ children }: { children: ReactNode }) {
+  const { session } = useAuth();
   const [categories, setCategories] = useState<OfferCategory[]>([]);
   const [offerTypes, setOfferTypes] = useState<OfferType[]>([]);
   const [offers, setOffers] = useState<PortfolioOffer[]>([]);
@@ -47,6 +49,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
+    if (!session) { setOffers([]); setStages([]); setEntries([]); setCategories([]); setOfferTypes([]); setLoading(false); return; }
     setLoading(true);
     try {
       const [catRes, typRes, offRes, stgRes, entRes] = await Promise.all([
@@ -66,9 +69,10 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
         id: r.id, name: r.name, createdAt: r.created_at,
       })));
 
-      if (offRes.data) setOffers(offRes.data.map(r => ({
+      if (offRes.data) setOffers(offRes.data.map((r: any) => ({
         id: r.id, name: r.name, description: r.description,
-        type: r.type, categoryId: r.category_id,
+        type: r.type, product: r.product || '',
+        categoryId: r.category_id,
         startDate: r.start_date, endDate: r.end_date,
         status: r.status as any, createdAt: r.created_at, updatedAt: r.updated_at,
       })));
@@ -86,7 +90,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [session]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -131,15 +135,17 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       .from('portfolio_offers')
       .insert({
         name: data.name, description: data.description, type: data.type,
+        product: (data as any).product || '',
         category_id: data.categoryId, start_date: data.startDate,
         end_date: data.endDate, status: data.status,
-      })
+      } as any)
       .select().single();
     if (error || !row) { showError('Error', 'No se pudo crear la oferta'); return null; }
 
     const offer: PortfolioOffer = {
       id: row.id, name: row.name, description: row.description,
-      type: row.type, categoryId: row.category_id,
+      type: row.type, product: (row as any).product || '',
+      categoryId: row.category_id,
       startDate: row.start_date, endDate: row.end_date,
       status: row.status as any, createdAt: row.created_at, updatedAt: row.updated_at,
     };
@@ -166,9 +172,10 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const updateOffer = async (id: string, data: Partial<PortfolioOffer>) => {
     const { error } = await supabase.from('portfolio_offers').update({
       name: data.name, description: data.description, type: data.type,
+      product: data.product || '',
       category_id: data.categoryId, start_date: data.startDate,
       end_date: data.endDate, status: data.status,
-    }).eq('id', id);
+    } as any).eq('id', id);
     if (error) { showError('Error', 'No se pudo actualizar la oferta'); return; }
     setOffers(prev => prev.map(o => o.id === id ? { ...o, ...data } : o));
     showSuccess('Oferta actualizada', '');
