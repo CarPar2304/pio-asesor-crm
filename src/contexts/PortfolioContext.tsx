@@ -89,7 +89,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [session]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
