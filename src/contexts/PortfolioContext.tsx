@@ -69,9 +69,10 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
         id: r.id, name: r.name, createdAt: r.created_at,
       })));
 
-      if (offRes.data) setOffers(offRes.data.map(r => ({
+      if (offRes.data) setOffers(offRes.data.map((r: any) => ({
         id: r.id, name: r.name, description: r.description,
-        type: r.type, categoryId: r.category_id,
+        type: r.type, product: r.product || '',
+        categoryId: r.category_id,
         startDate: r.start_date, endDate: r.end_date,
         status: r.status as any, createdAt: r.created_at, updatedAt: r.updated_at,
       })));
