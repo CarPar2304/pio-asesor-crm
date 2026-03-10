@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 import { supabase } from '@/integrations/supabase/client';
 import { OfferCategory, OfferType, PortfolioOffer, PipelineStage, PipelineEntry } from '@/types/portfolio';
 import { showSuccess, showError } from '@/lib/toast';
+import { useAuth } from '@/hooks/useAuth';
 
 interface PortfolioContextValue {
   categories: OfferCategory[];
