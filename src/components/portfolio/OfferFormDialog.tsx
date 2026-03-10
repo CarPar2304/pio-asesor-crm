@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { PortfolioOffer, OfferStatus } from '@/types/portfolio';
+import { PortfolioOffer, OfferStatus, PRODUCT_OPTIONS } from '@/types/portfolio';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,8 @@ export default function OfferFormDialog({ open, onClose, offer }: Props) {
   const { categories, offerTypes, createCategory, createOfferType, createOffer, updateOffer } = usePortfolio();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [product, setProduct] = useState('');
+  const [customProduct, setCustomProduct] = useState('');
   const [type, setType] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -39,6 +41,10 @@ export default function OfferFormDialog({ open, onClose, offer }: Props) {
     if (open) {
       setName(offer?.name ?? '');
       setDescription(offer?.description ?? '');
+      const offerProduct = offer?.product ?? '';
+      const isStandard = PRODUCT_OPTIONS.includes(offerProduct as any) || offerProduct === '';
+      setProduct(isStandard ? offerProduct : 'Otro');
+      setCustomProduct(isStandard ? '' : offerProduct);
       setType(offer?.type ?? (offerTypes[0]?.name || ''));
       setCategoryId(offer?.categoryId ?? '');
       setStartDate(offer?.startDate ?? '');
@@ -61,11 +67,14 @@ export default function OfferFormDialog({ open, onClose, offer }: Props) {
     if (t) { setType(t.name); setShowNewType(false); setNewTypeName(''); }
   };
 
+  const resolvedProduct = product === 'Otro' ? customProduct.trim() : product;
+
   const handleSubmit = async () => {
     if (!name.trim() || !type) return;
     setSaving(true);
     const payload = {
       name: name.trim(), description, type,
+      product: resolvedProduct,
       categoryId: categoryId || null,
       startDate: startDate || null, endDate: endDate || null, status,
     };
@@ -94,6 +103,24 @@ export default function OfferFormDialog({ open, onClose, offer }: Props) {
           <div className="space-y-1.5">
             <Label>Descripción</Label>
             <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Describe esta oferta..." rows={3} />
+          </div>
+
+          {/* Producto field */}
+          <div className="space-y-1.5">
+            <Label>Producto</Label>
+            <Select value={product || 'placeholder'} onValueChange={v => { setProduct(v === 'placeholder' ? '' : v); if (v !== 'Otro') setCustomProduct(''); }}>
+              <SelectTrigger>
+                <SelectValue placeholder="Seleccionar producto" />
+              </SelectTrigger>
+              <SelectContent>
+                {PRODUCT_OPTIONS.map(p => (
+                  <SelectItem key={p} value={p}>{p}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {product === 'Otro' && (
+              <Input value={customProduct} onChange={e => setCustomProduct(e.target.value)} placeholder="¿Cuál?" className="mt-1.5" />
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
