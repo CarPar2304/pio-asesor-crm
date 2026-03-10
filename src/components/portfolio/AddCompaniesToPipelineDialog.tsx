@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { FilterBadge } from '@/components/ui/filter-badge';
 import { Search, Check, X, SlidersHorizontal, Filter } from 'lucide-react';
-import { calculateAvgYoY, calculateLastYoY } from '@/lib/calculations';
+import { calculateGrowth } from '@/lib/calculations';
 
 interface Props {
   open: boolean;
