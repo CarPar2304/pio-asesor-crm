@@ -18,6 +18,7 @@ export interface PortfolioOffer {
   id: string;
   name: string;
   description: string;
+  product: string;
   type: string; // now a free string matching OfferType.name
   categoryId: string | null;
   category?: OfferCategory;
@@ -28,6 +29,8 @@ export interface PortfolioOffer {
   updatedAt: string;
   stages?: PipelineStage[];
 }
+
+export const PRODUCT_OPTIONS = ['Innovación', 'Inversión', 'Internacionalización', 'Otro'] as const;
 
 export interface PipelineStage {
   id: string;
