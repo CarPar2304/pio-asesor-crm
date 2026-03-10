@@ -134,9 +134,10 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       .from('portfolio_offers')
       .insert({
         name: data.name, description: data.description, type: data.type,
+        product: (data as any).product || '',
         category_id: data.categoryId, start_date: data.startDate,
         end_date: data.endDate, status: data.status,
-      })
+      } as any)
       .select().single();
     if (error || !row) { showError('Error', 'No se pudo crear la oferta'); return null; }
 
