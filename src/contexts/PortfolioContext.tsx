@@ -171,9 +171,10 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const updateOffer = async (id: string, data: Partial<PortfolioOffer>) => {
     const { error } = await supabase.from('portfolio_offers').update({
       name: data.name, description: data.description, type: data.type,
+      product: data.product || '',
       category_id: data.categoryId, start_date: data.startDate,
       end_date: data.endDate, status: data.status,
-    }).eq('id', id);
+    } as any).eq('id', id);
     if (error) { showError('Error', 'No se pudo actualizar la oferta'); return; }
     setOffers(prev => prev.map(o => o.id === id ? { ...o, ...data } : o));
     showSuccess('Oferta actualizada', '');
