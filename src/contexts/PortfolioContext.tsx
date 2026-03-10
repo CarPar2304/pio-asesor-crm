@@ -40,6 +40,7 @@ interface PortfolioContextValue {
 const PortfolioContext = createContext<PortfolioContextValue | null>(null);
 
 export function PortfolioProvider({ children }: { children: ReactNode }) {
+  const { session } = useAuth();
   const [categories, setCategories] = useState<OfferCategory[]>([]);
   const [offerTypes, setOfferTypes] = useState<OfferType[]>([]);
   const [offers, setOffers] = useState<PortfolioOffer[]>([]);
@@ -48,6 +49,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
+    if (!session) { setOffers([]); setStages([]); setEntries([]); setCategories([]); setOfferTypes([]); setLoading(false); return; }
     setLoading(true);
     try {
       const [catRes, typRes, offRes, stgRes, entRes] = await Promise.all([
