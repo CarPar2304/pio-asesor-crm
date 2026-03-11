@@ -227,15 +227,29 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
   }, [fetchAll, session]);
 
   const addTask = useCallback(async (companyId: string, task: CompanyTask) => {
-    await supabase.from('company_tasks').insert({
+    const { data } = await supabase.from('company_tasks').insert({
       company_id: companyId,
       title: task.title,
       description: task.description,
       status: task.status,
       due_date: task.dueDate,
-    });
+      created_by: session?.user.id,
+      assigned_to: task.assignedTo || session?.user.id,
+    }).select().single();
+
+    // Create notification if assigned to someone else
+    if (task.assignedTo && task.assignedTo !== session?.user.id) {
+      await supabase.from('notifications').insert({
+        user_id: task.assignedTo,
+        type: 'task_assigned',
+        title: 'Nueva tarea asignada',
+        message: `Te asignaron la tarea "${task.title}"`,
+        reference_id: data?.id,
+      });
+    }
+
     await fetchAll();
-  }, [fetchAll]);
+  }, [fetchAll, session]);
 
   const updateTask = useCallback(async (companyId: string, taskId: string, updates: Partial<CompanyTask>) => {
     const mapped: any = {};
