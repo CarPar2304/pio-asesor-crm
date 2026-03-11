@@ -65,7 +65,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     const milestonesByCompany = new Map<string, Milestone[]>();
     (milestonesRes.data || []).forEach((m: any) => {
       const list = milestonesByCompany.get(m.company_id) || [];
-      list.push({ id: m.id, type: m.type, title: m.title, description: m.description, date: m.date });
+      list.push({ id: m.id, type: m.type, title: m.title, description: m.description, date: m.date, createdBy: m.created_by });
       milestonesByCompany.set(m.company_id, list);
     });
 
