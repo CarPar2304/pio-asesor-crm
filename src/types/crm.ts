@@ -42,6 +42,7 @@ export interface CompanyAction {
   description: string;
   date: string;
   notes?: string;
+  createdBy?: string;
 }
 
 export interface Milestone {
