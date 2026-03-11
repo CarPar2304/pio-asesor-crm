@@ -51,6 +51,7 @@ export interface Milestone {
   title: string;
   description: string;
   date: string;
+  createdBy?: string;
 }
 
 export interface CompanyTask {
