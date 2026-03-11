@@ -221,9 +221,10 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       title: milestone.title,
       description: milestone.description,
       date: milestone.date,
+      created_by: session?.user.id,
     });
     await fetchAll();
-  }, [fetchAll]);
+  }, [fetchAll, session]);
 
   const addTask = useCallback(async (companyId: string, task: CompanyTask) => {
     await supabase.from('company_tasks').insert({
