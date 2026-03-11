@@ -72,6 +72,7 @@ export type Database = {
         Row: {
           company_id: string
           created_at: string
+          created_by: string | null
           date: string
           description: string
           id: string
@@ -81,6 +82,7 @@ export type Database = {
         Insert: {
           company_id: string
           created_at?: string
+          created_by?: string | null
           date?: string
           description?: string
           id?: string
@@ -90,6 +92,7 @@ export type Database = {
         Update: {
           company_id?: string
           created_at?: string
+          created_by?: string | null
           date?: string
           description?: string
           id?: string
@@ -108,9 +111,11 @@ export type Database = {
       }
       company_tasks: {
         Row: {
+          assigned_to: string | null
           company_id: string
           completed_date: string | null
           created_at: string
+          created_by: string | null
           description: string
           due_date: string
           id: string
@@ -118,9 +123,11 @@ export type Database = {
           title: string
         }
         Insert: {
+          assigned_to?: string | null
           company_id: string
           completed_date?: string | null
           created_at?: string
+          created_by?: string | null
           description?: string
           due_date?: string
           id?: string
@@ -128,9 +135,11 @@ export type Database = {
           title: string
         }
         Update: {
+          assigned_to?: string | null
           company_id?: string
           completed_date?: string | null
           created_at?: string
+          created_by?: string | null
           description?: string
           due_date?: string
           id?: string
@@ -340,6 +349,7 @@ export type Database = {
         Row: {
           company_id: string
           created_at: string
+          created_by: string | null
           date: string
           description: string
           id: string
@@ -349,6 +359,7 @@ export type Database = {
         Insert: {
           company_id: string
           created_at?: string
+          created_by?: string | null
           date?: string
           description?: string
           id?: string
@@ -358,6 +369,7 @@ export type Database = {
         Update: {
           company_id?: string
           created_at?: string
+          created_by?: string | null
           date?: string
           description?: string
           id?: string
@@ -373,6 +385,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          reference_id: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          reference_id?: string | null
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          reference_id?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       pipeline_entries: {
         Row: {
@@ -553,6 +598,42 @@ export type Database = {
           },
         ]
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          id: string
+          name: string
+          phone: string
+          position: string
+          segment: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string
+          position?: string
+          segment?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string
+          position?: string
+          segment?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       saved_views: {
         Row: {
           created_at: string
@@ -569,6 +650,24 @@ export type Database = {
         Update: {
           created_at?: string
           filters?: Json
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      segments: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
           id?: string
           name?: string
         }
