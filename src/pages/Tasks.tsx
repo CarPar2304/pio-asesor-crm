@@ -1,10 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCRM } from '@/contexts/CRMContext';
+import { useProfile } from '@/contexts/ProfileContext';
+import { useAuth } from '@/hooks/useAuth';
 import { CompanyTask } from '@/types/crm';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Dialog,
   DialogContent,
@@ -15,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Check, Pencil } from 'lucide-react';
 
 type TaskFilter = 'all' | 'pending' | 'overdue' | 'completed';
@@ -32,12 +36,27 @@ const isOverdueTask = (task: CompanyTask) => task.status === 'pending' && task.d
 export default function Tasks() {
   const navigate = useNavigate();
   const { companies, updateTask } = useCRM();
+  const { allProfiles } = useProfile();
+  const { session } = useAuth();
   const [filter, setFilter] = useState<TaskFilter>('all');
   const [editing, setEditing] = useState<TaskItem | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [status, setStatus] = useState<'pending' | 'completed'>('pending');
+  const [assignedTo, setAssignedTo] = useState('');
+
+  const getProfileName = (userId?: string) => {
+    if (!userId) return null;
+    const p = allProfiles.find(pr => pr.userId === userId);
+    return p?.name || p?.email || null;
+  };
+
+  const getProfileAvatar = (userId?: string) => {
+    if (!userId) return undefined;
+    const p = allProfiles.find(pr => pr.userId === userId);
+    return { url: p?.avatarUrl || undefined, initials: p?.name ? p.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : '?' };
+  };
 
   const allTasks = useMemo<TaskItem[]>(() => {
     return companies
@@ -77,6 +96,7 @@ export default function Tasks() {
     setDescription(item.task.description || '');
     setDueDate(item.task.dueDate);
     setStatus(item.task.status);
+    setAssignedTo(item.task.assignedTo || '');
   };
 
   const handleSave = async () => {
@@ -88,6 +108,7 @@ export default function Tasks() {
       dueDate,
       status,
       completedDate: status === 'completed' ? editing.task.completedDate || todayISO() : null,
+      assignedTo: assignedTo || undefined,
     });
 
     setEditing(null);
@@ -124,9 +145,11 @@ export default function Tasks() {
         ) : (
           filteredTasks.map((item) => {
             const overdue = isOverdueTask(item.task);
+            const avatar = getProfileAvatar(item.task.assignedTo);
+            const assigneeName = getProfileName(item.task.assignedTo);
             return (
               <div key={item.task.id} className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <button
                     onClick={() => navigate(`/empresa/${item.companyId}`)}
                     className="text-sm font-medium text-left hover:underline"
@@ -135,9 +158,18 @@ export default function Tasks() {
                   </button>
                   <p className="text-sm">{item.task.title}</p>
                   {item.task.description && <p className="text-xs text-muted-foreground">{item.task.description}</p>}
-                  <div className="mt-1 flex items-center gap-2">
+                  <div className="mt-1 flex items-center gap-2 flex-wrap">
                     <Badge variant={overdue ? 'destructive' : 'outline'}>{item.task.dueDate}</Badge>
                     {item.task.status === 'completed' && <Badge variant="secondary">Completada</Badge>}
+                    {assigneeName && (
+                      <div className="flex items-center gap-1.5">
+                        <Avatar className="h-5 w-5">
+                          <AvatarImage src={avatar?.url} />
+                          <AvatarFallback className="bg-primary/10 text-primary text-[9px]">{avatar?.initials}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-xs text-muted-foreground">{assigneeName}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -166,13 +198,26 @@ export default function Tasks() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Editar tarea</DialogTitle>
-            <DialogDescription>Actualiza título, fecha y estado de la tarea.</DialogDescription>
+            <DialogDescription>Actualiza título, fecha, responsable y estado de la tarea.</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3">
             <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título" />
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descripción" rows={4} />
             <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Responsable</label>
+              <Select value={assignedTo} onValueChange={setAssignedTo}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Seleccionar responsable" /></SelectTrigger>
+                <SelectContent>
+                  {allProfiles.map(p => (
+                    <SelectItem key={p.userId} value={p.userId}>
+                      {p.name || p.email || p.userId.slice(0, 8)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as 'pending' | 'completed')}
