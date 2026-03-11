@@ -42,6 +42,7 @@ export interface CompanyAction {
   description: string;
   date: string;
   notes?: string;
+  createdBy?: string;
 }
 
 export interface Milestone {
@@ -50,6 +51,7 @@ export interface Milestone {
   title: string;
   description: string;
   date: string;
+  createdBy?: string;
 }
 
 export interface CompanyTask {
@@ -59,6 +61,8 @@ export interface CompanyTask {
   status: TaskStatus;
   dueDate: string;
   completedDate?: string;
+  createdBy?: string;
+  assignedTo?: string;
 }
 
 export interface MetricByYear {

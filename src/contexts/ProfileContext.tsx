@@ -1,0 +1,183 @@
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+
+export interface UserProfile {
+  id: string;
+  userId: string;
+  name: string;
+  position: string;
+  phone: string;
+  segment: string;
+  avatarUrl: string | null;
+  email?: string;
+}
+
+export interface Segment {
+  id: string;
+  name: string;
+}
+
+export interface AppNotification {
+  id: string;
+  userId: string;
+  type: string;
+  title: string;
+  message: string;
+  referenceId: string | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
+interface ProfileContextType {
+  profile: UserProfile | null;
+  allProfiles: UserProfile[];
+  segments: Segment[];
+  notifications: AppNotification[];
+  unreadCount: number;
+  loading: boolean;
+  updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
+  addSegment: (name: string) => Promise<void>;
+  removeSegment: (id: string) => Promise<void>;
+  markNotificationRead: (id: string) => Promise<void>;
+  markAllRead: () => Promise<void>;
+  refreshNotifications: () => Promise<void>;
+  refreshProfiles: () => Promise<void>;
+}
+
+const ProfileContext = createContext<ProfileContextType | null>(null);
+
+export function ProfileProvider({ children }: { children: React.ReactNode }) {
+  const { session } = useAuth();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [allProfiles, setAllProfiles] = useState<UserProfile[]>([]);
+  const [segments, setSegments] = useState<Segment[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchProfiles = useCallback(async () => {
+    if (!session) return;
+    const [profilesRes, usersEmailMap] = await Promise.all([
+      supabase.from('profiles').select('*'),
+      supabase.from('profiles').select('user_id'),
+    ]);
+
+    // Get emails from auth - we'll use the profiles + user session
+    const profiles: UserProfile[] = (profilesRes.data || []).map((p: any) => ({
+      id: p.id,
+      userId: p.user_id,
+      name: p.name || '',
+      position: p.position || '',
+      phone: p.phone || '',
+      segment: p.segment || '',
+      avatarUrl: p.avatar_url,
+    }));
+
+    setAllProfiles(profiles);
+    const myProfile = profiles.find(p => p.userId === session.user.id);
+    if (myProfile) {
+      myProfile.email = session.user.email;
+      setProfile(myProfile);
+    }
+  }, [session]);
+
+  const fetchSegments = useCallback(async () => {
+    if (!session) return;
+    const { data } = await supabase.from('segments').select('*').order('name');
+    setSegments((data || []).map((s: any) => ({ id: s.id, name: s.name })));
+  }, [session]);
+
+  const fetchNotifications = useCallback(async () => {
+    if (!session) return;
+    const { data } = await supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(50);
+    setNotifications((data || []).map((n: any) => ({
+      id: n.id,
+      userId: n.user_id,
+      type: n.type,
+      title: n.title,
+      message: n.message,
+      referenceId: n.reference_id,
+      isRead: n.is_read,
+      createdAt: n.created_at,
+    })));
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) {
+      setProfile(null);
+      setAllProfiles([]);
+      setSegments([]);
+      setNotifications([]);
+      setLoading(false);
+      return;
+    }
+    Promise.all([fetchProfiles(), fetchSegments(), fetchNotifications()]).then(() => setLoading(false));
+  }, [session, fetchProfiles, fetchSegments, fetchNotifications]);
+
+  // Real-time notifications
+  useEffect(() => {
+    if (!session) return;
+    const channel = supabase
+      .channel('notifications-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${session.user.id}` }, () => {
+        fetchNotifications();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [session, fetchNotifications]);
+
+  const updateProfile = useCallback(async (updates: Partial<UserProfile>) => {
+    if (!session) return;
+    const mapped: any = {};
+    if (updates.name !== undefined) mapped.name = updates.name;
+    if (updates.position !== undefined) mapped.position = updates.position;
+    if (updates.phone !== undefined) mapped.phone = updates.phone;
+    if (updates.segment !== undefined) mapped.segment = updates.segment;
+    if (updates.avatarUrl !== undefined) mapped.avatar_url = updates.avatarUrl;
+    mapped.updated_at = new Date().toISOString();
+
+    await supabase.from('profiles').update(mapped).eq('user_id', session.user.id);
+    await fetchProfiles();
+  }, [session, fetchProfiles]);
+
+  const addSegment = useCallback(async (name: string) => {
+    await supabase.from('segments').insert({ name } as any);
+    await fetchSegments();
+  }, [fetchSegments]);
+
+  const removeSegment = useCallback(async (id: string) => {
+    await supabase.from('segments').delete().eq('id', id);
+    await fetchSegments();
+  }, [fetchSegments]);
+
+  const markNotificationRead = useCallback(async (id: string) => {
+    await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+  }, []);
+
+  const markAllRead = useCallback(async () => {
+    if (!session) return;
+    await supabase.from('notifications').update({ is_read: true }).eq('user_id', session.user.id).eq('is_read', false);
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+  }, [session]);
+
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  return (
+    <ProfileContext.Provider value={{
+      profile, allProfiles, segments, notifications, unreadCount, loading,
+      updateProfile, addSegment, removeSegment,
+      markNotificationRead, markAllRead,
+      refreshNotifications: fetchNotifications,
+      refreshProfiles: fetchProfiles,
+    }}>
+      {children}
+    </ProfileContext.Provider>
+  );
+}
+
+export function useProfile() {
+  const ctx = useContext(ProfileContext);
+  if (!ctx) throw new Error('useProfile must be used within ProfileProvider');
+  return ctx;
+}

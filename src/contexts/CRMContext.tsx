@@ -58,21 +58,21 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     const actionsByCompany = new Map<string, CompanyAction[]>();
     (actionsRes.data || []).forEach((a: any) => {
       const list = actionsByCompany.get(a.company_id) || [];
-      list.push({ id: a.id, type: a.type, description: a.description, date: a.date, notes: a.notes });
+      list.push({ id: a.id, type: a.type, description: a.description, date: a.date, notes: a.notes, createdBy: a.created_by });
       actionsByCompany.set(a.company_id, list);
     });
 
     const milestonesByCompany = new Map<string, Milestone[]>();
     (milestonesRes.data || []).forEach((m: any) => {
       const list = milestonesByCompany.get(m.company_id) || [];
-      list.push({ id: m.id, type: m.type, title: m.title, description: m.description, date: m.date });
+      list.push({ id: m.id, type: m.type, title: m.title, description: m.description, date: m.date, createdBy: m.created_by });
       milestonesByCompany.set(m.company_id, list);
     });
 
     const tasksByCompany = new Map<string, CompanyTask[]>();
     (tasksRes.data || []).forEach((t: any) => {
       const list = tasksByCompany.get(t.company_id) || [];
-      list.push({ id: t.id, title: t.title, description: t.description, status: t.status, dueDate: t.due_date, completedDate: t.completed_date });
+      list.push({ id: t.id, title: t.title, description: t.description, status: t.status, dueDate: t.due_date, completedDate: t.completed_date, createdBy: t.created_by, assignedTo: t.assigned_to });
       tasksByCompany.set(t.company_id, list);
     });
 
@@ -209,9 +209,10 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       description: action.description,
       date: action.date,
       notes: action.notes,
+      created_by: session?.user.id,
     });
     await fetchAll();
-  }, [fetchAll]);
+  }, [fetchAll, session]);
 
   const addMilestone = useCallback(async (companyId: string, milestone: Milestone) => {
     await supabase.from('milestones').insert({
@@ -220,20 +221,35 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       title: milestone.title,
       description: milestone.description,
       date: milestone.date,
+      created_by: session?.user.id,
     });
     await fetchAll();
-  }, [fetchAll]);
+  }, [fetchAll, session]);
 
   const addTask = useCallback(async (companyId: string, task: CompanyTask) => {
-    await supabase.from('company_tasks').insert({
+    const { data } = await supabase.from('company_tasks').insert({
       company_id: companyId,
       title: task.title,
       description: task.description,
       status: task.status,
       due_date: task.dueDate,
-    });
+      created_by: session?.user.id,
+      assigned_to: task.assignedTo || session?.user.id,
+    }).select().single();
+
+    // Create notification if assigned to someone else
+    if (task.assignedTo && task.assignedTo !== session?.user.id) {
+      await supabase.from('notifications').insert({
+        user_id: task.assignedTo,
+        type: 'task_assigned',
+        title: 'Nueva tarea asignada',
+        message: `Te asignaron la tarea "${task.title}"`,
+        reference_id: data?.id,
+      });
+    }
+
     await fetchAll();
-  }, [fetchAll]);
+  }, [fetchAll, session]);
 
   const updateTask = useCallback(async (companyId: string, taskId: string, updates: Partial<CompanyTask>) => {
     const mapped: any = {};
@@ -242,10 +258,26 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     if (Object.prototype.hasOwnProperty.call(updates, 'title')) mapped.title = updates.title;
     if (Object.prototype.hasOwnProperty.call(updates, 'description')) mapped.description = updates.description;
     if (Object.prototype.hasOwnProperty.call(updates, 'dueDate')) mapped.due_date = updates.dueDate;
+    if (Object.prototype.hasOwnProperty.call(updates, 'assignedTo')) mapped.assigned_to = updates.assignedTo;
 
+    // Check if reassigned to someone else
+    const oldTask = companies.flatMap(c => c.tasks).find(t => t.id === taskId);
+    const newAssignee = updates.assignedTo;
+    
     await supabase.from('company_tasks').update(mapped).eq('id', taskId);
+
+    if (newAssignee && newAssignee !== oldTask?.assignedTo && newAssignee !== session?.user.id) {
+      await supabase.from('notifications').insert({
+        user_id: newAssignee,
+        type: 'task_assigned',
+        title: 'Tarea reasignada',
+        message: `Te asignaron la tarea "${updates.title || oldTask?.title}"`,
+        reference_id: taskId,
+      });
+    }
+
     await fetchAll();
-  }, [fetchAll]);
+  }, [fetchAll, session, companies]);
 
   const addContact = useCallback(async (companyId: string, contact: Contact) => {
     await supabase.from('contacts').insert({

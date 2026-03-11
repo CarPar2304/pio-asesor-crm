@@ -1,9 +1,12 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Building2, Layers, BarChart3, ListChecks, LogOut } from 'lucide-react';
+import { Building2, Layers, BarChart3, ListChecks, LogOut, User } from 'lucide-react';
 import { InfiniteGridBackground } from '@/components/ui/the-infinite-grid';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useProfile } from '@/contexts/ProfileContext';
+import NotificationPanel from '@/components/NotificationPanel';
 import logoCCC from '@/assets/logo-ccc.png';
 
 const navItems = [
@@ -15,11 +18,14 @@ const navItems = [
 
 export default function Layout() {
   const navigate = useNavigate();
+  const { profile } = useProfile();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate('/login');
   };
+
+  const initials = profile?.name ? profile.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : '?';
 
   return (
     <div className="min-h-screen bg-background">
@@ -52,9 +58,21 @@ export default function Layout() {
               ))}
             </nav>
           </div>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={handleLogout} title="Cerrar sesión">
-            <LogOut className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <NotificationPanel />
+            <button
+              onClick={() => navigate('/perfil')}
+              className="flex items-center gap-2 rounded-md px-2 py-1 transition-colors hover:bg-muted"
+            >
+              <Avatar className="h-7 w-7">
+                <AvatarImage src={profile?.avatarUrl || undefined} />
+                <AvatarFallback className="bg-primary/10 text-primary text-xs">{initials}</AvatarFallback>
+              </Avatar>
+            </button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" onClick={handleLogout} title="Cerrar sesión">
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </header>
       <InfiniteGridBackground className="flex-1">

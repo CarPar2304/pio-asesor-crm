@@ -4,6 +4,8 @@ import { showSuccess } from '@/lib/toast';
 import { es } from 'date-fns/locale';
 import { CompanyAction, ActionType, Milestone, MilestoneType, CompanyTask, ACTION_TYPE_LABELS, MILESTONE_TYPE_LABELS } from '@/types/crm';
 import { useCRM } from '@/contexts/CRMContext';
+import { useProfile } from '@/contexts/ProfileContext';
+import { useAuth } from '@/hooks/useAuth';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -22,6 +24,8 @@ interface Props {
 
 export default function QuickActionDialog({ type, companyId, onClose }: Props) {
   const { addAction, addMilestone, addTask } = useCRM();
+  const { allProfiles } = useProfile();
+  const { session } = useAuth();
   const [date, setDate] = useState<Date>(new Date());
   const [dueDate, setDueDate] = useState<Date>(new Date());
   const [actionType, setActionType] = useState<ActionType>('meeting');
@@ -29,6 +33,7 @@ export default function QuickActionDialog({ type, companyId, onClose }: Props) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
+  const [assignedTo, setAssignedTo] = useState<string>('');
 
   const reset = () => {
     setDate(new Date());
@@ -38,6 +43,7 @@ export default function QuickActionDialog({ type, companyId, onClose }: Props) {
     setTitle('');
     setDescription('');
     setNotes('');
+    setAssignedTo('');
   };
 
   const handleSave = async () => {
@@ -68,6 +74,7 @@ export default function QuickActionDialog({ type, companyId, onClose }: Props) {
         description,
         status: 'pending',
         dueDate: format(dueDate, 'yyyy-MM-dd'),
+        assignedTo: assignedTo || session?.user.id,
       };
       await addTask(companyId, task);
       showSuccess('Tarea creada', `"${title}" creada exitosamente`);
@@ -164,6 +171,19 @@ export default function QuickActionDialog({ type, companyId, onClose }: Props) {
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Descripción</label>
                 <Textarea className="mt-1 text-sm" rows={2} value={description} onChange={e => setDescription(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">Responsable</label>
+                <Select value={assignedTo} onValueChange={setAssignedTo}>
+                  <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue placeholder="Seleccionar responsable" /></SelectTrigger>
+                  <SelectContent>
+                    {allProfiles.map(p => (
+                      <SelectItem key={p.userId} value={p.userId}>
+                        {p.name || p.email || p.userId.slice(0, 8)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Fecha de vencimiento</label>
