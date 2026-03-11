@@ -61,6 +61,8 @@ export interface CompanyTask {
   status: TaskStatus;
   dueDate: string;
   completedDate?: string;
+  createdBy?: string;
+  assignedTo?: string;
 }
 
 export interface MetricByYear {
