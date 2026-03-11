@@ -6,6 +6,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { CRMProvider } from "@/contexts/CRMContext";
 import { CustomFieldsProvider } from "@/contexts/CustomFieldsContext";
 import { PortfolioProvider } from "@/contexts/PortfolioContext";
+import { ProfileProvider } from "@/contexts/ProfileContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Layout from "@/components/Layout";
 import Index from "./pages/Index";
@@ -13,6 +14,7 @@ import CompanyProfilePage from "./pages/CompanyProfilePage";
 import Tasks from "./pages/Tasks";
 import Portafolio from "./pages/Portafolio";
 import Stats from "./pages/Stats";
+import ProfilePage from "./pages/ProfilePage";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -22,6 +24,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
+        <ProfileProvider>
         <CRMProvider>
           <CustomFieldsProvider>
           <PortfolioProvider>
@@ -35,6 +38,7 @@ const App = () => (
                 <Route path="/tareas" element={<Tasks />} />
                 <Route path="/portafolio" element={<Portafolio />} />
                 <Route path="/stats" element={<Stats />} />
+                <Route path="/perfil" element={<ProfilePage />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
@@ -42,6 +46,7 @@ const App = () => (
           </PortfolioProvider>
           </CustomFieldsProvider>
         </CRMProvider>
+        </ProfileProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
