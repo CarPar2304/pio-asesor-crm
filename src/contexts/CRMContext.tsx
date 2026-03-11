@@ -258,10 +258,26 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     if (Object.prototype.hasOwnProperty.call(updates, 'title')) mapped.title = updates.title;
     if (Object.prototype.hasOwnProperty.call(updates, 'description')) mapped.description = updates.description;
     if (Object.prototype.hasOwnProperty.call(updates, 'dueDate')) mapped.due_date = updates.dueDate;
+    if (Object.prototype.hasOwnProperty.call(updates, 'assignedTo')) mapped.assigned_to = updates.assignedTo;
 
+    // Check if reassigned to someone else
+    const oldTask = companies.flatMap(c => c.tasks).find(t => t.id === taskId);
+    const newAssignee = updates.assignedTo;
+    
     await supabase.from('company_tasks').update(mapped).eq('id', taskId);
+
+    if (newAssignee && newAssignee !== oldTask?.assignedTo && newAssignee !== session?.user.id) {
+      await supabase.from('notifications').insert({
+        user_id: newAssignee,
+        type: 'task_assigned',
+        title: 'Tarea reasignada',
+        message: `Te asignaron la tarea "${updates.title || oldTask?.title}"`,
+        reference_id: taskId,
+      });
+    }
+
     await fetchAll();
-  }, [fetchAll]);
+  }, [fetchAll, session, companies]);
 
   const addContact = useCallback(async (companyId: string, contact: Contact) => {
     await supabase.from('contacts').insert({
