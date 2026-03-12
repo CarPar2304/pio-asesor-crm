@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCRM } from '@/contexts/CRMContext';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
-import { VERTICALS, CITIES } from '@/types/crm';
+import { VERTICALS, CITIES, CATEGORIES } from '@/types/crm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
