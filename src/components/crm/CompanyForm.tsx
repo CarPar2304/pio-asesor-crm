@@ -343,7 +343,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
-    tradeName: '', legalName: '', nit: '', category: 'Startup' as 'EBT' | 'Startup',
+    tradeName: '', legalName: '', nit: '', category: 'Startup',
     vertical: '', subVertical: '', description: '', city: '', customCity: '', exportsUSD: 0, website: '',
   });
   const [salesByYear, setSalesByYear] = useState<Record<number, string>>({});
