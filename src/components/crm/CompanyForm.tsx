@@ -141,10 +141,14 @@ function useGlobalVerticals() {
   return useMemo(() => {
     const extraVerticals = new Set<string>();
     const extraSubVerticals: Record<string, Set<string>> = {};
+    const extraCategories = new Set<string>();
 
     companies.forEach(c => {
       if (c.vertical && !VERTICALS.includes(c.vertical)) {
         extraVerticals.add(c.vertical);
+      }
+      if (c.category && !CATEGORIES.includes(c.category)) {
+        extraCategories.add(c.category);
       }
       if (c.vertical && c.economicActivity) {
         const defaults = DEFAULT_SUB_VERTICALS[c.vertical] || [];
@@ -156,6 +160,7 @@ function useGlobalVerticals() {
     });
 
     const allVerticals = [...VERTICALS, ...Array.from(extraVerticals).filter(v => !VERTICALS.includes(v))];
+    const allCategories = [...CATEGORIES, ...Array.from(extraCategories).filter(c => !CATEGORIES.includes(c))];
 
     const getSubVerticals = (vertical: string) => {
       const defaults = DEFAULT_SUB_VERTICALS[vertical] || [];
@@ -163,7 +168,7 @@ function useGlobalVerticals() {
       return [...defaults, ...extras.filter(e => !defaults.includes(e)), 'Otra'];
     };
 
-    return { allVerticals, getSubVerticals };
+    return { allVerticals, allCategories, getSubVerticals };
   }, [companies]);
 }
 
