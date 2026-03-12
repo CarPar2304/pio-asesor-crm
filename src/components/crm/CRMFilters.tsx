@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { FilterState, SavedView, VERTICALS, CITIES, DEFAULT_FILTERS, SortField, SortDirection } from '@/types/crm';
+import { FilterState, SavedView, VERTICALS, CITIES, CATEGORIES, DEFAULT_FILTERS, SortField, SortDirection } from '@/types/crm';
 import { useCRM } from '@/contexts/CRMContext';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { Input } from '@/components/ui/input';
