@@ -200,7 +200,7 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
           tradeName: r.tradeName,
           legalName: r.legalName,
           nit: r.nit,
-          category: r.category as 'EBT' | 'Startup',
+          category: r.category,
           vertical: r.vertical,
           economicActivity: r.economicActivity,
           description: r.description,
