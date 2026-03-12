@@ -616,13 +616,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
             <Section title="Segmentación">
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Categoría">
-                  <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v as 'EBT' | 'Startup' }))}>
-                    <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="EBT">EBT</SelectItem>
-                      <SelectItem value="Startup">Startup</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <CreatableCombobox value={form.category} onChange={v => setForm(f => ({ ...f, category: v }))} options={allCategories} placeholder="Seleccionar categoría..." />
                 </Field>
                 <Field label="Vertical">
                   <CreatableCombobox value={form.vertical} onChange={v => setForm(f => ({ ...f, vertical: v, subVertical: '' }))} options={allVerticals} />
