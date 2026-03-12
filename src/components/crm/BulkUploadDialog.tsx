@@ -157,7 +157,7 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
             tradeName,
             legalName: String(r[1] || '').trim(),
             nit,
-            category: ['EBT', 'Startup'].includes(category) ? category : 'Startup',
+            category: category || 'Startup',
             vertical: String(r[4] || '').trim(),
             economicActivity: String(r[5] || '').trim(),
             description: String(r[6] || '').trim(),
