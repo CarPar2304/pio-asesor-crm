@@ -1,4 +1,6 @@
-export type CompanyCategory = 'EBT' | 'Startup';
+export type CompanyCategory = string;
+
+export const CATEGORIES = ['EBT', 'Startup'];
 
 export type ActionType = 'call' | 'meeting' | 'email' | 'mentoring' | 'diagnostic' | 'routing' | 'other';
 

@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCRM } from '@/contexts/CRMContext';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
-import { VERTICALS, CITIES } from '@/types/crm';
+import { VERTICALS, CITIES, CATEGORIES } from '@/types/crm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -64,19 +64,22 @@ export default function AddCompaniesToPipelineDialog({ open, onClose, offerId }:
     });
   };
 
-  const { uniqueVerticals, uniqueSubVerticals, uniqueCities } = useMemo(() => {
+  const { uniqueVerticals, uniqueSubVerticals, uniqueCities, uniqueCategories } = useMemo(() => {
     const vertSet = new Set<string>(VERTICALS);
     const citySet = new Set<string>(CITIES);
     const subVertSet = new Set<string>();
+    const catSet = new Set<string>(CATEGORIES);
     companies.forEach(c => {
       if (c.vertical) vertSet.add(c.vertical);
       if (c.city) citySet.add(c.city);
       if (c.economicActivity) subVertSet.add(c.economicActivity);
+      if (c.category) catSet.add(c.category);
     });
     return {
       uniqueVerticals: Array.from(vertSet).sort(),
       uniqueSubVerticals: Array.from(subVertSet).sort(),
       uniqueCities: Array.from(citySet).sort(),
+      uniqueCategories: Array.from(catSet).sort(),
     };
   }, [companies]);
 
@@ -198,8 +201,7 @@ export default function AddCompaniesToPipelineDialog({ open, onClose, offerId }:
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Categoría</SelectItem>
-                <SelectItem value="EBT">EBT</SelectItem>
-                <SelectItem value="Startup">Startup</SelectItem>
+                {uniqueCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
 

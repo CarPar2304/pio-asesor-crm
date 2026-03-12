@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Company, Contact, ContactGender, CustomFieldValue, CustomSection, CustomField, VERTICALS, CITIES, GENDER_LABELS, FIELD_TYPE_LABELS, CustomFieldType } from '@/types/crm';
+import { Company, Contact, ContactGender, CustomFieldValue, CustomSection, CustomField, VERTICALS, CITIES, CATEGORIES, GENDER_LABELS, FIELD_TYPE_LABELS, CustomFieldType } from '@/types/crm';
 import { useCRM } from '@/contexts/CRMContext';
 import { showSuccess } from '@/lib/toast';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
@@ -141,10 +141,14 @@ function useGlobalVerticals() {
   return useMemo(() => {
     const extraVerticals = new Set<string>();
     const extraSubVerticals: Record<string, Set<string>> = {};
+    const extraCategories = new Set<string>();
 
     companies.forEach(c => {
       if (c.vertical && !VERTICALS.includes(c.vertical)) {
         extraVerticals.add(c.vertical);
+      }
+      if (c.category && !CATEGORIES.includes(c.category)) {
+        extraCategories.add(c.category);
       }
       if (c.vertical && c.economicActivity) {
         const defaults = DEFAULT_SUB_VERTICALS[c.vertical] || [];
@@ -156,6 +160,7 @@ function useGlobalVerticals() {
     });
 
     const allVerticals = [...VERTICALS, ...Array.from(extraVerticals).filter(v => !VERTICALS.includes(v))];
+    const allCategories = [...CATEGORIES, ...Array.from(extraCategories).filter(c => !CATEGORIES.includes(c))];
 
     const getSubVerticals = (vertical: string) => {
       const defaults = DEFAULT_SUB_VERTICALS[vertical] || [];
@@ -163,7 +168,7 @@ function useGlobalVerticals() {
       return [...defaults, ...extras.filter(e => !defaults.includes(e)), 'Otra'];
     };
 
-    return { allVerticals, getSubVerticals };
+    return { allVerticals, allCategories, getSubVerticals };
   }, [companies]);
 }
 
@@ -332,13 +337,13 @@ function AddSectionDialog({ open, onClose, onAdd }: { open: boolean; onClose: ()
 
 export default function CompanyForm({ open, onClose, company }: Props) {
   const { addCompany, updateCompany, saveFieldValues } = useCRM();
-  const { allVerticals, getSubVerticals } = useGlobalVerticals();
+  const { allVerticals, allCategories, getSubVerticals } = useGlobalVerticals();
   const { sections, fields, addSection, addField, deleteSection, deleteField, updateField, updateSection } = useCustomFields();
   const isEdit = !!company;
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
-    tradeName: '', legalName: '', nit: '', category: 'Startup' as 'EBT' | 'Startup',
+    tradeName: '', legalName: '', nit: '', category: 'Startup',
     vertical: '', subVertical: '', description: '', city: '', customCity: '', exportsUSD: 0, website: '',
   });
   const [salesByYear, setSalesByYear] = useState<Record<number, string>>({});
@@ -611,13 +616,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
             <Section title="Segmentación">
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Categoría">
-                  <Select value={form.category} onValueChange={v => setForm(f => ({ ...f, category: v as 'EBT' | 'Startup' }))}>
-                    <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="EBT">EBT</SelectItem>
-                      <SelectItem value="Startup">Startup</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <CreatableCombobox value={form.category} onChange={v => setForm(f => ({ ...f, category: v }))} options={allCategories} placeholder="Seleccionar categoría..." />
                 </Field>
                 <Field label="Vertical">
                   <CreatableCombobox value={form.vertical} onChange={v => setForm(f => ({ ...f, vertical: v, subVertical: '' }))} options={allVerticals} />

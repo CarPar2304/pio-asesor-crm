@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { FilterState, SavedView, VERTICALS, CITIES, DEFAULT_FILTERS, SortField, SortDirection } from '@/types/crm';
+import { FilterState, SavedView, VERTICALS, CITIES, CATEGORIES, DEFAULT_FILTERS, SortField, SortDirection } from '@/types/crm';
 import { useCRM } from '@/contexts/CRMContext';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { Input } from '@/components/ui/input';
@@ -30,21 +30,24 @@ export default function CRMFilters({ filters, onChange }: Props) {
   const { sections, fields } = useCustomFields();
   const [viewName, setViewName] = useState('');
 
-  const { allVerticals, allCities, allSubVerticals } = useMemo(() => {
+  const { allVerticals, allCities, allSubVerticals, allCategories } = useMemo(() => {
     const vertSet = new Set<string>(VERTICALS);
     const citySet = new Set<string>(CITIES);
     const subVertSet = new Set<string>();
+    const catSet = new Set<string>(CATEGORIES);
 
     companies.forEach(c => {
       if (c.vertical) vertSet.add(c.vertical);
       if (c.city) citySet.add(c.city);
       if (c.economicActivity) subVertSet.add(c.economicActivity);
+      if (c.category) catSet.add(c.category);
     });
 
     return {
       allVerticals: Array.from(vertSet).sort((a, b) => a.localeCompare(b)),
       allCities: Array.from(citySet).sort((a, b) => a.localeCompare(b)),
       allSubVerticals: Array.from(subVertSet).sort((a, b) => a.localeCompare(b)),
+      allCategories: Array.from(catSet).sort((a, b) => a.localeCompare(b)),
     };
   }, [companies]);
 
@@ -110,8 +113,9 @@ export default function CRMFilters({ filters, onChange }: Props) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
             <DropdownMenuItem onClick={() => update({ category: '' })}>Todas</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => update({ category: 'EBT' })}>EBT</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => update({ category: 'Startup' })}>Startup</DropdownMenuItem>
+            {allCategories.map(cat => (
+              <DropdownMenuItem key={cat} onClick={() => update({ category: cat })}>{cat}</DropdownMenuItem>
+            ))}
           </DropdownMenuContent>
         </DropdownMenu>
 

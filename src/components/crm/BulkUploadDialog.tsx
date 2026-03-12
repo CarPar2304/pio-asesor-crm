@@ -120,7 +120,7 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
           const category = String(r[3] || '').trim();
 
           if (!tradeName) errors.push('Nombre comercial requerido');
-          if (category && !['EBT', 'Startup'].includes(category)) errors.push('Categoría inválida');
+          // Category is now free-form, no validation needed
 
           const hasValidNit = nit && nit !== '0';
           const isDuplicate = hasValidNit && (existingNits.has(nit) || seenNits.has(nit));
@@ -157,7 +157,7 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
             tradeName,
             legalName: String(r[1] || '').trim(),
             nit,
-            category: ['EBT', 'Startup'].includes(category) ? category : 'Startup',
+            category: category || 'Startup',
             vertical: String(r[4] || '').trim(),
             economicActivity: String(r[5] || '').trim(),
             description: String(r[6] || '').trim(),
@@ -200,7 +200,7 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
           tradeName: r.tradeName,
           legalName: r.legalName,
           nit: r.nit,
-          category: r.category as 'EBT' | 'Startup',
+          category: r.category,
           vertical: r.vertical,
           economicActivity: r.economicActivity,
           description: r.description,
