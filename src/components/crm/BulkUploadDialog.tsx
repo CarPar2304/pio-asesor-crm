@@ -120,7 +120,7 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
           const category = String(r[3] || '').trim();
 
           if (!tradeName) errors.push('Nombre comercial requerido');
-          if (category && !['EBT', 'Startup'].includes(category)) errors.push('Categoría inválida');
+          // Category is now free-form, no validation needed
 
           const hasValidNit = nit && nit !== '0';
           const isDuplicate = hasValidNit && (existingNits.has(nit) || seenNits.has(nit));

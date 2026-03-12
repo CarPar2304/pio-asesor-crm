@@ -64,19 +64,22 @@ export default function AddCompaniesToPipelineDialog({ open, onClose, offerId }:
     });
   };
 
-  const { uniqueVerticals, uniqueSubVerticals, uniqueCities } = useMemo(() => {
+  const { uniqueVerticals, uniqueSubVerticals, uniqueCities, uniqueCategories } = useMemo(() => {
     const vertSet = new Set<string>(VERTICALS);
     const citySet = new Set<string>(CITIES);
     const subVertSet = new Set<string>();
+    const catSet = new Set<string>(CATEGORIES);
     companies.forEach(c => {
       if (c.vertical) vertSet.add(c.vertical);
       if (c.city) citySet.add(c.city);
       if (c.economicActivity) subVertSet.add(c.economicActivity);
+      if (c.category) catSet.add(c.category);
     });
     return {
       uniqueVerticals: Array.from(vertSet).sort(),
       uniqueSubVerticals: Array.from(subVertSet).sort(),
       uniqueCities: Array.from(citySet).sort(),
+      uniqueCategories: Array.from(catSet).sort(),
     };
   }, [companies]);
 
