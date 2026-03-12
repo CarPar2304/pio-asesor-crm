@@ -113,8 +113,9 @@ export default function CRMFilters({ filters, onChange }: Props) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
             <DropdownMenuItem onClick={() => update({ category: '' })}>Todas</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => update({ category: 'EBT' })}>EBT</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => update({ category: 'Startup' })}>Startup</DropdownMenuItem>
+            {allCategories.map(cat => (
+              <DropdownMenuItem key={cat} onClick={() => update({ category: cat })}>{cat}</DropdownMenuItem>
+            ))}
           </DropdownMenuContent>
         </DropdownMenu>
 

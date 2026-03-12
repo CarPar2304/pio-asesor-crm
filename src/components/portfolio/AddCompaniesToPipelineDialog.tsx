@@ -198,8 +198,7 @@ export default function AddCompaniesToPipelineDialog({ open, onClose, offerId }:
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Categoría</SelectItem>
-                <SelectItem value="EBT">EBT</SelectItem>
-                <SelectItem value="Startup">Startup</SelectItem>
+                {uniqueCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
 
