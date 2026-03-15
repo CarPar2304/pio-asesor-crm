@@ -252,8 +252,4 @@ export default function AlliesSection() {
     </div>
   );
 
-  function getLinkedOffers(allyId: string) {
-    const offerIds = offerAllies.filter(oa => oa.allyId === allyId).map(oa => oa.offerId);
-    return offers.filter(o => offerIds.includes(o.id));
-  }
 }
