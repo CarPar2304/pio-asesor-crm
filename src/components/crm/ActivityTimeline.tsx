@@ -4,14 +4,15 @@ import { useCRM } from '@/contexts/CRMContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Phone, Flag, CheckSquare, Check, Calendar as CalIcon } from 'lucide-react';
+import { Phone, Flag, CheckSquare, Check, Calendar as CalIcon, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import CompanyPortfolioTab from './CompanyPortfolioTab';
 
 interface Props {
   company: Company;
 }
 
-type TabType = 'all' | 'actions' | 'milestones' | 'tasks';
+type TabType = 'all' | 'actions' | 'milestones' | 'tasks' | 'portfolio';
 
 export default function ActivityTimeline({ company }: Props) {
   const { updateTask } = useCRM();
@@ -33,6 +34,23 @@ export default function ActivityTimeline({ company }: Props) {
 
   const icons = { action: Phone, milestone: Flag, task: CheckSquare };
 
+  if (tab === 'portfolio') {
+    return (
+      <div className="space-y-4">
+        <Tabs value={tab} onValueChange={v => setTab(v as TabType)}>
+          <TabsList className="h-8">
+            <TabsTrigger value="all" className="text-xs">Todo</TabsTrigger>
+            <TabsTrigger value="actions" className="text-xs">Acciones</TabsTrigger>
+            <TabsTrigger value="milestones" className="text-xs">Hitos</TabsTrigger>
+            <TabsTrigger value="tasks" className="text-xs">Tareas</TabsTrigger>
+            <TabsTrigger value="portfolio" className="text-xs gap-1"><Layers className="h-3 w-3" />Portafolio</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <CompanyPortfolioTab companyId={company.id} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <Tabs value={tab} onValueChange={v => setTab(v as TabType)}>
@@ -41,6 +59,7 @@ export default function ActivityTimeline({ company }: Props) {
           <TabsTrigger value="actions" className="text-xs">Acciones</TabsTrigger>
           <TabsTrigger value="milestones" className="text-xs">Hitos</TabsTrigger>
           <TabsTrigger value="tasks" className="text-xs">Tareas</TabsTrigger>
+          <TabsTrigger value="portfolio" className="text-xs gap-1"><Layers className="h-3 w-3" />Portafolio</TabsTrigger>
         </TabsList>
       </Tabs>
 

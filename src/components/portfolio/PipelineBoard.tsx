@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCRM } from '@/contexts/CRMContext';
+import { useProfile } from '@/contexts/ProfileContext';
 import { PortfolioOffer, PipelineEntry } from '@/types/portfolio';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Plus, ArrowLeft, Building2, X, ExternalLink, GripVertical } from 'lucide-react';
+import { Settings, Plus, ArrowLeft, Building2, X, ExternalLink, GripVertical, User } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import StageManagerDialog from './StageManagerDialog';
 import AddCompaniesToPipelineDialog from './AddCompaniesToPipelineDialog';
@@ -21,15 +22,21 @@ export default function PipelineBoard({ offer, onBack }: Props) {
   const navigate = useNavigate();
   const { getStagesForOffer, getEntriesForOffer, moveCompanyToStage, removeEntry } = usePortfolio();
   const { companies } = useCRM();
+  const { allProfiles } = useProfile();
   const stages = getStagesForOffer(offer.id);
   const entries = getEntriesForOffer(offer.id);
 
   const [stageManagerOpen, setStageManagerOpen] = useState(false);
   const [addCompaniesOpen, setAddCompaniesOpen] = useState(false);
 
-  // Drag & drop state
   const [draggedEntry, setDraggedEntry] = useState<PipelineEntry | null>(null);
   const [dragOverStageId, setDragOverStageId] = useState<string | null>(null);
+
+  const profileMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    allProfiles.forEach(p => { map[p.userId] = p.name || 'Sin nombre'; });
+    return map;
+  }, [allProfiles]);
 
   const IconComponent = ({ name, ...props }: { name: string; className?: string; style?: React.CSSProperties }) => {
     const Comp = (Icons as any)[name] || Icons.Circle;
@@ -41,7 +48,6 @@ export default function PipelineBoard({ offer, onBack }: Props) {
   const handleDragStart = (e: React.DragEvent, entry: PipelineEntry) => {
     setDraggedEntry(entry);
     e.dataTransfer.effectAllowed = 'move';
-    // Make drag image semi-transparent
     if (e.currentTarget instanceof HTMLElement) {
       e.dataTransfer.setDragImage(e.currentTarget, 50, 20);
     }
@@ -54,7 +60,6 @@ export default function PipelineBoard({ offer, onBack }: Props) {
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
-    // Only clear if leaving the column entirely
     const relatedTarget = e.relatedTarget as HTMLElement;
     if (!e.currentTarget.contains(relatedTarget)) {
       setDragOverStageId(null);
@@ -131,6 +136,7 @@ export default function PipelineBoard({ offer, onBack }: Props) {
                     const company = getCompany(entry.companyId);
                     if (!company) return null;
                     const isDragging = draggedEntry?.id === entry.id;
+                    const addedByName = entry.addedBy ? profileMap[entry.addedBy] : null;
 
                     return (
                       <motion.div
@@ -162,6 +168,12 @@ export default function PipelineBoard({ offer, onBack }: Props) {
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-xs font-medium">{company.tradeName}</p>
                             <p className="truncate text-[10px] text-muted-foreground">{company.vertical}</p>
+                            {addedByName && (
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <User className="h-2.5 w-2.5 text-muted-foreground" />
+                                <span className="text-[10px] text-muted-foreground">{addedByName}</span>
+                              </div>
+                            )}
                           </div>
                           <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button

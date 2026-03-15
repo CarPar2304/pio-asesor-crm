@@ -14,6 +14,71 @@ export type Database = {
   }
   public: {
     Tables: {
+      allies: {
+        Row: {
+          created_at: string
+          id: string
+          logo: string | null
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          logo?: string | null
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          logo?: string | null
+          name?: string
+        }
+        Relationships: []
+      }
+      ally_contacts: {
+        Row: {
+          ally_id: string
+          created_at: string
+          email: string
+          id: string
+          is_primary: boolean
+          name: string
+          notes: string
+          phone: string
+          position: string
+        }
+        Insert: {
+          ally_id: string
+          created_at?: string
+          email?: string
+          id?: string
+          is_primary?: boolean
+          name: string
+          notes?: string
+          phone?: string
+          position?: string
+        }
+        Update: {
+          ally_id?: string
+          created_at?: string
+          email?: string
+          id?: string
+          is_primary?: boolean
+          name?: string
+          notes?: string
+          phone?: string
+          position?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ally_contacts_ally_id_fkey"
+            columns: ["ally_id"]
+            isOneToOne: false
+            referencedRelation: "allies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           category: string
@@ -419,8 +484,45 @@ export type Database = {
         }
         Relationships: []
       }
+      offer_allies: {
+        Row: {
+          ally_id: string
+          created_at: string
+          id: string
+          offer_id: string
+        }
+        Insert: {
+          ally_id: string
+          created_at?: string
+          id?: string
+          offer_id: string
+        }
+        Update: {
+          ally_id?: string
+          created_at?: string
+          id?: string
+          offer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offer_allies_ally_id_fkey"
+            columns: ["ally_id"]
+            isOneToOne: false
+            referencedRelation: "allies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "offer_allies_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "portfolio_offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pipeline_entries: {
         Row: {
+          added_by: string | null
           company_id: string
           created_at: string
           id: string
@@ -429,6 +531,7 @@ export type Database = {
           stage_id: string
         }
         Insert: {
+          added_by?: string | null
           company_id: string
           created_at?: string
           id?: string
@@ -437,6 +540,7 @@ export type Database = {
           stage_id: string
         }
         Update: {
+          added_by?: string | null
           company_id?: string
           created_at?: string
           id?: string
