@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { OfferCategory, OfferType, PortfolioOffer, PipelineStage, PipelineEntry } from '@/types/portfolio';
+import { OfferCategory, OfferType, PortfolioOffer, PipelineStage, PipelineEntry, Ally, AllyContact, OfferAlly } from '@/types/portfolio';
 import { showSuccess, showError } from '@/lib/toast';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -10,6 +10,8 @@ interface PortfolioContextValue {
   offers: PortfolioOffer[];
   stages: PipelineStage[];
   entries: PipelineEntry[];
+  allies: Ally[];
+  offerAllies: OfferAlly[];
   loading: boolean;
 
   createCategory: (name: string, color: string) => Promise<OfferCategory | null>;
@@ -34,6 +36,18 @@ interface PortfolioContextValue {
   removeEntry: (entryId: string) => Promise<void>;
   isCompanyInOffer: (offerId: string, companyId: string) => boolean;
 
+  // Allies
+  createAlly: (name: string, logo?: string | null) => Promise<Ally | null>;
+  updateAlly: (id: string, data: Partial<Ally>) => Promise<void>;
+  deleteAlly: (id: string) => Promise<void>;
+  addAllyContact: (allyId: string, contact: Omit<AllyContact, 'id' | 'allyId' | 'createdAt'>) => Promise<AllyContact | null>;
+  updateAllyContact: (id: string, data: Partial<AllyContact>) => Promise<void>;
+  deleteAllyContact: (id: string) => Promise<void>;
+  linkAllyToOffer: (offerId: string, allyId: string) => Promise<void>;
+  unlinkAllyFromOffer: (offerId: string, allyId: string) => Promise<void>;
+  getAlliesForOffer: (offerId: string) => Ally[];
+  getContactsForAlly: (allyId: string) => AllyContact[];
+
   refresh: () => Promise<void>;
 }
 
@@ -46,18 +60,24 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const [offers, setOffers] = useState<PortfolioOffer[]>([]);
   const [stages, setStages] = useState<PipelineStage[]>([]);
   const [entries, setEntries] = useState<PipelineEntry[]>([]);
+  const [allies, setAllies] = useState<Ally[]>([]);
+  const [allyContacts, setAllyContacts] = useState<AllyContact[]>([]);
+  const [offerAllies, setOfferAllies] = useState<OfferAlly[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAll = useCallback(async () => {
-    if (!session) { setOffers([]); setStages([]); setEntries([]); setCategories([]); setOfferTypes([]); setLoading(false); return; }
+    if (!session) { setOffers([]); setStages([]); setEntries([]); setCategories([]); setOfferTypes([]); setAllies([]); setAllyContacts([]); setOfferAllies([]); setLoading(false); return; }
     setLoading(true);
     try {
-      const [catRes, typRes, offRes, stgRes, entRes] = await Promise.all([
+      const [catRes, typRes, offRes, stgRes, entRes, allyRes, allyConRes, oaRes] = await Promise.all([
         supabase.from('portfolio_offer_categories').select('*').order('display_order'),
         supabase.from('portfolio_offer_types').select('*').order('created_at'),
         supabase.from('portfolio_offers').select('*').order('created_at', { ascending: false }),
         supabase.from('pipeline_stages').select('*').order('display_order'),
         supabase.from('pipeline_entries').select('*').order('created_at'),
+        supabase.from('allies').select('*').order('name'),
+        supabase.from('ally_contacts').select('*').order('created_at'),
+        supabase.from('offer_allies').select('*').order('created_at'),
       ]);
 
       if (catRes.data) setCategories(catRes.data.map(r => ({
@@ -83,9 +103,24 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
         createdAt: r.created_at,
       })));
 
-      if (entRes.data) setEntries(entRes.data.map(r => ({
+      if (entRes.data) setEntries(entRes.data.map((r: any) => ({
         id: r.id, offerId: r.offer_id, stageId: r.stage_id,
-        companyId: r.company_id, notes: r.notes, createdAt: r.created_at,
+        companyId: r.company_id, notes: r.notes, addedBy: r.added_by || null,
+        createdAt: r.created_at,
+      })));
+
+      if (allyRes.data) setAllies(allyRes.data.map((r: any) => ({
+        id: r.id, name: r.name, logo: r.logo, createdAt: r.created_at,
+      })));
+
+      if (allyConRes.data) setAllyContacts(allyConRes.data.map((r: any) => ({
+        id: r.id, allyId: r.ally_id, name: r.name, position: r.position,
+        email: r.email, phone: r.phone, notes: r.notes, isPrimary: r.is_primary,
+        createdAt: r.created_at,
+      })));
+
+      if (oaRes.data) setOfferAllies(oaRes.data.map((r: any) => ({
+        id: r.id, offerId: r.offer_id, allyId: r.ally_id, createdAt: r.created_at,
       })));
     } finally {
       setLoading(false);
@@ -134,7 +169,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     const { data: row, error } = await supabase
       .from('portfolio_offers')
       .insert({
-        name: data.name, description: data.description, type: data.type,
+        name: data.name, description: data.description, type: data.type || 'service',
         product: (data as any).product || '',
         category_id: data.categoryId, start_date: data.startDate,
         end_date: data.endDate, status: data.status,
@@ -171,7 +206,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
 
   const updateOffer = async (id: string, data: Partial<PortfolioOffer>) => {
     const { error } = await supabase.from('portfolio_offers').update({
-      name: data.name, description: data.description, type: data.type,
+      name: data.name, description: data.description, type: data.type || 'service',
       product: data.product || '',
       category_id: data.categoryId, start_date: data.startDate,
       end_date: data.endDate, status: data.status,
@@ -186,6 +221,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     setOffers(prev => prev.filter(o => o.id !== id));
     setStages(prev => prev.filter(s => s.offerId !== id));
     setEntries(prev => prev.filter(e => e.offerId !== id));
+    setOfferAllies(prev => prev.filter(oa => oa.offerId !== id));
     showSuccess('Oferta eliminada', '');
   };
 
@@ -247,14 +283,16 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     if (isCompanyInOffer(offerId, companyId)) {
       showError('Ya existe', 'Esta empresa ya está en el pipeline de esta oferta'); return;
     }
+    const userId = session?.user?.id || null;
     const { data, error } = await supabase
       .from('pipeline_entries')
-      .insert({ offer_id: offerId, stage_id: stageId, company_id: companyId, notes: '' })
+      .insert({ offer_id: offerId, stage_id: stageId, company_id: companyId, notes: '', added_by: userId } as any)
       .select().single();
     if (error || !data) { showError('Error', 'No se pudo agregar la empresa'); return; }
     setEntries(prev => [...prev, {
       id: data.id, offerId: data.offer_id, stageId: data.stage_id,
-      companyId: data.company_id, notes: data.notes, createdAt: data.created_at,
+      companyId: data.company_id, notes: data.notes, addedBy: (data as any).added_by || null,
+      createdAt: data.created_at,
     }]);
     showSuccess('Empresa agregada', 'La empresa fue agregada al pipeline');
   };
@@ -273,14 +311,88 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const isCompanyInOffer = (offerId: string, companyId: string) =>
     entries.some(e => e.offerId === offerId && e.companyId === companyId);
 
+  // Allies
+  const createAlly = async (name: string, logo?: string | null): Promise<Ally | null> => {
+    const { data, error } = await supabase.from('allies').insert({ name, logo: logo || null } as any).select().single();
+    if (error || !data) { showError('Error', 'No se pudo crear el aliado'); return null; }
+    const ally: Ally = { id: (data as any).id, name: (data as any).name, logo: (data as any).logo, createdAt: (data as any).created_at };
+    setAllies(prev => [...prev, ally]);
+    showSuccess('Aliado creado', `"${ally.name}" fue creado`);
+    return ally;
+  };
+
+  const updateAlly = async (id: string, data: Partial<Ally>) => {
+    await supabase.from('allies').update({ name: data.name, logo: data.logo } as any).eq('id', id);
+    setAllies(prev => prev.map(a => a.id === id ? { ...a, ...data } : a));
+  };
+
+  const deleteAlly = async (id: string) => {
+    await supabase.from('allies').delete().eq('id', id);
+    setAllies(prev => prev.filter(a => a.id !== id));
+    setOfferAllies(prev => prev.filter(oa => oa.allyId !== id));
+    showSuccess('Aliado eliminado', '');
+  };
+
+  const addAllyContact = async (allyId: string, contact: Omit<AllyContact, 'id' | 'allyId' | 'createdAt'>): Promise<AllyContact | null> => {
+    const { data, error } = await supabase.from('ally_contacts').insert({
+      ally_id: allyId, name: contact.name, position: contact.position,
+      email: contact.email, phone: contact.phone, notes: contact.notes,
+      is_primary: contact.isPrimary,
+    } as any).select().single();
+    if (error || !data) { showError('Error', 'No se pudo crear el contacto'); return null; }
+    const c: AllyContact = {
+      id: (data as any).id, allyId: (data as any).ally_id, name: (data as any).name,
+      position: (data as any).position, email: (data as any).email, phone: (data as any).phone,
+      notes: (data as any).notes, isPrimary: (data as any).is_primary, createdAt: (data as any).created_at,
+    };
+    setAllyContacts(prev => [...prev, c]);
+    return c;
+  };
+
+  const updateAllyContact = async (id: string, data: Partial<AllyContact>) => {
+    await supabase.from('ally_contacts').update({
+      name: data.name, position: data.position, email: data.email,
+      phone: data.phone, notes: data.notes, is_primary: data.isPrimary,
+    } as any).eq('id', id);
+    setAllyContacts(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
+  };
+
+  const deleteAllyContact = async (id: string) => {
+    await supabase.from('ally_contacts').delete().eq('id', id);
+    setAllyContacts(prev => prev.filter(c => c.id !== id));
+  };
+
+  const linkAllyToOffer = async (offerId: string, allyId: string) => {
+    if (offerAllies.some(oa => oa.offerId === offerId && oa.allyId === allyId)) return;
+    const { data, error } = await supabase.from('offer_allies').insert({ offer_id: offerId, ally_id: allyId } as any).select().single();
+    if (error || !data) return;
+    setOfferAllies(prev => [...prev, { id: (data as any).id, offerId: (data as any).offer_id, allyId: (data as any).ally_id, createdAt: (data as any).created_at }]);
+  };
+
+  const unlinkAllyFromOffer = async (offerId: string, allyId: string) => {
+    await supabase.from('offer_allies').delete().match({ offer_id: offerId, ally_id: allyId } as any);
+    setOfferAllies(prev => prev.filter(oa => !(oa.offerId === offerId && oa.allyId === allyId)));
+  };
+
+  const getAlliesForOffer = (offerId: string): Ally[] => {
+    const allyIds = offerAllies.filter(oa => oa.offerId === offerId).map(oa => oa.allyId);
+    return allies.filter(a => allyIds.includes(a.id));
+  };
+
+  const getContactsForAlly = (allyId: string): AllyContact[] => {
+    return allyContacts.filter(c => c.allyId === allyId);
+  };
+
   return (
     <PortfolioContext.Provider value={{
-      categories, offerTypes, offers, stages, entries, loading,
+      categories, offerTypes, offers, stages, entries, allies, offerAllies, loading,
       createCategory, deleteCategory,
       createOfferType, deleteOfferType,
       createOffer, updateOffer, deleteOffer,
       getStagesForOffer, createStage, updateStage, deleteStage, reorderStages,
       getEntriesForOffer, addCompanyToStage, moveCompanyToStage, removeEntry, isCompanyInOffer,
+      createAlly, updateAlly, deleteAlly, addAllyContact, updateAllyContact, deleteAllyContact,
+      linkAllyToOffer, unlinkAllyFromOffer, getAlliesForOffer, getContactsForAlly,
       refresh: fetchAll,
     }}>
       {children}

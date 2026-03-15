@@ -14,12 +14,39 @@ export interface OfferType {
 
 export type OfferStatus = 'active' | 'inactive' | 'draft';
 
+export interface Ally {
+  id: string;
+  name: string;
+  logo: string | null;
+  createdAt: string;
+  contacts?: AllyContact[];
+}
+
+export interface AllyContact {
+  id: string;
+  allyId: string;
+  name: string;
+  position: string;
+  email: string;
+  phone: string;
+  notes: string;
+  isPrimary: boolean;
+  createdAt: string;
+}
+
+export interface OfferAlly {
+  id: string;
+  offerId: string;
+  allyId: string;
+  createdAt: string;
+}
+
 export interface PortfolioOffer {
   id: string;
   name: string;
   description: string;
   product: string;
-  type: string; // now a free string matching OfferType.name
+  type: string;
   categoryId: string | null;
   category?: OfferCategory;
   startDate: string | null;
@@ -49,6 +76,7 @@ export interface PipelineEntry {
   stageId: string;
   companyId: string;
   notes: string;
+  addedBy: string | null;
   createdAt: string;
 }
 

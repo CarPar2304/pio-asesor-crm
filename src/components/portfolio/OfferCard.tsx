@@ -3,7 +3,7 @@ import { usePortfolio } from '@/contexts/PortfolioContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
-import { Pencil, Trash2, GitBranch, Calendar, Package, Wrench } from 'lucide-react';
+import { Pencil, Trash2, GitBranch, Calendar, Package, Wrench, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -14,13 +14,6 @@ const STATUS_CONFIG = {
   draft:    { label: 'Borrador',  className: 'bg-amber-500/10 text-amber-600 border-amber-500/30' },
 };
 
-const TYPE_ICONS: Record<string, typeof Package> = { 
-  'Producto': Package, 
-  'Servicio': Wrench,
-  'product': Package,
-  'service': Wrench,
-};
-
 interface Props {
   offer: PortfolioOffer;
   onEdit: (offer: PortfolioOffer) => void;
@@ -28,11 +21,11 @@ interface Props {
 }
 
 export default function OfferCard({ offer, onEdit, onViewPipeline }: Props) {
-  const { deleteOffer, categories, getStagesForOffer, getEntriesForOffer } = usePortfolio();
+  const { deleteOffer, categories, getStagesForOffer, getEntriesForOffer, getAlliesForOffer } = usePortfolio();
   const category = categories.find(c => c.id === offer.categoryId);
   const stageCount = getStagesForOffer(offer.id).length;
   const entryCount = getEntriesForOffer(offer.id).length;
-  const TypeIcon = TYPE_ICONS[offer.type] || Package;
+  const offerAllies = getAlliesForOffer(offer.id);
   const statusCfg = STATUS_CONFIG[offer.status];
 
   const handleDelete = () => {
@@ -45,18 +38,18 @@ export default function OfferCard({ offer, onEdit, onViewPipeline }: Props) {
     <Card className="group flex flex-col border-border/60 bg-card transition-all hover:shadow-md hover:shadow-primary/5 hover:border-primary/20">
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-              <TypeIcon className="h-4 w-4 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="truncate text-sm font-bold leading-tight">{offer.name}</h3>
+          <div className="min-w-0">
+            <h3 className="truncate text-sm font-bold leading-tight">{offer.name}</h3>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {offer.product && (
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                  <Package className="h-2.5 w-2.5 mr-0.5" /> {offer.product}
+                </Badge>
+              )}
               {category && (
-                <div className="mt-0.5">
-                  <Badge className={cn('border text-[10px] px-1.5 py-0')} style={{ backgroundColor: category.color + '20', color: category.color, borderColor: category.color + '40' }}>
-                    {category.name}
-                  </Badge>
-                </div>
+                <Badge className={cn('border text-[10px] px-1.5 py-0')} style={{ backgroundColor: category.color + '20', color: category.color, borderColor: category.color + '40' }}>
+                  {category.name}
+                </Badge>
               )}
             </div>
           </div>
@@ -67,6 +60,19 @@ export default function OfferCard({ offer, onEdit, onViewPipeline }: Props) {
       <CardContent className="flex-1 space-y-2 pb-2">
         {offer.description && (
           <p className="text-xs text-muted-foreground line-clamp-2">{offer.description}</p>
+        )}
+        {offerAllies.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Users className="h-3 w-3 text-muted-foreground shrink-0" />
+            {offerAllies.map(ally => (
+              <div key={ally.id} className="flex items-center gap-1">
+                {ally.logo ? (
+                  <img src={ally.logo} alt="" className="h-4 w-4 rounded object-contain bg-white" />
+                ) : null}
+                <span className="text-[11px] text-muted-foreground">{ally.name}</span>
+              </div>
+            ))}
+          </div>
         )}
         {(offer.startDate || offer.endDate) && (
           <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
