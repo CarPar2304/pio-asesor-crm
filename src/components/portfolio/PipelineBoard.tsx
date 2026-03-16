@@ -5,7 +5,7 @@ import { useProfile } from '@/contexts/ProfileContext';
 import { PortfolioOffer, PipelineEntry } from '@/types/portfolio';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Plus, ArrowLeft, Building2, X, ExternalLink, GripVertical, User } from 'lucide-react';
+import { Settings, Plus, ArrowLeft, Building2, X, ExternalLink, GripVertical, User, Mail } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import StageManagerDialog from './StageManagerDialog';
 import AddCompaniesToPipelineDialog from './AddCompaniesToPipelineDialog';
