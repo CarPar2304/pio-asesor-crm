@@ -219,6 +219,7 @@ export default function PipelineBoard({ offer, onBack }: Props) {
 
       <StageManagerDialog open={stageManagerOpen} onClose={() => setStageManagerOpen(false)} offerId={offer.id} />
       <AddCompaniesToPipelineDialog open={addCompaniesOpen} onClose={() => setAddCompaniesOpen(false)} offerId={offer.id} />
+      <PipelineNotificationDialog open={notificationOpen} onClose={() => setNotificationOpen(false)} offerId={offer.id} />
     </div>
   );
 }
