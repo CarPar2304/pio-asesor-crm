@@ -5,10 +5,11 @@ import { useProfile } from '@/contexts/ProfileContext';
 import { PortfolioOffer, PipelineEntry } from '@/types/portfolio';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Plus, ArrowLeft, Building2, X, ExternalLink, GripVertical, User } from 'lucide-react';
+import { Settings, Plus, ArrowLeft, Building2, X, ExternalLink, GripVertical, User, Mail } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import StageManagerDialog from './StageManagerDialog';
 import AddCompaniesToPipelineDialog from './AddCompaniesToPipelineDialog';
+import PipelineNotificationDialog from './PipelineNotificationDialog';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -28,6 +29,7 @@ export default function PipelineBoard({ offer, onBack }: Props) {
 
   const [stageManagerOpen, setStageManagerOpen] = useState(false);
   const [addCompaniesOpen, setAddCompaniesOpen] = useState(false);
+  const [notificationOpen, setNotificationOpen] = useState(false);
 
   const [draggedEntry, setDraggedEntry] = useState<PipelineEntry | null>(null);
   const [dragOverStageId, setDragOverStageId] = useState<string | null>(null);
@@ -92,6 +94,9 @@ export default function PipelineBoard({ offer, onBack }: Props) {
           <p className="text-sm text-muted-foreground">Pipeline · {entries.length} empresas en {stages.length} etapas</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setNotificationOpen(true)}>
+            <Mail className="h-3.5 w-3.5" /> Notificar
+          </Button>
           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setStageManagerOpen(true)}>
             <Settings className="h-3.5 w-3.5" /> Etapas
           </Button>
@@ -214,6 +219,7 @@ export default function PipelineBoard({ offer, onBack }: Props) {
 
       <StageManagerDialog open={stageManagerOpen} onClose={() => setStageManagerOpen(false)} offerId={offer.id} />
       <AddCompaniesToPipelineDialog open={addCompaniesOpen} onClose={() => setAddCompaniesOpen(false)} offerId={offer.id} />
+      <PipelineNotificationDialog open={notificationOpen} onClose={() => setNotificationOpen(false)} offerId={offer.id} />
     </div>
   );
 }

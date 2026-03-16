@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
-import { PortfolioOffer, OfferStatus, PRODUCT_OPTIONS, Ally } from '@/types/portfolio';
+import { PortfolioOffer, OfferStatus, PRODUCT_OPTIONS } from '@/types/portfolio';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Plus, X, Users, Upload } from 'lucide-react';
+import { Plus, X, Users, Upload, Clipboard } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Props {
@@ -35,7 +35,6 @@ export default function OfferFormDialog({ open, onClose, offer }: Props) {
   const [newCatColor, setNewCatColor] = useState('#6366f1');
   const [showNewCat, setShowNewCat] = useState(false);
 
-  // Allies state
   const [selectedAllyIds, setSelectedAllyIds] = useState<string[]>([]);
   const [showNewAlly, setShowNewAlly] = useState(false);
   const [newAllyName, setNewAllyName] = useState('');
@@ -58,7 +57,6 @@ export default function OfferFormDialog({ open, onClose, offer }: Props) {
       setShowNewAlly(false);
       setNewAllyName('');
       setNewAllyLogo(null);
-      // Load existing allies for this offer
       if (offer) {
         const offerAllyList = getAlliesForOffer(offer.id);
         setSelectedAllyIds(offerAllyList.map(a => a.id));
@@ -74,19 +72,40 @@ export default function OfferFormDialog({ open, onClose, offer }: Props) {
     if (cat) { setCategoryId(cat.id); setShowNewCat(false); setNewCatName(''); }
   };
 
+  const uploadFile = async (file: File): Promise<string | null> => {
+    const ext = file.name?.split('.').pop() || 'png';
+    const path = `ally-logos/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from('company-logos').upload(path, file);
+    if (error) return null;
+    const { data: { publicUrl } } = supabase.storage.from('company-logos').getPublicUrl(path);
+    return publicUrl;
+  };
+
   const handleAllyLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploadingLogo(true);
-    const ext = file.name.split('.').pop();
-    const path = `ally-logos/${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from('company-logos').upload(path, file);
-    if (!error) {
-      const { data: { publicUrl } } = supabase.storage.from('company-logos').getPublicUrl(path);
-      setNewAllyLogo(publicUrl);
-    }
+    const url = await uploadFile(file);
+    if (url) setNewAllyLogo(url);
     setUploadingLogo(false);
   };
+
+  const handleAllyLogoPaste = useCallback(async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) return;
+        setUploadingLogo(true);
+        const url = await uploadFile(file);
+        if (url) setNewAllyLogo(url);
+        setUploadingLogo(false);
+        return;
+      }
+    }
+  }, []);
 
   const handleAddAlly = async () => {
     if (!newAllyName.trim()) return;
@@ -119,7 +138,6 @@ export default function OfferFormDialog({ open, onClose, offer }: Props) {
     if (offer) {
       await updateOffer(offer.id, payload);
       offerId = offer.id;
-      // Sync allies
       const currentAllies = getAlliesForOffer(offer.id);
       const currentIds = currentAllies.map(a => a.id);
       for (const id of selectedAllyIds) {
@@ -148,8 +166,8 @@ export default function OfferFormDialog({ open, onClose, offer }: Props) {
           <DialogTitle>{offer ? 'Editar oferta' : 'Nueva oferta'}</DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 px-6 pb-6">
-          <div className="space-y-4 pt-2 pr-4">
+        <div className="flex-1 overflow-y-auto px-6 pb-6">
+          <div className="space-y-4 pt-2">
             <div className="space-y-1.5">
               <Label>Nombre *</Label>
               <Input value={name} onChange={e => setName(e.target.value)} placeholder="Nombre de la oferta" />
@@ -160,17 +178,12 @@ export default function OfferFormDialog({ open, onClose, offer }: Props) {
               <Textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Describe esta oferta..." rows={3} />
             </div>
 
-            {/* Producto field */}
             <div className="space-y-1.5">
               <Label>Producto</Label>
               <Select value={product || 'placeholder'} onValueChange={v => { setProduct(v === 'placeholder' ? '' : v); if (v !== 'Otro') setCustomProduct(''); }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar producto" />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Seleccionar producto" /></SelectTrigger>
                 <SelectContent>
-                  {PRODUCT_OPTIONS.map(p => (
-                    <SelectItem key={p} value={p}>{p}</SelectItem>
-                  ))}
+                  {PRODUCT_OPTIONS.map(p => (<SelectItem key={p} value={p}>{p}</SelectItem>))}
                 </SelectContent>
               </Select>
               {product === 'Otro' && (
@@ -179,14 +192,11 @@ export default function OfferFormDialog({ open, onClose, offer }: Props) {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              {/* Category */}
               <div className="space-y-1.5">
                 <Label>Categoría</Label>
                 <div className="flex gap-1.5">
                   <Select value={categoryId || 'none'} onValueChange={v => setCategoryId(v === 'none' ? '' : v)}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Seleccionar" />
-                    </SelectTrigger>
+                    <SelectTrigger className="flex-1"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Sin categoría</SelectItem>
                       {categories.map(c => (
@@ -252,12 +262,12 @@ export default function OfferFormDialog({ open, onClose, offer }: Props) {
               </div>
 
               {showNewAlly && (
-                <div className="rounded-md border border-border p-3 space-y-2">
+                <div className="rounded-md border border-border p-3 space-y-2" onPaste={handleAllyLogoPaste}>
                   <div className="flex items-center gap-2">
                     {newAllyLogo ? (
                       <img src={newAllyLogo} alt="" className="h-10 w-10 rounded-md border border-border/40 object-contain bg-white p-0.5" />
                     ) : (
-                      <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-md border border-dashed border-border bg-muted/30 hover:bg-muted/50 transition-colors">
+                      <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-md border border-dashed border-border bg-muted/30 hover:bg-muted/50 transition-colors" title="Clic para cargar o Ctrl+V para pegar">
                         <Upload className="h-4 w-4 text-muted-foreground" />
                         <input type="file" accept="image/*" className="hidden" onChange={handleAllyLogoUpload} disabled={uploadingLogo} />
                       </label>
@@ -268,29 +278,21 @@ export default function OfferFormDialog({ open, onClose, offer }: Props) {
                       <X className="h-3.5 w-3.5" />
                     </Button>
                   </div>
+                  <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Clipboard className="h-3 w-3" /> Ctrl+V para pegar logo desde portapapeles</p>
                 </div>
               )}
 
-              {/* Existing allies list */}
               {allies.length > 0 && (
                 <div className="space-y-1 max-h-40 overflow-y-auto">
                   {allies.map(ally => {
                     const selected = selectedAllyIds.includes(ally.id);
                     return (
-                      <button
-                        key={ally.id}
-                        type="button"
-                        onClick={() => toggleAlly(ally.id)}
-                        className={`w-full flex items-center gap-2 rounded-md border p-2 text-left transition-colors text-sm ${
-                          selected ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-primary/40'
-                        }`}
-                      >
+                      <button key={ally.id} type="button" onClick={() => toggleAlly(ally.id)}
+                        className={`w-full flex items-center gap-2 rounded-md border p-2 text-left transition-colors text-sm ${selected ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-primary/40'}`}>
                         {ally.logo ? (
                           <img src={ally.logo} alt="" className="h-6 w-6 rounded object-contain bg-white" />
                         ) : (
-                          <div className="flex h-6 w-6 items-center justify-center rounded bg-primary/10 text-[10px] font-bold text-primary">
-                            {ally.name.charAt(0)}
-                          </div>
+                          <div className="flex h-6 w-6 items-center justify-center rounded bg-primary/10 text-[10px] font-bold text-primary">{ally.name.charAt(0)}</div>
                         )}
                         <span className="flex-1 truncate">{ally.name}</span>
                         {selected && <Badge variant="secondary" className="text-[10px]">Vinculado</Badge>}
@@ -323,7 +325,7 @@ export default function OfferFormDialog({ open, onClose, offer }: Props) {
               </Button>
             </div>
           </div>
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   );

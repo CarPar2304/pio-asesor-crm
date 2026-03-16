@@ -1,46 +1,74 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { Ally, AllyContact } from '@/types/portfolio';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Trash2, Upload, User, Mail, Phone, Star, Pencil, X, Building2 } from 'lucide-react';
+import { Plus, Trash2, Upload, User, Mail, Phone, Star, Clipboard, X, Building2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
 export default function AlliesSection() {
-  const { allies, createAlly, updateAlly, deleteAlly, addAllyContact, updateAllyContact, deleteAllyContact, getContactsForAlly, offerAllies, offers } = usePortfolio();
+  const { allies, createAlly, updateAlly, deleteAlly, addAllyContact, deleteAllyContact, getContactsForAlly, offerAllies, offers } = usePortfolio();
   const [selectedAlly, setSelectedAlly] = useState<Ally | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [newLogo, setNewLogo] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
-  // Contact form
   const [showContactForm, setShowContactForm] = useState(false);
   const [contactForm, setContactForm] = useState({ name: '', position: '', email: '', phone: '', notes: '', isPrimary: false });
+
+  const uploadFile = async (file: File): Promise<string | null> => {
+    const ext = file.name?.split('.').pop() || 'png';
+    const path = `ally-logos/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from('company-logos').upload(path, file);
+    if (error) return null;
+    const { data: { publicUrl } } = supabase.storage.from('company-logos').getPublicUrl(path);
+    return publicUrl;
+  };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>, forAllyId?: string) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
-    const ext = file.name.split('.').pop();
-    const path = `ally-logos/${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from('company-logos').upload(path, file);
-    if (!error) {
-      const { data: { publicUrl } } = supabase.storage.from('company-logos').getPublicUrl(path);
+    const url = await uploadFile(file);
+    if (url) {
       if (forAllyId) {
-        await updateAlly(forAllyId, { logo: publicUrl });
-        if (selectedAlly?.id === forAllyId) setSelectedAlly(prev => prev ? { ...prev, logo: publicUrl } : null);
+        await updateAlly(forAllyId, { logo: url });
+        if (selectedAlly?.id === forAllyId) setSelectedAlly(prev => prev ? { ...prev, logo: url } : null);
       } else {
-        setNewLogo(publicUrl);
+        setNewLogo(url);
       }
     }
     setUploading(false);
   };
+
+  const handleLogoPaste = useCallback(async (e: React.ClipboardEvent, forAllyId?: string) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) return;
+        setUploading(true);
+        const url = await uploadFile(file);
+        if (url) {
+          if (forAllyId) {
+            await updateAlly(forAllyId, { logo: url });
+            if (selectedAlly?.id === forAllyId) setSelectedAlly(prev => prev ? { ...prev, logo: url } : null);
+          } else {
+            setNewLogo(url);
+          }
+        }
+        setUploading(false);
+        return;
+      }
+    }
+  }, [selectedAlly]);
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -76,15 +104,14 @@ export default function AlliesSection() {
         </Button>
       </div>
 
-      {/* Create form */}
       {showCreate && (
         <Card>
-          <CardContent className="p-4 space-y-3">
+          <CardContent className="p-4 space-y-3" onPaste={e => handleLogoPaste(e)}>
             <div className="flex items-center gap-3">
               {newLogo ? (
                 <img src={newLogo} alt="" className="h-12 w-12 rounded-lg border border-border/40 object-contain bg-white p-1" />
               ) : (
-                <label className="flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/30 hover:bg-muted/50 transition-colors">
+                <label className="flex h-12 w-12 shrink-0 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/30 hover:bg-muted/50 transition-colors" title="Clic para cargar o Ctrl+V para pegar">
                   <Upload className="h-5 w-5 text-muted-foreground" />
                   <input type="file" accept="image/*" className="hidden" onChange={e => handleLogoUpload(e)} disabled={uploading} />
                 </label>
@@ -95,6 +122,7 @@ export default function AlliesSection() {
                 <X className="h-4 w-4" />
               </Button>
             </div>
+            <p className="text-[10px] text-muted-foreground flex items-center gap-1"><Clipboard className="h-3 w-3" /> Ctrl+V para pegar logo desde portapapeles</p>
           </CardContent>
         </Card>
       )}
@@ -119,9 +147,7 @@ export default function AlliesSection() {
                     {ally.logo ? (
                       <img src={ally.logo} alt="" className="h-10 w-10 rounded-lg border border-border/40 object-contain bg-white p-0.5" />
                     ) : (
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary">
-                        {ally.name.charAt(0)}
-                      </div>
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary">{ally.name.charAt(0)}</div>
                     )}
                     <div className="min-w-0 flex-1">
                       <h3 className="truncate text-sm font-bold">{ally.name}</h3>
@@ -135,9 +161,7 @@ export default function AlliesSection() {
                 <CardContent className="pb-3">
                   {linkedOffers.length > 0 && (
                     <div className="flex flex-wrap gap-1">
-                      {linkedOffers.map(o => (
-                        <Badge key={o.id} variant="secondary" className="text-[10px]">{o.name}</Badge>
-                      ))}
+                      {linkedOffers.map(o => (<Badge key={o.id} variant="secondary" className="text-[10px]">{o.name}</Badge>))}
                     </div>
                   )}
                 </CardContent>
@@ -147,7 +171,6 @@ export default function AlliesSection() {
         </div>
       )}
 
-      {/* Ally detail dialog */}
       <Dialog open={!!selectedAlly} onOpenChange={v => !v && setSelectedAlly(null)}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           {selectedAlly && (
@@ -157,9 +180,7 @@ export default function AlliesSection() {
                   {selectedAlly.logo ? (
                     <img src={selectedAlly.logo} alt="" className="h-10 w-10 rounded-lg border border-border/40 object-contain bg-white p-0.5" />
                   ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary">
-                      {selectedAlly.name.charAt(0)}
-                    </div>
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-sm font-bold text-primary">{selectedAlly.name.charAt(0)}</div>
                   )}
                   <div>
                     <p>{selectedAlly.name}</p>
@@ -231,7 +252,6 @@ export default function AlliesSection() {
                   );
                 })()}
 
-                {/* Linked offers */}
                 {(() => {
                   const linked = getLinkedOffers(selectedAlly.id);
                   if (linked.length === 0) return null;
@@ -251,5 +271,4 @@ export default function AlliesSection() {
       </Dialog>
     </div>
   );
-
 }

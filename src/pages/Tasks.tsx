@@ -9,17 +9,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Check, Pencil } from 'lucide-react';
+import { Check, Pencil, UserCircle } from 'lucide-react';
 
 type TaskFilter = 'all' | 'pending' | 'overdue' | 'completed';
 
@@ -30,7 +25,6 @@ interface TaskItem {
 }
 
 const todayISO = () => new Date().toISOString().split('T')[0];
-
 const isOverdueTask = (task: CompanyTask) => task.status === 'pending' && task.dueDate < todayISO();
 
 export default function Tasks() {
@@ -46,6 +40,8 @@ export default function Tasks() {
   const [status, setStatus] = useState<'pending' | 'completed'>('pending');
   const [assignedTo, setAssignedTo] = useState('');
 
+  const myUserId = session?.user?.id;
+
   const getProfileName = (userId?: string) => {
     if (!userId) return null;
     const p = allProfiles.find(pr => pr.userId === userId);
@@ -58,17 +54,20 @@ export default function Tasks() {
     return { url: p?.avatarUrl || undefined, initials: p?.name ? p.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : '?' };
   };
 
+  // Only show tasks created by me OR assigned to me
   const allTasks = useMemo<TaskItem[]>(() => {
     return companies
       .flatMap((company) =>
-        company.tasks.map((task) => ({
-          companyId: company.id,
-          companyName: company.tradeName,
-          task,
-        }))
+        company.tasks
+          .filter(task => task.assignedTo === myUserId || task.createdBy === myUserId)
+          .map((task) => ({
+            companyId: company.id,
+            companyName: company.tradeName,
+            task,
+          }))
       )
       .sort((a, b) => a.task.dueDate.localeCompare(b.task.dueDate));
-  }, [companies]);
+  }, [companies, myUserId]);
 
   const counts = useMemo(() => {
     const pending = allTasks.filter((item) => item.task.status === 'pending').length;
@@ -79,14 +78,10 @@ export default function Tasks() {
 
   const filteredTasks = useMemo(() => {
     switch (filter) {
-      case 'pending':
-        return allTasks.filter((item) => item.task.status === 'pending');
-      case 'overdue':
-        return allTasks.filter((item) => isOverdueTask(item.task));
-      case 'completed':
-        return allTasks.filter((item) => item.task.status === 'completed');
-      default:
-        return allTasks;
+      case 'pending': return allTasks.filter((item) => item.task.status === 'pending');
+      case 'overdue': return allTasks.filter((item) => isOverdueTask(item.task));
+      case 'completed': return allTasks.filter((item) => item.task.status === 'completed');
+      default: return allTasks;
     }
   }, [allTasks, filter]);
 
@@ -101,24 +96,19 @@ export default function Tasks() {
 
   const handleSave = async () => {
     if (!editing || !title.trim() || !dueDate) return;
-
     await updateTask(editing.companyId, editing.task.id, {
-      title: title.trim(),
-      description: description.trim(),
-      dueDate,
-      status,
+      title: title.trim(), description: description.trim(), dueDate, status,
       completedDate: status === 'completed' ? editing.task.completedDate || todayISO() : null,
       assignedTo: assignedTo || undefined,
     });
-
     setEditing(null);
   };
 
   return (
     <div className="container py-6 space-y-6">
       <div>
-        <h1 className="text-xl font-bold">Tareas globales</h1>
-        <p className="text-sm text-muted-foreground">Gestiona tareas de todas las empresas</p>
+        <h1 className="text-xl font-bold">Mis tareas</h1>
+        <p className="text-sm text-muted-foreground">Tareas asignadas a ti o creadas por ti</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -147,13 +137,14 @@ export default function Tasks() {
             const overdue = isOverdueTask(item.task);
             const avatar = getProfileAvatar(item.task.assignedTo);
             const assigneeName = getProfileName(item.task.assignedTo);
+            const creatorName = getProfileName(item.task.createdBy);
+            const isAssignedToMe = item.task.assignedTo === myUserId;
+            const wasAssignedByOther = item.task.createdBy && item.task.createdBy !== myUserId;
+
             return (
               <div key={item.task.id} className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0 flex-1">
-                  <button
-                    onClick={() => navigate(`/empresa/${item.companyId}`)}
-                    className="text-sm font-medium text-left hover:underline"
-                  >
+                  <button onClick={() => navigate(`/empresa/${item.companyId}`)} className="text-sm font-medium text-left hover:underline">
                     {item.companyName}
                   </button>
                   <p className="text-sm">{item.task.title}</p>
@@ -170,17 +161,19 @@ export default function Tasks() {
                         <span className="text-xs text-muted-foreground">{assigneeName}</span>
                       </div>
                     )}
+                    {wasAssignedByOther && creatorName && (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <UserCircle className="h-3 w-3" />
+                        <span>Asignada por {creatorName}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
                   {item.task.status === 'pending' && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5"
-                      onClick={() => updateTask(item.companyId, item.task.id, { status: 'completed', completedDate: todayISO() })}
-                    >
+                    <Button size="sm" variant="outline" className="gap-1.5"
+                      onClick={() => updateTask(item.companyId, item.task.id, { status: 'completed', completedDate: todayISO() })}>
                       <Check className="h-3.5 w-3.5" /> Completar
                     </Button>
                   )}
@@ -200,7 +193,6 @@ export default function Tasks() {
             <DialogTitle>Editar tarea</DialogTitle>
             <DialogDescription>Actualiza título, fecha, responsable y estado de la tarea.</DialogDescription>
           </DialogHeader>
-
           <div className="space-y-3">
             <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título" />
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descripción" rows={4} />
@@ -211,23 +203,16 @@ export default function Tasks() {
                 <SelectTrigger className="mt-1"><SelectValue placeholder="Seleccionar responsable" /></SelectTrigger>
                 <SelectContent>
                   {allProfiles.map(p => (
-                    <SelectItem key={p.userId} value={p.userId}>
-                      {p.name || p.email || p.userId.slice(0, 8)}
-                    </SelectItem>
+                    <SelectItem key={p.userId} value={p.userId}>{p.name || p.email || p.userId.slice(0, 8)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value as 'pending' | 'completed')}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            >
+            <select value={status} onChange={(e) => setStatus(e.target.value as 'pending' | 'completed')} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
               <option value="pending">Pendiente</option>
               <option value="completed">Completada</option>
             </select>
           </div>
-
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
             <Button onClick={handleSave}>Guardar cambios</Button>

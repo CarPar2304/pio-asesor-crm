@@ -116,9 +116,9 @@ export default function Portafolio() {
         <TabsContent value="oferta" className="space-y-4">
           {/* Filters */}
           <div className="flex flex-wrap gap-3">
-            <div className="relative flex-1 min-w-[200px]">
+            <div className="relative min-w-[160px] max-w-[240px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar ofertas..." className="pl-9" />
+              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..." className="pl-9" />
             </div>
             <Select value={filterProduct || 'all'} onValueChange={v => setFilterProduct(v === 'all' ? '' : v)}>
               <SelectTrigger className="w-[160px]">
