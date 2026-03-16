@@ -9,6 +9,7 @@ import { Settings, Plus, ArrowLeft, Building2, X, ExternalLink, GripVertical, Us
 import * as Icons from 'lucide-react';
 import StageManagerDialog from './StageManagerDialog';
 import AddCompaniesToPipelineDialog from './AddCompaniesToPipelineDialog';
+import PipelineNotificationDialog from './PipelineNotificationDialog';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
