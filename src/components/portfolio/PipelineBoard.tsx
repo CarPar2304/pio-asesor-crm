@@ -94,6 +94,9 @@ export default function PipelineBoard({ offer, onBack }: Props) {
           <p className="text-sm text-muted-foreground">Pipeline · {entries.length} empresas en {stages.length} etapas</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setNotificationOpen(true)}>
+            <Mail className="h-3.5 w-3.5" /> Notificar
+          </Button>
           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setStageManagerOpen(true)}>
             <Settings className="h-3.5 w-3.5" /> Etapas
           </Button>
