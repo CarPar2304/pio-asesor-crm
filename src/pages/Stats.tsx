@@ -215,20 +215,20 @@ export default function Stats() {
           </CardContent>
         </Card>
 
-        {/* Donut chart - por categoría */}
+        {/* Donut chart - por categoría de oferta */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Distribución por categoría</CardTitle>
+            <CardTitle className="text-sm font-semibold">Distribución por categoría de oferta</CardTitle>
           </CardHeader>
           <CardContent>
-            {categoryDonutData.length === 0 ? (
+            {offerCategoryData.length === 0 ? (
               <div className="flex items-center justify-center h-48 text-sm text-muted-foreground">Sin datos</div>
             ) : (
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={categoryDonutData} cx="50%" cy="50%" innerRadius={50} outerRadius={90} dataKey="value" nameKey="name" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`} labelLine={false} style={{ fontSize: 11 }}>
-                      {categoryDonutData.map((_, i) => (<Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />))}
+                    <Pie data={offerCategoryData} cx="50%" cy="50%" innerRadius={50} outerRadius={90} dataKey="value" nameKey="name" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`} labelLine={false} style={{ fontSize: 11 }}>
+                      {offerCategoryData.map((_, i) => (<Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />))}
                     </Pie>
                     <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: 12 }} />
                   </PieChart>
