@@ -114,10 +114,21 @@ export default function Stats() {
     return Object.entries(stats.categoryMap).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
   }, [stats.categoryMap]);
 
-  // Category donut data
-  const categoryDonutData = useMemo(() => {
-    return Object.entries(stats.categoryMap).map(([name, value]) => ({ name, value }));
-  }, [stats.categoryMap]);
+  // Offer category donut data (from portfolio offer categories)
+  const offerCategoryData = useMemo(() => {
+    const catCompanies: Record<string, Set<string>> = {};
+    entries.forEach(e => {
+      if (!viewingUserId || e.addedBy === viewingUserId) {
+        const offer = offers.find(o => o.id === e.offerId);
+        if (!offer?.categoryId) return;
+        const cat = categories.find(c => c.id === offer.categoryId);
+        const catName = cat?.name || 'Sin categoría';
+        if (!catCompanies[catName]) catCompanies[catName] = new Set();
+        catCompanies[catName].add(e.companyId);
+      }
+    });
+    return Object.entries(catCompanies).map(([name, set]) => ({ name, value: set.size }));
+  }, [entries, offers, categories, viewingUserId]);
 
   const totalInteracted = stats.companiesInManagement || 1;
 
