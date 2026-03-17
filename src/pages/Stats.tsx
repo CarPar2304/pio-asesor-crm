@@ -17,7 +17,7 @@ const PIE_COLORS = ['#6366f1', '#3b82f6', '#06b6d4', '#10b981', '#84cc16', '#f59
 
 export default function Stats() {
   const { companies } = useCRM();
-  const { entries, categories } = usePortfolio();
+  const { entries } = usePortfolio();
   const { profile, allProfiles } = useProfile();
   const { session } = useAuth();
 
