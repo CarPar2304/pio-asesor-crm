@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useOnClickOutside } from "usehooks-ts";
 import { cn } from "@/lib/utils";
 import { LucideIcon } from "lucide-react";
 
@@ -33,10 +32,10 @@ const buttonVariants = {
     paddingLeft: ".5rem",
     paddingRight: ".5rem",
   },
-  animate: (isSelected: boolean) => ({
-    gap: isSelected ? ".5rem" : 0,
-    paddingLeft: isSelected ? "1rem" : ".5rem",
-    paddingRight: isSelected ? "1rem" : ".5rem",
+  animate: (isHovered: boolean) => ({
+    gap: isHovered ? ".5rem" : 0,
+    paddingLeft: isHovered ? "1rem" : ".5rem",
+    paddingRight: isHovered ? "1rem" : ".5rem",
   }),
 };
 
@@ -54,16 +53,9 @@ export function ExpandableTabs({
   activeColor = "text-primary",
   onChange,
 }: ExpandableTabsProps) {
-  const [selected, setSelected] = React.useState<number | null>(null);
-  const outsideClickRef = React.useRef<HTMLDivElement>(null!);
+  const [hovered, setHovered] = React.useState<number | null>(null);
 
-  useOnClickOutside(outsideClickRef, () => {
-    setSelected(null);
-    onChange?.(null);
-  });
-
-  const handleSelect = (index: number) => {
-    setSelected(index);
+  const handleClick = (index: number) => {
     onChange?.(index);
   };
 
@@ -73,7 +65,6 @@ export function ExpandableTabs({
 
   return (
     <div
-      ref={outsideClickRef}
       className={cn(
         "flex flex-wrap items-center gap-2 rounded-2xl border border-border bg-background p-1 shadow-sm",
         className
@@ -86,25 +77,28 @@ export function ExpandableTabs({
 
         const t = tab as Tab;
         const Icon = t.icon;
+        const isHovered = hovered === index;
         return (
           <motion.button
             key={t.title}
             variants={buttonVariants}
             initial={false}
             animate="animate"
-            custom={selected === index}
-            onClick={() => handleSelect(index)}
+            custom={isHovered}
+            onClick={() => handleClick(index)}
+            onMouseEnter={() => setHovered(index)}
+            onMouseLeave={() => setHovered(null)}
             transition={transition}
             className={cn(
               "relative flex items-center rounded-xl px-4 py-2 text-sm font-medium transition-colors duration-300",
-              selected === index
+              isHovered
                 ? cn("bg-muted", activeColor)
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
           >
             <Icon size={18} />
             <AnimatePresence initial={false}>
-              {selected === index && (
+              {isHovered && (
                 <motion.span
                   variants={spanVariants}
                   initial="initial"

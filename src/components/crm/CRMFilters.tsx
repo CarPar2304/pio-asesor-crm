@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { FilterBadge } from '@/components/ui/filter-badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
@@ -23,6 +24,52 @@ const SORT_LABELS: Record<SortField, string> = {
 interface Props {
   filters: FilterState;
   onChange: (filters: FilterState) => void;
+}
+
+function MultiSelectDropdown({ label, values, selected, onChange }: { label: string; values: string[]; selected: string[]; onChange: (v: string[]) => void }) {
+  const displayLabel = selected.length === 0 ? label : selected.length === 1 ? selected[0] : `${label} (${selected.length})`;
+
+  const toggle = (val: string) => {
+    if (selected.includes(val)) {
+      onChange(selected.filter(v => v !== val));
+    } else {
+      onChange([...selected, val]);
+    }
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm shadow-sm shadow-black/5">
+          {displayLabel}
+          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 max-h-64 overflow-y-auto p-2" align="start">
+        {selected.length > 0 && (
+          <button
+            className="mb-1 w-full text-left rounded-md px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+            onClick={() => onChange([])}
+          >
+            Limpiar selección
+          </button>
+        )}
+        {values.map(val => (
+          <label
+            key={val}
+            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer hover:bg-accent transition-colors"
+          >
+            <Checkbox
+              checked={selected.includes(val)}
+              onCheckedChange={() => toggle(val)}
+              className="h-3.5 w-3.5"
+            />
+            <span className="truncate">{val}</span>
+          </label>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 export default function CRMFilters({ filters, onChange }: Props) {
@@ -61,10 +108,26 @@ export default function CRMFilters({ filters, onChange }: Props) {
   };
 
   const activeChips: { label: string; value: string; clear: () => void }[] = [];
-  if (filters.category) activeChips.push({ label: 'Categoría', value: filters.category, clear: () => update({ category: '' }) });
-  if (filters.vertical) activeChips.push({ label: 'Vertical', value: filters.vertical, clear: () => update({ vertical: '' }) });
-  if (filters.city) activeChips.push({ label: 'Ciudad', value: filters.city, clear: () => update({ city: '' }) });
-  if (filters.economicActivity) activeChips.push({ label: 'Sub-vertical', value: filters.economicActivity, clear: () => update({ economicActivity: '' }) });
+  if (filters.category.length > 0) {
+    filters.category.forEach(cat => {
+      activeChips.push({ label: 'Categoría', value: cat, clear: () => update({ category: filters.category.filter(v => v !== cat) }) });
+    });
+  }
+  if (filters.vertical.length > 0) {
+    filters.vertical.forEach(v => {
+      activeChips.push({ label: 'Vertical', value: v, clear: () => update({ vertical: filters.vertical.filter(x => x !== v) }) });
+    });
+  }
+  if (filters.city.length > 0) {
+    filters.city.forEach(c => {
+      activeChips.push({ label: 'Ciudad', value: c, clear: () => update({ city: filters.city.filter(x => x !== c) }) });
+    });
+  }
+  if (filters.economicActivity.length > 0) {
+    filters.economicActivity.forEach(ea => {
+      activeChips.push({ label: 'Sub-vertical', value: ea, clear: () => update({ economicActivity: filters.economicActivity.filter(x => x !== ea) }) });
+    });
+  }
   if (filters.nitFilter) activeChips.push({ label: 'NIT', value: filters.nitFilter === 'has' ? 'Con NIT' : 'Sin NIT', clear: () => update({ nitFilter: '' }) });
   if (filters.salesMin) activeChips.push({ label: 'Ventas ≥', value: `${filters.salesMin}M`, clear: () => update({ salesMin: '' }) });
   if (filters.salesMax) activeChips.push({ label: 'Ventas ≤', value: `${filters.salesMax}M`, clear: () => update({ salesMax: '' }) });
@@ -103,69 +166,11 @@ export default function CRMFilters({ filters, onChange }: Props) {
           />
         </div>
 
-        {/* Category dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm shadow-sm shadow-black/5">
-              {filters.category || 'Categoría'}
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuItem onClick={() => update({ category: '' })}>Todas</DropdownMenuItem>
-            {allCategories.map(cat => (
-              <DropdownMenuItem key={cat} onClick={() => update({ category: cat })}>{cat}</DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {/* Vertical dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm shadow-sm shadow-black/5">
-              {filters.vertical || 'Vertical'}
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
-            <DropdownMenuItem onClick={() => update({ vertical: '' })}>Todas</DropdownMenuItem>
-            {allVerticals.map(v => (
-              <DropdownMenuItem key={v} onClick={() => update({ vertical: v })}>{v}</DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {/* City dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm shadow-sm shadow-black/5">
-              {filters.city || 'Ciudad'}
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
-            <DropdownMenuItem onClick={() => update({ city: '' })}>Todas</DropdownMenuItem>
-            {allCities.map(c => (
-              <DropdownMenuItem key={c} onClick={() => update({ city: c })}>{c}</DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {/* Sub-vertical dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-9 gap-1.5 text-sm shadow-sm shadow-black/5">
-              {filters.economicActivity || 'Sub-vertical'}
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
-            <DropdownMenuItem onClick={() => update({ economicActivity: '' })}>Todas</DropdownMenuItem>
-            {allSubVerticals.map(v => (
-              <DropdownMenuItem key={v} onClick={() => update({ economicActivity: v })}>{v}</DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Multi-select dropdowns */}
+        <MultiSelectDropdown label="Categoría" values={allCategories} selected={filters.category} onChange={v => update({ category: v })} />
+        <MultiSelectDropdown label="Vertical" values={allVerticals} selected={filters.vertical} onChange={v => update({ vertical: v })} />
+        <MultiSelectDropdown label="Ciudad" values={allCities} selected={filters.city} onChange={v => update({ city: v })} />
+        <MultiSelectDropdown label="Sub-vertical" values={allSubVerticals} selected={filters.economicActivity} onChange={v => update({ economicActivity: v })} />
 
         {/* NIT dropdown */}
         <DropdownMenu>

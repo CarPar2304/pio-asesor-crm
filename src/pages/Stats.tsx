@@ -95,7 +95,7 @@ export default function Stats() {
   }, [companies, entries, viewingUserId]);
 
   // Product distribution
-  const { offers } = usePortfolio();
+  const { offers, categories } = usePortfolio();
   const productData = useMemo(() => {
     const productCompanies: Record<string, Set<string>> = {};
     entries.forEach(e => {
@@ -114,10 +114,21 @@ export default function Stats() {
     return Object.entries(stats.categoryMap).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
   }, [stats.categoryMap]);
 
-  // Category donut data
-  const categoryDonutData = useMemo(() => {
-    return Object.entries(stats.categoryMap).map(([name, value]) => ({ name, value }));
-  }, [stats.categoryMap]);
+  // Offer category donut data (from portfolio offer categories)
+  const offerCategoryData = useMemo(() => {
+    const catCompanies: Record<string, Set<string>> = {};
+    entries.forEach(e => {
+      if (!viewingUserId || e.addedBy === viewingUserId) {
+        const offer = offers.find(o => o.id === e.offerId);
+        if (!offer?.categoryId) return;
+        const cat = categories.find(c => c.id === offer.categoryId);
+        const catName = cat?.name || 'Sin categoría';
+        if (!catCompanies[catName]) catCompanies[catName] = new Set();
+        catCompanies[catName].add(e.companyId);
+      }
+    });
+    return Object.entries(catCompanies).map(([name, set]) => ({ name, value: set.size }));
+  }, [entries, offers, categories, viewingUserId]);
 
   const totalInteracted = stats.companiesInManagement || 1;
 
@@ -215,20 +226,20 @@ export default function Stats() {
           </CardContent>
         </Card>
 
-        {/* Donut chart - por categoría */}
+        {/* Donut chart - por categoría de oferta */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Distribución por categoría</CardTitle>
+            <CardTitle className="text-sm font-semibold">Distribución por categoría de oferta</CardTitle>
           </CardHeader>
           <CardContent>
-            {categoryDonutData.length === 0 ? (
+            {offerCategoryData.length === 0 ? (
               <div className="flex items-center justify-center h-48 text-sm text-muted-foreground">Sin datos</div>
             ) : (
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={categoryDonutData} cx="50%" cy="50%" innerRadius={50} outerRadius={90} dataKey="value" nameKey="name" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`} labelLine={false} style={{ fontSize: 11 }}>
-                      {categoryDonutData.map((_, i) => (<Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />))}
+                    <Pie data={offerCategoryData} cx="50%" cy="50%" innerRadius={50} outerRadius={90} dataKey="value" nameKey="name" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`} labelLine={false} style={{ fontSize: 11 }}>
+                      {offerCategoryData.map((_, i) => (<Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />))}
                     </Pie>
                     <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: 12 }} />
                   </PieChart>
