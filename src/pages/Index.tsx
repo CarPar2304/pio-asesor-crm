@@ -55,10 +55,10 @@ export default function Index() {
         const s = filters.search.toLowerCase();
         if (!c.tradeName.toLowerCase().includes(s) && !c.legalName.toLowerCase().includes(s) && !c.nit.includes(s)) return false;
       }
-      if (filters.category && c.category !== filters.category) return false;
-      if (filters.vertical && c.vertical !== filters.vertical) return false;
-      if (filters.city && c.city !== filters.city) return false;
-      if (filters.economicActivity && c.economicActivity !== filters.economicActivity) return false;
+      if (filters.category.length > 0 && !filters.category.includes(c.category)) return false;
+      if (filters.vertical.length > 0 && !filters.vertical.includes(c.vertical)) return false;
+      if (filters.city.length > 0 && !filters.city.includes(c.city)) return false;
+      if (filters.economicActivity.length > 0 && !filters.economicActivity.includes(c.economicActivity)) return false;
       if (filters.nitFilter === 'has' && (!c.nit || c.nit === '0')) return false;
       if (filters.nitFilter === 'no' && c.nit && c.nit !== '0') return false;
 

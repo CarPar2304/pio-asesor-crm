@@ -121,8 +121,8 @@ export default function Portafolio() {
               <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..." className="pl-9" />
             </div>
             <Select value={filterProduct || 'all'} onValueChange={v => setFilterProduct(v === 'all' ? '' : v)}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="Producto" />
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Filtrar por producto" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos los productos</SelectItem>
@@ -132,8 +132,8 @@ export default function Portafolio() {
               </SelectContent>
             </Select>
             <Select value={filterCategory || 'all'} onValueChange={v => setFilterCategory(v === 'all' ? '' : v)}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="Categoría" />
+              <SelectTrigger className="w-[210px]">
+                <SelectValue placeholder="Filtrar por categoría" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas las categorías</SelectItem>
@@ -143,8 +143,8 @@ export default function Portafolio() {
               </SelectContent>
             </Select>
             <Select value={filterAlly || 'all'} onValueChange={v => setFilterAlly(v === 'all' ? '' : v)}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="Aliado" />
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="Filtrar por aliado" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos los aliados</SelectItem>

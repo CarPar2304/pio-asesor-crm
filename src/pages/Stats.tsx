@@ -95,7 +95,7 @@ export default function Stats() {
   }, [companies, entries, viewingUserId]);
 
   // Product distribution
-  const { offers } = usePortfolio();
+  const { offers, categories } = usePortfolio();
   const productData = useMemo(() => {
     const productCompanies: Record<string, Set<string>> = {};
     entries.forEach(e => {

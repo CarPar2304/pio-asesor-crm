@@ -183,10 +183,10 @@ export const CITIES = [
 
 export const DEFAULT_FILTERS: FilterState = {
   search: '',
-  category: '',
-  vertical: '',
-  city: '',
-  economicActivity: '',
+  category: [],
+  vertical: [],
+  city: [],
+  economicActivity: [],
   salesMin: '',
   salesMax: '',
   avgYoYMin: '',
