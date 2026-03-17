@@ -131,10 +131,10 @@ export type SortDirection = 'asc' | 'desc';
 
 export interface FilterState {
   search: string;
-  category: string;
-  vertical: string;
-  city: string;
-  economicActivity: string;
+  category: string[];
+  vertical: string[];
+  city: string[];
+  economicActivity: string[];
   salesMin: string;
   salesMax: string;
   avgYoYMin: string;
