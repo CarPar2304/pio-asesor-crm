@@ -26,6 +26,11 @@ export default function StageManagerDialog({ open, onClose, offerId }: Props) {
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState('');
   const [editIcon, setEditIcon] = useState('');
+  const [iconSearch, setIconSearch] = useState('');
+
+  const filteredIcons = iconSearch
+    ? STAGE_ICONS.filter(i => i.toLowerCase().includes(iconSearch.toLowerCase()))
+    : STAGE_ICONS;
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
