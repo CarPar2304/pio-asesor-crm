@@ -116,9 +116,10 @@ export default function Index() {
     if (index === 0) setView('grid');
     else if (index === 1) setView('table');
     else if (index === 3) setBulkOpen(true);
-    else if (index === 4) setFormOpen(true);
-    else if (index === 5) exportCompaniesToExcel(filtered, filters.activeYear);
-  }, [filtered, filters.activeYear]);
+    else if (index === 4) setBulkUpdateOpen(true);
+    else if (index === 5) setFormOpen(true);
+    else if (index === 6) setExportOpen(true);
+  }, []);
 
   return (
     <div className="container py-6">
