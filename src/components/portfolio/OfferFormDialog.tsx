@@ -21,7 +21,7 @@ interface Props {
 const STATUS_LABELS: Record<OfferStatus, string> = { active: 'Activo', inactive: 'Inactivo', draft: 'Borrador' };
 
 export default function OfferFormDialog({ open, onClose, offer }: Props) {
-  const { categories, createCategory, createOffer, updateOffer, allies, createAlly, linkAllyToOffer, unlinkAllyFromOffer, getAlliesForOffer } = usePortfolio();
+  const { categories, createCategory, deleteCategory, createOffer, updateOffer, allies, createAlly, linkAllyToOffer, unlinkAllyFromOffer, getAlliesForOffer } = usePortfolio();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [product, setProduct] = useState('');
