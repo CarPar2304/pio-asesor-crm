@@ -5,7 +5,7 @@ import { showSuccess } from '@/lib/toast';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { FilterState, DEFAULT_FILTERS } from '@/types/crm';
 import { calculateGrowth } from '@/lib/calculations';
-import { exportCompaniesToExcel } from '@/lib/exportExcel';
+// exportExcel removed - now using ExportDialog
 import CompanyCard from '@/components/crm/CompanyCard';
 import { CompanyGridSkeleton, CompanyTableSkeleton } from '@/components/crm/CompanySkeleton';
 import CompanyTable from '@/components/crm/CompanyTable';
