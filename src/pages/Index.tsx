@@ -12,9 +12,11 @@ import CompanyTable from '@/components/crm/CompanyTable';
 import CRMFilters from '@/components/crm/CRMFilters';
 import CompanyForm from '@/components/crm/CompanyForm';
 import BulkUploadDialog from '@/components/crm/BulkUploadDialog';
+import BulkUpdateDialog from '@/components/crm/BulkUpdateDialog';
+import ExportDialog from '@/components/crm/ExportDialog';
 import QuickActionDialog from '@/components/crm/QuickActionDialog';
 import { ExpandableTabs } from '@/components/ui/expandable-tabs';
-import { LayoutGrid, List, FileSpreadsheet, Plus, Download } from 'lucide-react';
+import { LayoutGrid, List, FileSpreadsheet, Plus, Download, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
