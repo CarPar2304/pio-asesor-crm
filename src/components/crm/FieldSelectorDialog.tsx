@@ -139,7 +139,7 @@ export default function FieldSelectorDialog({ open, onClose, onConfirm, title, c
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-md p-0 gap-0 max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-md max-h-[85vh] overflow-hidden p-0 gap-0 flex flex-col">
         <DialogHeader className="border-b border-border px-5 py-4">
           <DialogTitle className="text-base">{title}</DialogTitle>
         </DialogHeader>

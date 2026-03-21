@@ -363,7 +363,7 @@ export default function BulkUpdateDialog({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl p-0 gap-0 max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden p-0 gap-0 flex flex-col">
         <DialogHeader className="border-b border-border px-6 py-4 shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Settings2 className="h-4 w-4 text-primary" />
