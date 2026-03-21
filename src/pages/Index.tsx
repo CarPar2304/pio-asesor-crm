@@ -5,16 +5,18 @@ import { showSuccess } from '@/lib/toast';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { FilterState, DEFAULT_FILTERS } from '@/types/crm';
 import { calculateGrowth } from '@/lib/calculations';
-import { exportCompaniesToExcel } from '@/lib/exportExcel';
+// exportExcel removed - now using ExportDialog
 import CompanyCard from '@/components/crm/CompanyCard';
 import { CompanyGridSkeleton, CompanyTableSkeleton } from '@/components/crm/CompanySkeleton';
 import CompanyTable from '@/components/crm/CompanyTable';
 import CRMFilters from '@/components/crm/CRMFilters';
 import CompanyForm from '@/components/crm/CompanyForm';
 import BulkUploadDialog from '@/components/crm/BulkUploadDialog';
+import BulkUpdateDialog from '@/components/crm/BulkUpdateDialog';
+import ExportDialog from '@/components/crm/ExportDialog';
 import QuickActionDialog from '@/components/crm/QuickActionDialog';
 import { ExpandableTabs } from '@/components/ui/expandable-tabs';
-import { LayoutGrid, List, FileSpreadsheet, Plus, Download } from 'lucide-react';
+import { LayoutGrid, List, FileSpreadsheet, Plus, Download, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -39,12 +41,15 @@ export default function Index() {
   const [formOpen, setFormOpen] = useState(false);
   const [quickAction, setQuickAction] = useState<{ type: 'action' | 'task' | 'milestone'; companyId: string } | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkUpdateOpen, setBulkUpdateOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const dashboardTabs = [
     { title: 'Cuadrícula', icon: LayoutGrid },
     { title: 'Tabla', icon: List },
     { type: 'separator' as const },
     { title: 'Carga masiva', icon: FileSpreadsheet },
+    { title: 'Actualizar masivo', icon: RefreshCw },
     { title: 'Nueva empresa', icon: Plus },
     { title: 'Exportar', icon: Download },
   ];
@@ -111,9 +116,10 @@ export default function Index() {
     if (index === 0) setView('grid');
     else if (index === 1) setView('table');
     else if (index === 3) setBulkOpen(true);
-    else if (index === 4) setFormOpen(true);
-    else if (index === 5) exportCompaniesToExcel(filtered, filters.activeYear);
-  }, [filtered, filters.activeYear]);
+    else if (index === 4) setBulkUpdateOpen(true);
+    else if (index === 5) setFormOpen(true);
+    else if (index === 6) setExportOpen(true);
+  }, []);
 
   return (
     <div className="container py-6">
@@ -158,6 +164,8 @@ export default function Index() {
 
       <CompanyForm open={formOpen} onClose={() => setFormOpen(false)} />
       <BulkUploadDialog open={bulkOpen} onClose={() => setBulkOpen(false)} />
+      <BulkUpdateDialog open={bulkUpdateOpen} onClose={() => setBulkUpdateOpen(false)} />
+      <ExportDialog open={exportOpen} onClose={() => setExportOpen(false)} companies={filtered} activeYear={filters.activeYear} />
       {quickAction && (
         <QuickActionDialog type={quickAction.type} companyId={quickAction.companyId} onClose={() => setQuickAction(null)} />
       )}
