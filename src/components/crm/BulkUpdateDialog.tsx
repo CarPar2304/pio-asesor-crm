@@ -51,14 +51,15 @@ export default function BulkUpdateDialog({ open, onClose }: Props) {
     const map = new Map<string, FieldOption[]>();
     const s = search.toLowerCase();
     allFields.forEach(f => {
-      if (f.id === 'tradeName' || f.id === 'nit' || f.id === 'legalName') return;
+      // Only exclude the field used as match key
+      if (f.id === matchKey) return;
       if (s && !f.label.toLowerCase().includes(s) && !f.group.toLowerCase().includes(s)) return;
       const list = map.get(f.group) || [];
       list.push(f);
       map.set(f.group, list);
     });
     return map;
-  }, [allFields, search]);
+  }, [allFields, search, matchKey]);
 
   const selectedFields = useMemo(() =>
     allFields.filter(f => selectedFieldIds.has(f.id)),
