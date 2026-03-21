@@ -221,6 +221,19 @@ export default function OfferFormDialog({ open, onClose, offer }: Props) {
                     <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setShowNewCat(false)}><X className="h-3.5 w-3.5" /></Button>
                   </div>
                 )}
+                {categories.length > 0 && (
+                  <div className="space-y-1 mt-1">
+                    {categories.map(c => (
+                      <div key={c.id} className="flex items-center gap-2 rounded-md px-2 py-1 text-xs group hover:bg-accent/50 transition-colors">
+                        <div className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: c.color }} />
+                        <span className="flex-1 truncate">{c.name}</span>
+                        <Button type="button" variant="ghost" size="icon" className="h-5 w-5 hidden group-hover:flex text-destructive" onClick={() => { if (confirm(`¿Eliminar categoría "${c.name}"?`)) { deleteCategory(c.id); if (categoryId === c.id) setCategoryId(''); } }}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>Estado</Label>
