@@ -26,6 +26,11 @@ export default function StageManagerDialog({ open, onClose, offerId }: Props) {
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState('');
   const [editIcon, setEditIcon] = useState('');
+  const [iconSearch, setIconSearch] = useState('');
+
+  const filteredIcons = iconSearch
+    ? STAGE_ICONS.filter(i => i.toLowerCase().includes(iconSearch.toLowerCase()))
+    : STAGE_ICONS;
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
@@ -92,10 +97,11 @@ export default function StageManagerDialog({ open, onClose, offerId }: Props) {
                         style={{ backgroundColor: c }} />
                     ))}
                   </div>
-                  <div className="flex flex-wrap gap-1">
-                    {STAGE_ICONS.map(icon => (
+                  <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                    {filteredIcons.map(icon => (
                       <button key={icon} onClick={() => setEditIcon(icon)}
-                        className={cn('rounded p-1 transition-colors hover:bg-muted', editIcon === icon && 'bg-muted ring-1 ring-primary')}>
+                        className={cn('rounded p-1 transition-colors hover:bg-muted', editIcon === icon && 'bg-muted ring-1 ring-primary')}
+                        title={icon}>
                         <IconComponent name={icon} className="h-3.5 w-3.5" />
                       </button>
                     ))}
@@ -137,10 +143,12 @@ export default function StageManagerDialog({ open, onClose, offerId }: Props) {
                   style={{ backgroundColor: c }} />
               ))}
             </div>
-            <div className="flex flex-wrap gap-1">
-              {STAGE_ICONS.map(icon => (
+            <Input placeholder="Buscar ícono..." value={iconSearch} onChange={e => setIconSearch(e.target.value)} className="h-7 text-xs" />
+            <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+              {filteredIcons.map(icon => (
                 <button key={icon} onClick={() => setNewIcon(icon)}
-                  className={cn('rounded p-1 transition-colors hover:bg-muted', newIcon === icon && 'bg-muted ring-1 ring-primary')}>
+                  className={cn('rounded p-1 transition-colors hover:bg-muted', newIcon === icon && 'bg-muted ring-1 ring-primary')}
+                  title={icon}>
                   <IconComponent name={icon} className="h-3.5 w-3.5" />
                 </button>
               ))}

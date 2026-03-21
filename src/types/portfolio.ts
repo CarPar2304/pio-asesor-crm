@@ -81,9 +81,24 @@ export interface PipelineEntry {
 }
 
 export const STAGE_ICONS = [
-  'Circle', 'CheckCircle', 'Clock', 'Star', 'Zap', 'Target', 'Flag',
+  'Circle', 'CheckCircle', 'CheckCircle2', 'Clock', 'Star', 'Zap', 'Target', 'Flag',
   'Rocket', 'Trophy', 'Award', 'Flame', 'Lightbulb', 'Heart', 'ThumbsUp',
   'MessageSquare', 'Phone', 'Mail', 'Calendar', 'Users', 'Building2',
+  'Send', 'ArrowRight', 'ArrowUpRight', 'TrendingUp', 'BarChart3', 'PieChart',
+  'Shield', 'ShieldCheck', 'Lock', 'Unlock', 'Key', 'Eye', 'EyeOff',
+  'Bell', 'BellRing', 'Bookmark', 'BookOpen', 'Briefcase', 'Clipboard',
+  'ClipboardCheck', 'ClipboardList', 'Code', 'Cog', 'Settings',
+  'Database', 'FileText', 'File', 'FolderOpen', 'Globe', 'GraduationCap',
+  'Handshake', 'Hash', 'Headphones', 'Home', 'Image', 'Inbox',
+  'Layers', 'Layout', 'Link', 'List', 'MapPin', 'Megaphone',
+  'Mic', 'Monitor', 'Package', 'Paperclip', 'PenTool', 'Percent',
+  'Plug', 'Power', 'RefreshCw', 'Repeat', 'Save', 'Search', 'Server',
+  'Share2', 'ShoppingBag', 'ShoppingCart', 'Smartphone', 'Smile',
+  'Tag', 'Terminal', 'Timer', 'Tool', 'Truck', 'Upload',
+  'UserCheck', 'UserPlus', 'Video', 'Wallet', 'Watch', 'Wifi', 'Wrench',
+  'Sparkles', 'Crown', 'Gem', 'Gift', 'Puzzle',
+  'CircleDot', 'AlertCircle', 'AlertTriangle', 'Info',
+  'HelpCircle', 'MinusCircle', 'PlusCircle', 'ArrowRightCircle',
 ] as const;
 
 export const STAGE_COLORS = [

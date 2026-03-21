@@ -73,6 +73,8 @@ function CreatableCombobox({ value, onChange, options: baseOptions, placeholder 
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [customOptions, setCustomOptions] = useState<string[]>([]);
+  const [editingOption, setEditingOption] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
 
   const allOptions = [...baseOptions, ...customOptions.filter(v => !baseOptions.includes(v))];
   const filtered = search ? allOptions.filter(v => v.toLowerCase().includes(search.toLowerCase())) : allOptions;
@@ -86,6 +88,19 @@ function CreatableCombobox({ value, onChange, options: baseOptions, placeholder 
       setSearch('');
       setOpen(false);
     }
+  };
+
+  const handleEdit = (oldVal: string) => {
+    if (!editValue.trim() || editValue.trim() === oldVal) { setEditingOption(null); return; }
+    const newVal = editValue.trim();
+    setCustomOptions(prev => prev.map(v => v === oldVal ? newVal : v));
+    if (value === oldVal) onChange(newVal);
+    setEditingOption(null);
+  };
+
+  const handleDelete = (val: string) => {
+    setCustomOptions(prev => prev.filter(v => v !== val));
+    if (value === val) onChange('');
   };
 
   return (
@@ -104,10 +119,32 @@ function CreatableCombobox({ value, onChange, options: baseOptions, placeholder 
         <ScrollArea className="max-h-48">
           <div className="p-1">
             {filtered.map(v => (
-              <button key={v} className={cn('flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground', value === v && 'bg-accent text-accent-foreground')}
-                onClick={() => { onChange(v); setSearch(''); setOpen(false); }}>
-                <Check className={cn('h-3.5 w-3.5', value === v ? 'opacity-100' : 'opacity-0')} />{v}
-              </button>
+              <div key={v} className="group flex items-center gap-1">
+                {editingOption === v ? (
+                  <div className="flex w-full items-center gap-1 px-2 py-1">
+                    <Input value={editValue} onChange={e => setEditValue(e.target.value)} className="h-7 text-sm flex-1"
+                      onKeyDown={e => { if (e.key === 'Enter') handleEdit(v); if (e.key === 'Escape') setEditingOption(null); }}
+                      autoFocus />
+                    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => handleEdit(v)}><Check className="h-3 w-3" /></Button>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => setEditingOption(null)}><X className="h-3 w-3" /></Button>
+                  </div>
+                ) : (
+                  <>
+                    <button className={cn('flex flex-1 items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground', value === v && 'bg-accent text-accent-foreground')}
+                      onClick={() => { onChange(v); setSearch(''); setOpen(false); }}>
+                      <Check className={cn('h-3.5 w-3.5', value === v ? 'opacity-100' : 'opacity-0')} />{v}
+                    </button>
+                    <div className="hidden group-hover:flex items-center shrink-0">
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); setEditingOption(v); setEditValue(v); }}>
+                        <Pencil className="h-3 w-3 text-muted-foreground" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); handleDelete(v); }}>
+                        <Trash2 className="h-3 w-3 text-destructive" />
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
             ))}
             {canCreate && (
               <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-primary hover:bg-accent" onClick={handleCreate}>
