@@ -97,10 +97,11 @@ export default function StageManagerDialog({ open, onClose, offerId }: Props) {
                         style={{ backgroundColor: c }} />
                     ))}
                   </div>
-                  <div className="flex flex-wrap gap-1">
-                    {STAGE_ICONS.map(icon => (
+                  <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                    {filteredIcons.map(icon => (
                       <button key={icon} onClick={() => setEditIcon(icon)}
-                        className={cn('rounded p-1 transition-colors hover:bg-muted', editIcon === icon && 'bg-muted ring-1 ring-primary')}>
+                        className={cn('rounded p-1 transition-colors hover:bg-muted', editIcon === icon && 'bg-muted ring-1 ring-primary')}
+                        title={icon}>
                         <IconComponent name={icon} className="h-3.5 w-3.5" />
                       </button>
                     ))}
