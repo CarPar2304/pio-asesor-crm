@@ -164,6 +164,8 @@ export default function Index() {
 
       <CompanyForm open={formOpen} onClose={() => setFormOpen(false)} />
       <BulkUploadDialog open={bulkOpen} onClose={() => setBulkOpen(false)} />
+      <BulkUpdateDialog open={bulkUpdateOpen} onClose={() => setBulkUpdateOpen(false)} />
+      <ExportDialog open={exportOpen} onClose={() => setExportOpen(false)} companies={filtered} activeYear={filters.activeYear} />
       {quickAction && (
         <QuickActionDialog type={quickAction.type} companyId={quickAction.companyId} onClose={() => setQuickAction(null)} />
       )}
