@@ -41,12 +41,15 @@ export default function Index() {
   const [formOpen, setFormOpen] = useState(false);
   const [quickAction, setQuickAction] = useState<{ type: 'action' | 'task' | 'milestone'; companyId: string } | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkUpdateOpen, setBulkUpdateOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const dashboardTabs = [
     { title: 'Cuadrícula', icon: LayoutGrid },
     { title: 'Tabla', icon: List },
     { type: 'separator' as const },
     { title: 'Carga masiva', icon: FileSpreadsheet },
+    { title: 'Actualizar masivo', icon: RefreshCw },
     { title: 'Nueva empresa', icon: Plus },
     { title: 'Exportar', icon: Download },
   ];
