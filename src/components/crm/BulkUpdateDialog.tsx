@@ -455,7 +455,7 @@ export default function BulkUpdateDialog({ open, onClose }: Props) {
         {step === 'preview' && (
           <>
             <div className="px-6 pt-4 pb-2 flex items-center gap-3 shrink-0">
-              <Badge variant="outline" className="gap-1"><CheckCircle2 className="h-3 w-3 text-green-500" /> {validRows.length} para actualizar</Badge>
+              <Badge variant="outline" className="gap-1"><CheckCircle2 className="h-3 w-3 text-primary" /> {validRows.length} para actualizar</Badge>
               {invalidRows.length > 0 && <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" /> {invalidRows.length} con errores</Badge>}
             </div>
             <ScrollArea className="flex-1 min-h-0 px-6">
@@ -473,7 +473,7 @@ export default function BulkUpdateDialog({ open, onClose }: Props) {
                         <span>{r.errors.length > 0 ? r.errors.join(', ') : 'No encontrada'}</span>
                       </div>
                     ) : (
-                      <CheckCircle2 className="h-3.5 w-3.5 text-green-500 shrink-0" />
+                      <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
                     )}
                   </div>
                 ))}
@@ -499,8 +499,8 @@ export default function BulkUpdateDialog({ open, onClose }: Props) {
 
         {step === 'done' && (
           <div className="p-6 text-center space-y-4">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-500/10">
-              <CheckCircle2 className="h-6 w-6 text-green-500" />
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+              <CheckCircle2 className="h-6 w-6 text-primary" />
             </div>
             <div>
               <h3 className="text-sm font-semibold">{results.success} empresas actualizadas</h3>
