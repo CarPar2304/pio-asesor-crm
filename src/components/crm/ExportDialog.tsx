@@ -40,15 +40,15 @@ export default function ExportDialog({ open, onClose, companies, activeYear }: P
           case 'contactGender': row[field.label] = primaryContact?.gender || ''; break;
           default:
             if (field.type === 'sales_year' && field.year) {
-              row[field.label] = company.salesByYear[field.year] || 0;
+              row[field.label] = Number(company.salesByYear[field.year]) || 0;
             } else if (field.type === 'custom' && field.fieldId) {
               const val = company.fieldValues.find(v => v.fieldId === field.fieldId);
               if (field.year) {
-                row[field.label] = val?.yearValues?.[field.year] || 0;
+                row[field.label] = Number(val?.yearValues?.[field.year]) || 0;
               } else {
                 const fieldDef = fields.find(f => f.id === field.fieldId);
                 if (fieldDef?.fieldType === 'number') {
-                  row[field.label] = val?.numberValue ?? 0;
+                  row[field.label] = Number(val?.numberValue) || 0;
                 } else {
                   row[field.label] = val?.textValue || '';
                 }

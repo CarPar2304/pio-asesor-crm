@@ -2,15 +2,15 @@ import { useState, useRef, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import { useCRM } from '@/contexts/CRMContext';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
-import { Download, Upload, AlertTriangle, CheckCircle2, XCircle, Loader2, Search, ArrowLeft, FileSpreadsheet, Settings2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Download, Upload, AlertTriangle, CheckCircle2, XCircle, Loader2, Search, ArrowLeft, FileSpreadsheet, Settings2, Key } from 'lucide-react';
 import { showError, showSuccess } from '@/lib/toast';
-import { supabase } from '@/integrations/supabase/client';
 import { FieldOption, useAvailableFields } from './FieldSelectorDialog';
 import { Company } from '@/types/crm';
 
@@ -20,11 +20,13 @@ interface Props {
 }
 
 interface UpdateRow {
-  matchKey: string; // NIT or tradeName used to match
+  matchKey: string;
   matchedCompany: Company | null;
   updates: Record<string, any>;
   errors: string[];
 }
+
+type MatchKeyType = 'nit' | 'tradeName' | 'legalName';
 
 export default function BulkUpdateDialog({ open, onClose }: Props) {
   const { companies, updateCompany, saveFieldValues, refresh } = useCRM();
@@ -34,17 +36,22 @@ export default function BulkUpdateDialog({ open, onClose }: Props) {
 
   const [step, setStep] = useState<'select-fields' | 'upload' | 'preview' | 'loading' | 'done'>('select-fields');
   const [selectedFieldIds, setSelectedFieldIds] = useState<Set<string>>(new Set());
+  const [matchKey, setMatchKey] = useState<MatchKeyType>('nit');
   const [search, setSearch] = useState('');
   const [rows, setRows] = useState<UpdateRow[]>([]);
   const [results, setResults] = useState({ success: 0, failed: 0, skipped: 0 });
 
-  // Fields grouped
+  const matchKeyLabels: Record<MatchKeyType, string> = {
+    nit: 'NIT',
+    tradeName: 'Nombre comercial',
+    legalName: 'Razón social',
+  };
+
   const groups = useMemo(() => {
     const map = new Map<string, FieldOption[]>();
     const s = search.toLowerCase();
     allFields.forEach(f => {
-      // Always exclude tradeName & NIT from selection - they're used as identifiers
-      if (f.id === 'tradeName' || f.id === 'nit') return;
+      if (f.id === 'tradeName' || f.id === 'nit' || f.id === 'legalName') return;
       if (s && !f.label.toLowerCase().includes(s) && !f.group.toLowerCase().includes(s)) return;
       const list = map.get(f.group) || [];
       list.push(f);
@@ -78,74 +85,29 @@ export default function BulkUpdateDialog({ open, onClose }: Props) {
 
   const downloadTemplate = () => {
     const wb = XLSX.utils.book_new();
-    // Columns: NIT (identifier), Nombre Comercial (identifier), then selected fields
-    const headers = ['NIT (identificador)', 'Nombre Comercial (identificador)', ...selectedFields.map(f => f.label)];
+    const headers = [matchKeyLabels[matchKey] + ' (identificador)', ...selectedFields.map(f => f.label)];
 
-    // Pre-fill with existing companies data
-    const dataRows = companies.map(c => {
-      const row: any[] = [c.nit || '', c.tradeName];
-      selectedFields.forEach(f => {
-        row.push(getCompanyFieldValue(c, f));
-      });
-      return row;
-    });
-
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
+    // Empty template - only headers, no pre-filled data
+    const ws = XLSX.utils.aoa_to_sheet([headers]);
     ws['!cols'] = headers.map(() => ({ wch: 22 }));
 
-    // Style header note
     XLSX.utils.book_append_sheet(wb, ws, 'Actualización');
 
-    // Instructions sheet
     const instrWs = XLSX.utils.aoa_to_sheet([
       ['Instrucciones de actualización masiva'],
       [''],
-      ['1. Las dos primeras columnas (NIT y Nombre Comercial) se usan para identificar la empresa.'],
-      ['2. Se intentará primero emparejar por NIT. Si no hay NIT, se usará el Nombre Comercial.'],
-      ['3. Solo modifica las columnas que deseas actualizar.'],
+      [`1. La primera columna (${matchKeyLabels[matchKey]}) se usará para identificar la empresa.`],
+      ['2. Llena los datos que deseas actualizar en las columnas correspondientes.'],
+      ['3. Deja vacías las celdas que no quieras modificar.'],
       ['4. Los campos de email se validarán automáticamente.'],
       ['5. Los campos numéricos deben contener solo números.'],
-      ['6. No elimines las columnas de identificación.'],
+      ['6. No elimines ni renombres la columna de identificación.'],
     ]);
     instrWs['!cols'] = [{ wch: 80 }];
     XLSX.utils.book_append_sheet(wb, instrWs, 'Instrucciones');
 
     XLSX.writeFile(wb, 'plantilla_actualizacion.xlsx');
     setStep('upload');
-  };
-
-  const getCompanyFieldValue = (company: Company, field: FieldOption): any => {
-    const primaryContact = company.contacts.find(c => c.isPrimary) || company.contacts[0];
-
-    switch (field.id) {
-      case 'legalName': return company.legalName;
-      case 'category': return company.category;
-      case 'vertical': return company.vertical;
-      case 'economicActivity': return company.economicActivity;
-      case 'description': return company.description;
-      case 'city': return company.city;
-      case 'website': return company.website;
-      case 'exportsUSD': return company.exportsUSD;
-      case 'contactName': return primaryContact?.name || '';
-      case 'contactPosition': return primaryContact?.position || '';
-      case 'contactEmail': return primaryContact?.email || '';
-      case 'contactPhone': return primaryContact?.phone || '';
-      case 'contactGender': return primaryContact?.gender || '';
-      default:
-        if (field.type === 'sales_year' && field.year) {
-          return company.salesByYear[field.year] || '';
-        }
-        if (field.type === 'custom' && field.fieldId) {
-          const val = company.fieldValues.find(v => v.fieldId === field.fieldId);
-          if (field.year) {
-            return val?.yearValues?.[field.year] || '';
-          }
-          const fieldDef = fields.find(f => f.id === field.fieldId);
-          if (fieldDef?.fieldType === 'number') return val?.numberValue ?? '';
-          return val?.textValue || '';
-        }
-        return '';
-    }
   };
 
   const parseFile = (file: File) => {
@@ -164,33 +126,32 @@ export default function BulkUpdateDialog({ open, onClose }: Props) {
           const r = data[i] as any[];
           if (!r || r.length === 0) continue;
 
-          const nit = String(r[0] || '').trim();
-          const tradeName = String(r[1] || '').trim();
+          const keyVal = String(r[0] || '').trim();
+          if (!keyVal) continue;
+
           const errors: string[] = [];
 
-          // Match company
+          // Match company by selected key
           let matched: Company | null = null;
-          if (nit && nit !== '0') {
-            matched = companies.find(c => c.nit.trim() === nit) || null;
-          }
-          if (!matched && tradeName) {
-            matched = companies.find(c => c.tradeName.toLowerCase() === tradeName.toLowerCase()) || null;
+          if (matchKey === 'nit') {
+            matched = companies.find(c => c.nit.trim() === keyVal) || null;
+          } else if (matchKey === 'tradeName') {
+            matched = companies.find(c => c.tradeName.toLowerCase() === keyVal.toLowerCase()) || null;
+          } else {
+            matched = companies.find(c => c.legalName.toLowerCase() === keyVal.toLowerCase()) || null;
           }
 
           if (!matched) {
-            if (!nit && !tradeName) continue; // skip empty rows
             errors.push('Empresa no encontrada');
           }
 
-          // Parse updates
           const updates: Record<string, any> = {};
           selectedFields.forEach((field, idx) => {
-            const colIdx = idx + 2; // offset for NIT + tradeName columns
+            const colIdx = idx + 1; // offset for match key column
             const rawVal = r[colIdx];
             if (rawVal === undefined || rawVal === null || rawVal === '') return;
             const val = String(rawVal).trim();
 
-            // Validate emails
             if (field.id === 'contactEmail' && val) {
               const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
               if (!emailRegex.test(val)) {
@@ -201,12 +162,7 @@ export default function BulkUpdateDialog({ open, onClose }: Props) {
             updates[field.id] = val;
           });
 
-          parsed.push({
-            matchKey: nit || tradeName,
-            matchedCompany: matched,
-            updates,
-            errors,
-          });
+          parsed.push({ matchKey: keyVal, matchedCompany: matched, updates, errors });
         }
 
         setRows(parsed);
@@ -231,9 +187,9 @@ export default function BulkUpdateDialog({ open, onClose }: Props) {
         const c = row.matchedCompany;
         const u = row.updates;
 
-        // Build updated company
         const updatedCompany = { ...c };
         if (u.legalName !== undefined) updatedCompany.legalName = u.legalName;
+        if (u.tradeName !== undefined) updatedCompany.tradeName = u.tradeName;
         if (u.category !== undefined) updatedCompany.category = u.category;
         if (u.vertical !== undefined) updatedCompany.vertical = u.vertical;
         if (u.economicActivity !== undefined) updatedCompany.economicActivity = u.economicActivity;
@@ -241,8 +197,8 @@ export default function BulkUpdateDialog({ open, onClose }: Props) {
         if (u.city !== undefined) updatedCompany.city = u.city;
         if (u.website !== undefined) updatedCompany.website = u.website;
         if (u.exportsUSD !== undefined) updatedCompany.exportsUSD = Number(u.exportsUSD) || 0;
+        if (u.nit !== undefined) updatedCompany.nit = u.nit;
 
-        // Sales by year
         const salesUpdates: Record<number, number> = {};
         let hasSalesUpdate = false;
         selectedFields.forEach(f => {
@@ -255,88 +211,54 @@ export default function BulkUpdateDialog({ open, onClose }: Props) {
           updatedCompany.salesByYear = { ...c.salesByYear, ...salesUpdates };
         }
 
-        // Contact updates
         const contactKeys = ['contactName', 'contactPosition', 'contactEmail', 'contactPhone', 'contactGender'];
         const hasContactUpdate = contactKeys.some(k => u[k] !== undefined);
         if (hasContactUpdate) {
           const primaryIdx = updatedCompany.contacts.findIndex(ct => ct.isPrimary);
-          if (primaryIdx >= 0) {
-            const ct = { ...updatedCompany.contacts[primaryIdx] };
+          const targetIdx = primaryIdx >= 0 ? primaryIdx : 0;
+          if (updatedCompany.contacts.length > 0) {
+            const ct = { ...updatedCompany.contacts[targetIdx] };
             if (u.contactName !== undefined) ct.name = u.contactName;
             if (u.contactPosition !== undefined) ct.position = u.contactPosition;
             if (u.contactEmail !== undefined) ct.email = u.contactEmail;
             if (u.contactPhone !== undefined) ct.phone = u.contactPhone;
             if (u.contactGender !== undefined) ct.gender = u.contactGender;
             updatedCompany.contacts = [...updatedCompany.contacts];
-            updatedCompany.contacts[primaryIdx] = ct;
-          } else if (updatedCompany.contacts.length > 0) {
-            const ct = { ...updatedCompany.contacts[0] };
-            if (u.contactName !== undefined) ct.name = u.contactName;
-            if (u.contactPosition !== undefined) ct.position = u.contactPosition;
-            if (u.contactEmail !== undefined) ct.email = u.contactEmail;
-            if (u.contactPhone !== undefined) ct.phone = u.contactPhone;
-            if (u.contactGender !== undefined) ct.gender = u.contactGender;
-            updatedCompany.contacts = [...updatedCompany.contacts];
-            updatedCompany.contacts[0] = ct;
+            updatedCompany.contacts[targetIdx] = ct;
           } else {
             updatedCompany.contacts = [{
               id: crypto.randomUUID(),
-              name: u.contactName || '',
-              position: u.contactPosition || '',
-              email: u.contactEmail || '',
-              phone: u.contactPhone || '',
-              notes: '',
-              isPrimary: true,
-              gender: u.contactGender || '',
+              name: u.contactName || '', position: u.contactPosition || '',
+              email: u.contactEmail || '', phone: u.contactPhone || '',
+              notes: '', isPrimary: true, gender: u.contactGender || '',
             }];
           }
         }
 
         await updateCompany(updatedCompany);
 
-        // Custom field values
         const customUpdates = selectedFields.filter(f => f.type === 'custom' && u[f.id] !== undefined);
         if (customUpdates.length > 0) {
           const existingVals = [...(c.fieldValues || [])];
-
           customUpdates.forEach(field => {
             if (!field.fieldId) return;
             const fieldDef = fields.find(fd => fd.id === field.fieldId);
             const existingIdx = existingVals.findIndex(v => v.fieldId === field.fieldId);
-
             if (field.year) {
-              // metric by year
               if (existingIdx >= 0) {
-                existingVals[existingIdx] = {
-                  ...existingVals[existingIdx],
-                  yearValues: { ...existingVals[existingIdx].yearValues, [field.year]: Number(u[field.id]) || 0 },
-                };
+                existingVals[existingIdx] = { ...existingVals[existingIdx], yearValues: { ...existingVals[existingIdx].yearValues, [field.year]: Number(u[field.id]) || 0 } };
               } else {
-                existingVals.push({
-                  id: '', companyId: c.id, fieldId: field.fieldId!,
-                  textValue: '', numberValue: null,
-                  yearValues: { [field.year]: Number(u[field.id]) || 0 },
-                });
+                existingVals.push({ id: '', companyId: c.id, fieldId: field.fieldId!, textValue: '', numberValue: null, yearValues: { [field.year]: Number(u[field.id]) || 0 } });
               }
             } else {
               const val = u[field.id];
               if (existingIdx >= 0) {
-                existingVals[existingIdx] = {
-                  ...existingVals[existingIdx],
-                  textValue: fieldDef?.fieldType === 'number' ? '' : val,
-                  numberValue: fieldDef?.fieldType === 'number' ? Number(val) || null : null,
-                };
+                existingVals[existingIdx] = { ...existingVals[existingIdx], textValue: fieldDef?.fieldType === 'number' ? '' : val, numberValue: fieldDef?.fieldType === 'number' ? Number(val) || null : null };
               } else {
-                existingVals.push({
-                  id: '', companyId: c.id, fieldId: field.fieldId!,
-                  textValue: fieldDef?.fieldType === 'number' ? '' : val,
-                  numberValue: fieldDef?.fieldType === 'number' ? Number(val) || null : null,
-                  yearValues: {},
-                });
+                existingVals.push({ id: '', companyId: c.id, fieldId: field.fieldId!, textValue: fieldDef?.fieldType === 'number' ? '' : val, numberValue: fieldDef?.fieldType === 'number' ? Number(val) || null : null, yearValues: {} });
               }
             }
           });
-
           await saveFieldValues(c.id, existingVals);
         }
 
@@ -352,14 +274,13 @@ export default function BulkUpdateDialog({ open, onClose }: Props) {
   };
 
   const reset = () => {
-    setRows([]);
-    setStep('select-fields');
-    setSelectedFieldIds(new Set());
-    setSearch('');
-    setResults({ success: 0, failed: 0, skipped: 0 });
+    setRows([]); setStep('select-fields'); setSelectedFieldIds(new Set());
+    setSearch(''); setMatchKey('nit'); setResults({ success: 0, failed: 0, skipped: 0 });
   };
 
   const handleClose = () => { reset(); onClose(); };
+  const totalRows = rows.length;
+  const matchedCount = rows.filter(r => r.matchedCompany).length;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -380,9 +301,29 @@ export default function BulkUpdateDialog({ open, onClose }: Props) {
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold">¿Qué campos deseas actualizar?</h3>
-                  <p className="text-xs text-muted-foreground mt-1">Selecciona los campos que incluirá la plantilla. Las empresas se identificarán por NIT o nombre comercial.</p>
+                  <p className="text-xs text-muted-foreground mt-1">Selecciona la variable de cruce y los campos que incluirá la plantilla.</p>
                 </div>
               </div>
+
+              {/* Match key selector */}
+              <div className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30">
+                <Key className="h-4 w-4 text-primary shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium">Variable de cruce</p>
+                  <p className="text-[10px] text-muted-foreground">Campo para identificar cada empresa</p>
+                </div>
+                <Select value={matchKey} onValueChange={(v) => setMatchKey(v as MatchKeyType)}>
+                  <SelectTrigger className="w-44 h-8 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="nit">NIT</SelectItem>
+                    <SelectItem value="tradeName">Nombre comercial</SelectItem>
+                    <SelectItem value="legalName">Razón social</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input placeholder="Buscar campos..." value={search} onChange={e => setSearch(e.target.value)} className="h-9 pl-8 text-sm" />
@@ -434,9 +375,9 @@ export default function BulkUpdateDialog({ open, onClose }: Props) {
                 <Upload className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <h3 className="text-sm font-semibold">Sube la plantilla actualizada</h3>
+                <h3 className="text-sm font-semibold">Sube la plantilla con los datos a actualizar</h3>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Llena la plantilla descargada con los datos actualizados y súbela aquí. Se actualizarán {selectedFieldIds.size} campos.
+                  Variable de cruce: <strong>{matchKeyLabels[matchKey]}</strong> · {selectedFieldIds.size} campos seleccionados
                 </p>
               </div>
             </div>
@@ -454,9 +395,23 @@ export default function BulkUpdateDialog({ open, onClose }: Props) {
 
         {step === 'preview' && (
           <>
-            <div className="px-6 pt-4 pb-2 flex items-center gap-3 shrink-0">
-              <Badge variant="outline" className="gap-1"><CheckCircle2 className="h-3 w-3 text-primary" /> {validRows.length} para actualizar</Badge>
-              {invalidRows.length > 0 && <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" /> {invalidRows.length} con errores</Badge>}
+            <div className="px-6 pt-4 pb-2 space-y-2 shrink-0">
+              <div className="flex items-center gap-3 flex-wrap">
+                <Badge variant="secondary" className="gap-1 text-xs">
+                  <Key className="h-3 w-3" /> Cruce por: {matchKeyLabels[matchKey]}
+                </Badge>
+                <Badge variant="outline" className="gap-1 text-xs">
+                  {totalRows} registros subidos
+                </Badge>
+                <Badge variant="outline" className="gap-1 text-xs text-primary border-primary/30">
+                  <CheckCircle2 className="h-3 w-3" /> {matchedCount} cruzaron
+                </Badge>
+                {invalidRows.length > 0 && (
+                  <Badge variant="destructive" className="gap-1 text-xs">
+                    <XCircle className="h-3 w-3" /> {invalidRows.length} sin cruce
+                  </Badge>
+                )}
+              </div>
             </div>
             <ScrollArea className="flex-1 min-h-0 px-6">
               <div className="space-y-1.5 pb-4">
