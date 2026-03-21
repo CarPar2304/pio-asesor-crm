@@ -139,12 +139,12 @@ export default function FieldSelectorDialog({ open, onClose, onConfirm, title, c
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-md max-h-[85vh] overflow-hidden p-0 gap-0 flex flex-col">
-        <DialogHeader className="border-b border-border px-5 py-4">
+      <DialogContent className="w-[min(92vw,56rem)] max-w-3xl h-[min(90vh,48rem)] overflow-hidden p-0 gap-0 flex flex-col">
+        <DialogHeader className="border-b border-border px-5 py-4 shrink-0">
           <DialogTitle className="text-base">{title}</DialogTitle>
         </DialogHeader>
 
-        <div className="px-5 pt-3 pb-2 space-y-2">
+        <div className="px-5 pt-3 pb-2 space-y-2 shrink-0">
           <div className="relative">
             <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <Input placeholder="Buscar campos..." value={search} onChange={e => setSearch(e.target.value)} className="h-9 pl-8 text-sm" />
@@ -170,6 +170,7 @@ export default function FieldSelectorDialog({ open, onClose, onConfirm, title, c
               return (
                 <div key={group}>
                   <button
+                    type="button"
                     className="flex items-center gap-2 mb-2 group"
                     onClick={() => toggleGroup(group)}
                   >
@@ -198,7 +199,7 @@ export default function FieldSelectorDialog({ open, onClose, onConfirm, title, c
           </div>
         </ScrollArea>
 
-        <DialogFooter className="border-t border-border px-5 py-3">
+        <DialogFooter className="border-t border-border px-5 py-3 shrink-0">
           <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
           <Button size="sm" onClick={handleConfirm} disabled={selected.size === 0}>{confirmLabel} ({selected.size})</Button>
         </DialogFooter>

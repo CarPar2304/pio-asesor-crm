@@ -363,7 +363,7 @@ export default function BulkUpdateDialog({ open, onClose }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden p-0 gap-0 flex flex-col">
+      <DialogContent className="max-w-2xl h-[min(90vh,48rem)] overflow-hidden p-0 gap-0 flex flex-col">
         <DialogHeader className="border-b border-border px-6 py-4 shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Settings2 className="h-4 w-4 text-primary" />
@@ -428,7 +428,7 @@ export default function BulkUpdateDialog({ open, onClose }: Props) {
         )}
 
         {step === 'upload' && (
-          <div className="p-6 space-y-6">
+          <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-6">
             <div className="text-center space-y-4">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
                 <Upload className="h-6 w-6 text-primary" />
@@ -491,14 +491,14 @@ export default function BulkUpdateDialog({ open, onClose }: Props) {
         )}
 
         {step === 'loading' && (
-          <div className="flex flex-col items-center justify-center p-12 gap-3">
+          <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center justify-center p-12 gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">Actualizando empresas...</p>
           </div>
         )}
 
         {step === 'done' && (
-          <div className="p-6 text-center space-y-4">
+          <div className="flex-1 min-h-0 overflow-y-auto p-6 text-center space-y-4">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
               <CheckCircle2 className="h-6 w-6 text-primary" />
             </div>
