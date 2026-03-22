@@ -640,6 +640,7 @@ function TaxonomyTab() {
     </div>
   );
 }
+function FormFieldsTab() {
   const { sections, fields, addSection, addField, deleteSection, deleteField, updateField, updateSection } = useCustomFields();
 
   return (
