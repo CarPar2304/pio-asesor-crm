@@ -70,7 +70,7 @@ const Field = ({ label, children, onDelete, onEdit }: { label: string; children:
   </div>
 );
 
-function CreatableCombobox({ value, onChange, options: baseOptions, placeholder, onCreate }: { value: string; onChange: (v: string) => void; options: string[]; placeholder?: string; onCreate?: (val: string) => void }) {
+function CreatableCombobox({ value, onChange, options: baseOptions, placeholder, onCreate, allowEmpty }: { value: string; onChange: (v: string) => void; options: string[]; placeholder?: string; onCreate?: (val: string) => void; allowEmpty?: boolean }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [customOptions, setCustomOptions] = useState<string[]>([]);
@@ -120,6 +120,12 @@ function CreatableCombobox({ value, onChange, options: baseOptions, placeholder,
         </div>
         <ScrollArea className="max-h-48">
           <div className="p-1">
+            {allowEmpty && (
+              <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent"
+                onClick={() => { onChange(''); setSearch(''); setOpen(false); }}>
+                <X className="h-3.5 w-3.5" /> Sin selección
+              </button>
+            )}
             {filtered.map(v => (
               <div key={v} className="group flex items-center gap-1">
                 {editingOption === v ? (
@@ -566,15 +572,14 @@ export default function CompanyForm({ open, onClose, company }: Props) {
 
   // Sub-vertical options based on current vertical (from taxonomy)
   const allVerticals = useMemo(() => {
-    const verts = taxonomy.getVerticalsForCategory(form.category).map(v => v.name);
-    // Also include company's current vertical if not in list
-    if (form.vertical && !verts.includes(form.vertical)) verts.push(form.vertical);
+    const verts = taxonomy.getVerticalsForCategory(form.category).map(v => v.name).filter(n => n !== 'Otro');
+    if (form.vertical && form.vertical !== 'Otro' && !verts.includes(form.vertical)) verts.push(form.vertical);
     return verts;
   }, [taxonomy, form.category, form.vertical]);
 
   const subVerticalOptions = useMemo(() => {
-    const subs = taxonomy.getSubVerticalsForVertical(form.vertical).map(sv => sv.name);
-    if (form.subVertical && !subs.includes(form.subVertical)) subs.push(form.subVertical);
+    const subs = taxonomy.getSubVerticalsForVertical(form.vertical).map(sv => sv.name).filter(n => n !== 'Otro');
+    if (form.subVertical && form.subVertical !== 'Otro' && !subs.includes(form.subVertical)) subs.push(form.subVertical);
     return subs;
   }, [taxonomy, form.vertical, form.subVertical]);
 
@@ -625,12 +630,14 @@ export default function CompanyForm({ open, onClose, company }: Props) {
                 </Field>
                 <Field label="Vertical">
                   <CreatableCombobox value={form.vertical} onChange={v => setForm(f => ({ ...f, vertical: v, subVertical: '' }))} options={allVerticals}
+                    placeholder="Seleccionar vertical..." allowEmpty
                     onCreate={async (name) => { await taxonomy.addVertical(name); }} />
                 </Field>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Sub-vertical">
                   <CreatableCombobox value={form.subVertical} onChange={v => setForm(f => ({ ...f, subVertical: v }))} options={subVerticalOptions} placeholder="Seleccionar sub-vertical..."
+                    allowEmpty
                     onCreate={async (name) => {
                       const sv = await taxonomy.addSubVertical(name);
                       if (sv && form.vertical) {
