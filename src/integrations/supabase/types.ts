@@ -268,6 +268,107 @@ export type Database = {
           },
         ]
       }
+      crm_category_verticals: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          vertical_id: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          id?: string
+          vertical_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          vertical_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_category_verticals_vertical_id_fkey"
+            columns: ["vertical_id"]
+            isOneToOne: false
+            referencedRelation: "crm_verticals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_sub_verticals: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      crm_vertical_sub_verticals: {
+        Row: {
+          created_at: string
+          id: string
+          sub_vertical_id: string
+          vertical_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          sub_vertical_id: string
+          vertical_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          sub_vertical_id?: string
+          vertical_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_vertical_sub_verticals_sub_vertical_id_fkey"
+            columns: ["sub_vertical_id"]
+            isOneToOne: false
+            referencedRelation: "crm_sub_verticals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_vertical_sub_verticals_vertical_id_fkey"
+            columns: ["vertical_id"]
+            isOneToOne: false
+            referencedRelation: "crm_verticals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_verticals: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       custom_field_values: {
         Row: {
           company_id: string
