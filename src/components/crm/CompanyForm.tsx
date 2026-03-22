@@ -630,12 +630,14 @@ export default function CompanyForm({ open, onClose, company }: Props) {
                 </Field>
                 <Field label="Vertical">
                   <CreatableCombobox value={form.vertical} onChange={v => setForm(f => ({ ...f, vertical: v, subVertical: '' }))} options={allVerticals}
+                    placeholder="Seleccionar vertical..." allowEmpty
                     onCreate={async (name) => { await taxonomy.addVertical(name); }} />
                 </Field>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Sub-vertical">
                   <CreatableCombobox value={form.subVertical} onChange={v => setForm(f => ({ ...f, subVertical: v }))} options={subVerticalOptions} placeholder="Seleccionar sub-vertical..."
+                    allowEmpty
                     onCreate={async (name) => {
                       const sv = await taxonomy.addSubVertical(name);
                       if (sv && form.vertical) {
