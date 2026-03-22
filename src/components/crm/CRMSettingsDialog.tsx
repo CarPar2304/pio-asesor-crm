@@ -8,13 +8,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   Plus, Trash2, Pencil, Check, X, ChevronRight, AlertTriangle, GitBranch,
-  ArrowRight, Merge, Tag, Layers, FolderTree
+  ArrowRight, Merge, Tag, Layers, FolderTree, ChevronDown, MoreHorizontal, ArrowRightLeft, Link2
 } from 'lucide-react';
 import { showSuccess, showError } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -36,6 +37,21 @@ function InlineEdit({ value, onSave, onCancel }: { value: string; onSave: (v: st
   );
 }
 
+/* Connector line between columns */
+function FlowConnector({ visible }: { visible: boolean }) {
+  return (
+    <div className={cn(
+      "flex items-center justify-center w-8 shrink-0 transition-opacity duration-300",
+      visible ? "opacity-100" : "opacity-0"
+    )}>
+      <svg width="32" height="60" viewBox="0 0 32 60" className="text-muted-foreground/40">
+        <line x1="0" y1="30" x2="24" y2="30" stroke="currentColor" strokeWidth="2" strokeDasharray="4 3" />
+        <polygon points="24,25 32,30 24,35" fill="currentColor" />
+      </svg>
+    </div>
+  );
+}
+
 function TaxonomyTab() {
   const { companies } = useCRM();
   const taxonomy = useTaxonomy();
@@ -46,6 +62,7 @@ function TaxonomyTab() {
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedVerticalId, setSelectedVerticalId] = useState<string | null>(null);
+  const [showOrphans, setShowOrphans] = useState(false);
 
   // Editing states
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -57,6 +74,8 @@ function TaxonomyTab() {
   const [editingLabels, setEditingLabels] = useState<{ l1: string; l2: string } | null>(null);
   const [mergeTarget, setMergeTarget] = useState<{ name: string; type: 'vertical' | 'subvertical' } | null>(null);
   const [mergeTargetId, setMergeTargetId] = useState('');
+  const [linkingVertical, setLinkingVertical] = useState(false);
+  const [linkingSubVertical, setLinkingSubVertical] = useState(false);
 
   const companiesUsingCategory = (cat: string) => companies.filter(c => c.category === cat).length;
   const companiesUsingVertical = (name: string) => companies.filter(c => c.vertical === name).length;
@@ -67,30 +86,42 @@ function TaxonomyTab() {
   const level1Label = categoryConfig?.level1_label || 'Verticales';
   const level2Label = categoryConfig?.level2_label || 'Sub-verticales';
 
-  // Verticals for selected category
-  const categoryVerticals = useMemo(() => {
+  // Verticals linked to selected category
+  const linkedVerticals = useMemo(() => {
     if (!selectedCategory) return [];
     const linkedIds = categoryVerticalLinks.filter(l => l.category === selectedCategory).map(l => l.vertical_id);
-    if (linkedIds.length === 0) return verticals;
     return verticals.filter(v => linkedIds.includes(v.id));
   }, [selectedCategory, categoryVerticalLinks, verticals]);
 
-  // All verticals (for linking)
-  const allVerticals = verticals;
+  // Verticals NOT linked to selected category (for linking dialog)
+  const unlinkableVerticals = useMemo(() => {
+    if (!selectedCategory) return [];
+    const linkedIds = new Set(categoryVerticalLinks.filter(l => l.category === selectedCategory).map(l => l.vertical_id));
+    return verticals.filter(v => !linkedIds.has(v.id));
+  }, [selectedCategory, categoryVerticalLinks, verticals]);
 
-  // Sub-verticals for selected vertical
-  const verticalSubVerticals = useMemo(() => {
+  // Sub-verticals linked to selected vertical
+  const linkedSubVerticals = useMemo(() => {
     if (!selectedVerticalId) return [];
     const linkedIds = verticalSubVerticalLinks.filter(l => l.vertical_id === selectedVerticalId).map(l => l.sub_vertical_id);
-    if (linkedIds.length === 0) return [];
     return subVerticals.filter(sv => linkedIds.includes(sv.id));
   }, [selectedVerticalId, verticalSubVerticalLinks, subVerticals]);
 
-  const isCategoryVerticalLinked = (cat: string, vId: string) =>
-    categoryVerticalLinks.some(l => l.category === cat && l.vertical_id === vId);
+  // Sub-verticals NOT linked to selected vertical
+  const unlinkableSubVerticals = useMemo(() => {
+    if (!selectedVerticalId) return [];
+    const linkedIds = new Set(verticalSubVerticalLinks.filter(l => l.vertical_id === selectedVerticalId).map(l => l.sub_vertical_id));
+    return subVerticals.filter(sv => !linkedIds.has(sv.id));
+  }, [selectedVerticalId, verticalSubVerticalLinks, subVerticals]);
 
-  const isVerticalSubVerticalLinked = (vId: string, svId: string) =>
-    verticalSubVerticalLinks.some(l => l.vertical_id === vId && l.sub_vertical_id === svId);
+  const selectedVertical = verticals.find(v => v.id === selectedVerticalId);
+
+  // Other categories for moving
+  const otherCategories = allCategories.filter(c => c !== selectedCategory);
+  // Other verticals for moving sub-verticals
+  const otherVerticals = verticals.filter(v => v.id !== selectedVerticalId);
+
+  const orphanCount = orphanVerticals.length + orphanSubVerticals.length;
 
   // Handlers
   const handleAddCategory = async () => {
@@ -102,6 +133,10 @@ function TaxonomyTab() {
   };
 
   const handleDeleteCategory = async (cat: string) => {
+    if (companiesUsingCategory(cat) > 0) {
+      showError('No se puede eliminar', `${companiesUsingCategory(cat)} empresas usan esta categoría`);
+      return;
+    }
     await taxonomy.deleteCategory(cat);
     if (selectedCategory === cat) { setSelectedCategory(null); setSelectedVerticalId(null); }
     showSuccess('Categoría eliminada', cat);
@@ -141,30 +176,50 @@ function TaxonomyTab() {
   };
 
   const handleDeleteVertical = async (id: string) => {
+    const v = verticals.find(vt => vt.id === id);
+    if (v && companiesUsingVertical(v.name) > 0) {
+      showError('No se puede eliminar', `${companiesUsingVertical(v.name)} empresas usan esta vertical`);
+      return;
+    }
     await taxonomy.deleteVertical(id);
     if (selectedVerticalId === id) setSelectedVerticalId(null);
     showSuccess(`${level1Label.slice(0, -1)} eliminada`);
   };
 
   const handleDeleteSubVertical = async (id: string) => {
+    const sv = subVerticals.find(s => s.id === id);
+    if (sv && companiesUsingSubVertical(sv.name) > 0) {
+      showError('No se puede eliminar', `${companiesUsingSubVertical(sv.name)} empresas usan esta sub-vertical`);
+      return;
+    }
     await taxonomy.deleteSubVertical(id);
     showSuccess(`${level2Label.slice(0, -1)} eliminada`);
   };
 
-  const toggleLink = async (cat: string, vId: string) => {
-    if (isCategoryVerticalLinked(cat, vId)) {
-      await taxonomy.unlinkCategoryVertical(cat, vId);
-    } else {
-      await taxonomy.linkCategoryVertical(cat, vId);
-    }
+  const handleUnlinkVertical = async (vId: string) => {
+    if (!selectedCategory) return;
+    await taxonomy.unlinkCategoryVertical(selectedCategory, vId);
+    if (selectedVerticalId === vId) setSelectedVerticalId(null);
+    showSuccess('Desvinculada');
   };
 
-  const toggleSubLink = async (vId: string, svId: string) => {
-    if (isVerticalSubVerticalLinked(vId, svId)) {
-      await taxonomy.unlinkVerticalSubVertical(vId, svId);
-    } else {
-      await taxonomy.linkVerticalSubVertical(vId, svId);
-    }
+  const handleUnlinkSubVertical = async (svId: string) => {
+    if (!selectedVerticalId) return;
+    await taxonomy.unlinkVerticalSubVertical(selectedVerticalId, svId);
+    showSuccess('Desvinculada');
+  };
+
+  const handleMoveVertical = async (vId: string, toCategory: string) => {
+    if (!selectedCategory) return;
+    await taxonomy.moveVerticalToCategory(vId, selectedCategory, toCategory);
+    showSuccess('Movida', `→ ${toCategory}`);
+  };
+
+  const handleMoveSubVertical = async (svId: string, toVerticalId: string) => {
+    if (!selectedVerticalId) return;
+    const target = verticals.find(v => v.id === toVerticalId);
+    await taxonomy.moveSubVerticalToVertical(svId, selectedVerticalId, toVerticalId);
+    showSuccess('Movida', `→ ${target?.name || ''}`);
   };
 
   const handleSaveLabels = async () => {
@@ -179,13 +234,11 @@ function TaxonomyTab() {
     if (mergeTarget.type === 'vertical') {
       await taxonomy.mergeVerticalName(mergeTarget.name, mergeTargetId);
       await taxonomy.refresh();
-      showSuccess('Verticales fusionadas', `"${mergeTarget.name}" → fusionada`);
+      showSuccess('Fusionadas', `"${mergeTarget.name}" → fusionada`);
     }
     setMergeTarget(null);
     setMergeTargetId('');
   };
-
-  const selectedVertical = verticals.find(v => v.id === selectedVerticalId);
 
   return (
     <div className="space-y-4">
@@ -195,71 +248,13 @@ function TaxonomyTab() {
           <FolderTree className="h-3.5 w-3.5" /> Taxonomía de clasificación
         </p>
         <p className="text-xs text-muted-foreground">
-          Selecciona una categoría para ver y gestionar sus ramas. Cada categoría puede tener nombres personalizados (ej. "Industrias" en vez de "Verticales"). Las empresas existentes no se modifican al cambiar la estructura.
+          Selecciona una categoría para ver sus ramas. Puedes mover, vincular o desvincular elementos entre ramas.
         </p>
       </div>
 
-      {/* Orphan alerts */}
-      {(orphanVerticals.length > 0 || orphanSubVerticals.length > 0) && (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
-          <p className="text-xs font-semibold text-amber-600 flex items-center gap-1.5">
-            <AlertTriangle className="h-3.5 w-3.5" /> Valores sin gestionar
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Existen valores en empresas que no están en la taxonomía. Puedes fusionarlos con una opción existente o crearlos como nuevas entradas.
-          </p>
-          {orphanVerticals.length > 0 && (
-            <div className="space-y-1">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Verticales huérfanas ({orphanVerticals.length})</p>
-              <div className="flex flex-wrap gap-1">
-                {orphanVerticals.map(name => (
-                  <div key={name} className="flex items-center gap-1">
-                    <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-600">
-                      {name} ({companiesUsingVertical(name)} emp.)
-                    </Badge>
-                    <Button variant="ghost" size="icon" className="h-5 w-5" title="Fusionar con vertical existente"
-                      onClick={() => { setMergeTarget({ name, type: 'vertical' }); setMergeTargetId(''); }}>
-                      <Merge className="h-3 w-3 text-amber-600" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-5 w-5" title="Crear como nueva vertical"
-                      onClick={async () => {
-                        const v = await taxonomy.addVertical(name);
-                        if (v) showSuccess('Vertical creada', name);
-                      }}>
-                      <Plus className="h-3 w-3 text-primary" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          {orphanSubVerticals.length > 0 && (
-            <div className="space-y-1">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Sub-verticales huérfanas ({orphanSubVerticals.length})</p>
-              <div className="flex flex-wrap gap-1">
-                {orphanSubVerticals.map(name => (
-                  <div key={name} className="flex items-center gap-1">
-                    <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-600">
-                      {name} ({companiesUsingSubVertical(name)} emp.)
-                    </Badge>
-                    <Button variant="ghost" size="icon" className="h-5 w-5" title="Crear como nueva sub-vertical"
-                      onClick={async () => {
-                        const sv = await taxonomy.addSubVertical(name);
-                        if (sv) showSuccess('Sub-vertical creada', name);
-                      }}>
-                      <Plus className="h-3 w-3 text-primary" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Merge dialog inline */}
       {mergeTarget && (
-        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2 animate-fade-in">
           <p className="text-xs font-semibold">Fusionar "{mergeTarget.name}" con:</p>
           <Select value={mergeTargetId} onValueChange={setMergeTargetId}>
             <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Seleccionar destino..." /></SelectTrigger>
@@ -274,10 +269,19 @@ function TaxonomyTab() {
         </div>
       )}
 
+      {/* Flow breadcrumb */}
+      <div className="flex items-center gap-2 text-xs text-muted-foreground px-1">
+        <span className={cn("font-medium", selectedCategory && "text-primary")}>Categoría</span>
+        <ArrowRight className="h-3 w-3" />
+        <span className={cn("font-medium", selectedVerticalId && "text-primary")}>{level1Label}</span>
+        <ArrowRight className="h-3 w-3" />
+        <span>{level2Label}</span>
+      </div>
+
       {/* 3-column flow */}
-      <div className="grid grid-cols-3 gap-3 min-h-[350px]">
+      <div className="flex items-stretch gap-0 min-h-[340px]">
         {/* Column 1: Categories */}
-        <Card className="flex flex-col">
+        <Card className="flex flex-col flex-1 min-w-0">
           <CardHeader className="pb-2 px-3 pt-3">
             <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
               <Tag className="h-3.5 w-3.5" /> Categorías
@@ -306,12 +310,12 @@ function TaxonomyTab() {
                       ) : (
                         <button
                           className={cn(
-                            'w-full flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-left transition-colors group',
-                            isSelected ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-accent'
+                            'w-full flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-left transition-all duration-200 group',
+                            isSelected ? 'bg-primary/10 text-primary font-medium shadow-sm' : 'hover:bg-accent'
                           )}
-                          onClick={() => { setSelectedCategory(cat); setSelectedVerticalId(null); }}
+                          onClick={() => { setSelectedCategory(isSelected ? null : cat); setSelectedVerticalId(null); }}
                         >
-                          <ChevronRight className={cn('h-3 w-3 shrink-0 transition-transform', isSelected && 'rotate-90')} />
+                          <ChevronRight className={cn('h-3 w-3 shrink-0 transition-transform duration-200', isSelected && 'rotate-90')} />
                           <span className="flex-1 truncate">{cat}</span>
                           {count > 0 && <span className="text-[10px] text-muted-foreground">{count}</span>}
                           <div className="hidden group-hover:flex items-center shrink-0">
@@ -332,175 +336,310 @@ function TaxonomyTab() {
           </CardContent>
         </Card>
 
+        {/* Connector 1→2 */}
+        <FlowConnector visible={!!selectedCategory} />
+
         {/* Column 2: Verticals */}
-        <Card className="flex flex-col">
-          <CardHeader className="pb-2 px-3 pt-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Layers className="h-3.5 w-3.5" /> {selectedCategory ? level1Label : 'Nivel 1'}
-              </CardTitle>
-              {selectedCategory && (
-                <Button variant="ghost" size="icon" className="h-5 w-5" title="Editar etiquetas de rama"
-                  onClick={() => setEditingLabels({ l1: level1Label, l2: level2Label })}>
-                  <Pencil className="h-2.5 w-2.5 text-muted-foreground" />
-                </Button>
-              )}
-            </div>
-            {editingLabels && (
-              <div className="space-y-1 mt-1">
-                <Input className="h-6 text-[10px]" placeholder="Nombre nivel 1" value={editingLabels.l1}
-                  onChange={e => setEditingLabels(p => p ? { ...p, l1: e.target.value } : p)} />
-                <Input className="h-6 text-[10px]" placeholder="Nombre nivel 2" value={editingLabels.l2}
-                  onChange={e => setEditingLabels(p => p ? { ...p, l2: e.target.value } : p)} />
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="h-5 w-5" onClick={handleSaveLabels}><Check className="h-3 w-3" /></Button>
-                  <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setEditingLabels(null)}><X className="h-3 w-3" /></Button>
+        <div className={cn(
+          "flex flex-col flex-1 min-w-0 transition-all duration-300",
+          selectedCategory ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"
+        )}>
+          {selectedCategory && (
+            <Card className="flex flex-col h-full animate-fade-in">
+              <CardHeader className="pb-2 px-3 pt-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <Layers className="h-3.5 w-3.5" /> {level1Label}
+                  </CardTitle>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-5 w-5" title="Editar etiquetas"
+                      onClick={() => setEditingLabels({ l1: level1Label, l2: level2Label })}>
+                      <Pencil className="h-2.5 w-2.5 text-muted-foreground" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </CardHeader>
-          <CardContent className="px-3 pb-2 flex-1 flex flex-col min-h-0">
-            {!selectedCategory ? (
-              <div className="flex-1 flex items-center justify-center">
-                <p className="text-xs text-muted-foreground text-center">Selecciona una categoría</p>
-              </div>
-            ) : (
-              <>
+                {editingLabels && (
+                  <div className="space-y-1 mt-1 animate-fade-in">
+                    <Input className="h-6 text-[10px]" placeholder="Nombre nivel 1" value={editingLabels.l1}
+                      onChange={e => setEditingLabels(p => p ? { ...p, l1: e.target.value } : p)} />
+                    <Input className="h-6 text-[10px]" placeholder="Nombre nivel 2" value={editingLabels.l2}
+                      onChange={e => setEditingLabels(p => p ? { ...p, l2: e.target.value } : p)} />
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" className="h-5 w-5" onClick={handleSaveLabels}><Check className="h-3 w-3" /></Button>
+                      <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setEditingLabels(null)}><X className="h-3 w-3" /></Button>
+                    </div>
+                  </div>
+                )}
+              </CardHeader>
+              <CardContent className="px-3 pb-2 flex-1 flex flex-col min-h-0">
                 <div className="flex items-center gap-1 mb-2">
-                  <Input className="h-7 text-xs flex-1" placeholder={`Nueva ${level1Label.toLowerCase().slice(0, -1)}...`} value={newVerticalName}
+                  <Input className="h-7 text-xs flex-1" placeholder={`Crear ${level1Label.toLowerCase().slice(0, -1)}...`} value={newVerticalName}
                     onChange={e => setNewVerticalName(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') handleAddVertical(); }} />
                   <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={handleAddVertical} disabled={!newVerticalName.trim()}>
                     <Plus className="h-3.5 w-3.5" />
                   </Button>
                 </div>
+
+                {/* Link existing vertical button */}
+                {unlinkableVerticals.length > 0 && (
+                  <Collapsible open={linkingVertical} onOpenChange={setLinkingVertical}>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-full h-6 text-[10px] mb-2 gap-1">
+                        <Link2 className="h-3 w-3" /> Vincular existente ({unlinkableVerticals.length})
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="animate-fade-in">
+                      <div className="border rounded-md p-1 mb-2 max-h-24 overflow-y-auto space-y-0.5">
+                        {unlinkableVerticals.map(v => (
+                          <button key={v.id} className="w-full text-left text-xs px-2 py-1 rounded hover:bg-accent transition-colors truncate"
+                            onClick={async () => {
+                              await taxonomy.linkCategoryVertical(selectedCategory!, v.id);
+                              showSuccess('Vinculada', v.name);
+                            }}>
+                            + {v.name}
+                          </button>
+                        ))}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
+
                 <ScrollArea className="flex-1">
                   <div className="space-y-0.5 pr-2">
-                    {/* Linked verticals */}
-                    {allVerticals.map(v => {
-                      const isLinked = isCategoryVerticalLinked(selectedCategory, v.id);
+                    {linkedVerticals.map(v => {
                       const isSelected = selectedVerticalId === v.id;
                       const count = companiesUsingVertical(v.name);
-
                       return (
-                        <div key={v.id} className="flex items-center gap-1 group">
-                          <Checkbox checked={isLinked} onCheckedChange={() => toggleLink(selectedCategory, v.id)} className="h-3.5 w-3.5 shrink-0" />
+                        <div key={v.id}>
                           {editingVertical === v.id ? (
-                            <div className="flex-1">
+                            <div className="px-1 py-1">
                               <InlineEdit value={v.name} onSave={n => { taxonomy.renameVertical(v.id, n); setEditingVertical(null); }} onCancel={() => setEditingVertical(null)} />
                             </div>
                           ) : (
-                            <button
-                              className={cn(
-                                'flex-1 flex items-center gap-1 rounded-md px-1.5 py-1 text-xs text-left transition-colors',
-                                isSelected ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-accent',
-                                !isLinked && 'opacity-40'
-                              )}
-                              onClick={() => setSelectedVerticalId(v.id)}
-                            >
-                              <span className="flex-1 truncate">{v.name}</span>
-                              {count > 0 && <span className="text-[10px] text-muted-foreground">{count}</span>}
-                            </button>
+                            <div className="flex items-center gap-0.5 group">
+                              <button
+                                className={cn(
+                                  'flex-1 flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-left transition-all duration-200',
+                                  isSelected ? 'bg-primary/10 text-primary font-medium shadow-sm' : 'hover:bg-accent'
+                                )}
+                                onClick={() => setSelectedVerticalId(isSelected ? null : v.id)}
+                              >
+                                <ChevronRight className={cn('h-3 w-3 shrink-0 transition-transform duration-200', isSelected && 'rotate-90')} />
+                                <span className="flex-1 truncate">{v.name}</span>
+                                {count > 0 && <span className="text-[10px] text-muted-foreground">{count}</span>}
+                              </button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button className="p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-44">
+                                  <DropdownMenuItem onClick={() => setEditingVertical(v.id)}>
+                                    <Pencil className="h-3 w-3 mr-2" /> Renombrar
+                                  </DropdownMenuItem>
+                                  {otherCategories.length > 0 && otherCategories.map(cat => (
+                                    <DropdownMenuItem key={cat} onClick={() => handleMoveVertical(v.id, cat)}>
+                                      <ArrowRightLeft className="h-3 w-3 mr-2" /> Mover a {cat}
+                                    </DropdownMenuItem>
+                                  ))}
+                                  <DropdownMenuItem onClick={() => handleUnlinkVertical(v.id)} className="text-amber-600">
+                                    <X className="h-3 w-3 mr-2" /> Desvincular
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleDeleteVertical(v.id)} className="text-destructive">
+                                    <Trash2 className="h-3 w-3 mr-2" /> Eliminar
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
                           )}
-                          <div className="hidden group-hover:flex items-center shrink-0">
-                            <button className="p-0.5" onClick={() => setEditingVertical(v.id)}>
-                              <Pencil className="h-2.5 w-2.5 text-muted-foreground" />
-                            </button>
-                            <button className="p-0.5" onClick={() => handleDeleteVertical(v.id)}>
-                              <Trash2 className="h-2.5 w-2.5 text-destructive" />
-                            </button>
-                          </div>
                         </div>
                       );
                     })}
+                    {linkedVerticals.length === 0 && (
+                      <p className="text-xs text-muted-foreground italic py-4 text-center">
+                        Sin {level1Label.toLowerCase()} vinculadas.<br />Crea una nueva o vincula una existente.
+                      </p>
+                    )}
                   </div>
                 </ScrollArea>
-              </>
-            )}
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Connector 2→3 */}
+        <FlowConnector visible={!!selectedVerticalId} />
 
         {/* Column 3: Sub-verticals */}
-        <Card className="flex flex-col">
-          <CardHeader className="pb-2 px-3 pt-3">
-            <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <GitBranch className="h-3.5 w-3.5" /> {selectedCategory ? level2Label : 'Nivel 2'}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-3 pb-2 flex-1 flex flex-col min-h-0">
-            {!selectedVerticalId ? (
-              <div className="flex-1 flex items-center justify-center">
-                <p className="text-xs text-muted-foreground text-center">
-                  {selectedCategory ? `Selecciona una ${level1Label.toLowerCase().slice(0, -1)}` : 'Selecciona una categoría primero'}
-                </p>
-              </div>
-            ) : (
-              <>
+        <div className={cn(
+          "flex flex-col flex-1 min-w-0 transition-all duration-300",
+          selectedVerticalId ? "opacity-100 scale-100" : "opacity-0 scale-95 pointer-events-none"
+        )}>
+          {selectedVerticalId && (
+            <Card className="flex flex-col h-full animate-fade-in">
+              <CardHeader className="pb-2 px-3 pt-3">
+                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <GitBranch className="h-3.5 w-3.5" /> {level2Label}
+                  {selectedVertical && (
+                    <Badge variant="secondary" className="text-[10px] font-normal ml-1">{selectedVertical.name}</Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-3 pb-2 flex-1 flex flex-col min-h-0">
                 <div className="flex items-center gap-1 mb-2">
-                  <Input className="h-7 text-xs flex-1" placeholder={`Nueva ${level2Label.toLowerCase().slice(0, -1)}...`} value={newSubVerticalName}
+                  <Input className="h-7 text-xs flex-1" placeholder={`Crear ${level2Label.toLowerCase().slice(0, -1)}...`} value={newSubVerticalName}
                     onChange={e => setNewSubVerticalName(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') handleAddSubVertical(); }} />
                   <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={handleAddSubVertical} disabled={!newSubVerticalName.trim()}>
                     <Plus className="h-3.5 w-3.5" />
                   </Button>
                 </div>
+
+                {/* Link existing sub-vertical */}
+                {unlinkableSubVerticals.length > 0 && (
+                  <Collapsible open={linkingSubVertical} onOpenChange={setLinkingSubVertical}>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="outline" size="sm" className="w-full h-6 text-[10px] mb-2 gap-1">
+                        <Link2 className="h-3 w-3" /> Vincular existente ({unlinkableSubVerticals.length})
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="animate-fade-in">
+                      <div className="border rounded-md p-1 mb-2 max-h-24 overflow-y-auto space-y-0.5">
+                        {unlinkableSubVerticals.map(sv => (
+                          <button key={sv.id} className="w-full text-left text-xs px-2 py-1 rounded hover:bg-accent transition-colors truncate"
+                            onClick={async () => {
+                              await taxonomy.linkVerticalSubVertical(selectedVerticalId!, sv.id);
+                              showSuccess('Vinculada', sv.name);
+                            }}>
+                            + {sv.name}
+                          </button>
+                        ))}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                )}
+
                 <ScrollArea className="flex-1">
                   <div className="space-y-0.5 pr-2">
-                    {subVerticals.map(sv => {
-                      const isLinked = isVerticalSubVerticalLinked(selectedVerticalId, sv.id);
+                    {linkedSubVerticals.map(sv => {
                       const count = companiesUsingSubVertical(sv.name);
-
                       return (
-                        <div key={sv.id} className="flex items-center gap-1 group">
-                          <Checkbox checked={isLinked} onCheckedChange={() => toggleSubLink(selectedVerticalId, sv.id)} className="h-3.5 w-3.5 shrink-0" />
+                        <div key={sv.id}>
                           {editingSubVertical === sv.id ? (
-                            <div className="flex-1">
+                            <div className="px-1 py-1">
                               <InlineEdit value={sv.name} onSave={n => { taxonomy.renameSubVertical(sv.id, n); setEditingSubVertical(null); }} onCancel={() => setEditingSubVertical(null)} />
                             </div>
                           ) : (
-                            <div className={cn(
-                              'flex-1 flex items-center gap-1 rounded-md px-1.5 py-1 text-xs',
-                              !isLinked && 'opacity-40'
-                            )}>
-                              <span className="flex-1 truncate">{sv.name}</span>
-                              {count > 0 && <span className="text-[10px] text-muted-foreground">{count}</span>}
+                            <div className="flex items-center gap-0.5 group">
+                              <div className="flex-1 flex items-center gap-1 rounded-md px-2 py-1.5 text-xs hover:bg-accent transition-colors">
+                                <span className="flex-1 truncate">{sv.name}</span>
+                                {count > 0 && <span className="text-[10px] text-muted-foreground">{count}</span>}
+                              </div>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button className="p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                  <DropdownMenuItem onClick={() => setEditingSubVertical(sv.id)}>
+                                    <Pencil className="h-3 w-3 mr-2" /> Renombrar
+                                  </DropdownMenuItem>
+                                  {otherVerticals.map(v => (
+                                    <DropdownMenuItem key={v.id} onClick={() => handleMoveSubVertical(sv.id, v.id)}>
+                                      <ArrowRightLeft className="h-3 w-3 mr-2" /> Mover a {v.name}
+                                    </DropdownMenuItem>
+                                  ))}
+                                  <DropdownMenuItem onClick={() => handleUnlinkSubVertical(sv.id)} className="text-amber-600">
+                                    <X className="h-3 w-3 mr-2" /> Desvincular
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleDeleteSubVertical(sv.id)} className="text-destructive">
+                                    <Trash2 className="h-3 w-3 mr-2" /> Eliminar
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           )}
-                          <div className="hidden group-hover:flex items-center shrink-0">
-                            <button className="p-0.5" onClick={() => setEditingSubVertical(sv.id)}>
-                              <Pencil className="h-2.5 w-2.5 text-muted-foreground" />
-                            </button>
-                            <button className="p-0.5" onClick={() => handleDeleteSubVertical(sv.id)}>
-                              <Trash2 className="h-2.5 w-2.5 text-destructive" />
-                            </button>
-                          </div>
                         </div>
                       );
                     })}
-                    {subVerticals.length === 0 && (
-                      <p className="text-xs text-muted-foreground italic py-2 text-center">No hay {level2Label.toLowerCase()} creadas</p>
+                    {linkedSubVerticals.length === 0 && (
+                      <p className="text-xs text-muted-foreground italic py-4 text-center">
+                        Sin {level2Label.toLowerCase()} vinculadas.<br />Crea una nueva o vincula una existente.
+                      </p>
                     )}
                   </div>
                 </ScrollArea>
-              </>
-            )}
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
 
-      {/* Connection arrows between columns */}
-      <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-        <span>Categoría</span>
-        <ArrowRight className="h-3 w-3" />
-        <span>{level1Label}</span>
-        <ArrowRight className="h-3 w-3" />
-        <span>{level2Label}</span>
-      </div>
+      {/* Orphan section - collapsible, below flow */}
+      {orphanCount > 0 && (
+        <Collapsible open={showOrphans} onOpenChange={setShowOrphans}>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" size="sm" className="w-full gap-2 text-xs text-amber-600 border-amber-500/30 hover:bg-amber-500/5">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Valores sin gestionar ({orphanCount})
+              <ChevronDown className={cn("h-3 w-3 ml-auto transition-transform", showOrphans && "rotate-180")} />
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="animate-fade-in">
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 mt-2 space-y-2">
+              <p className="text-xs text-muted-foreground">
+                Valores en empresas que no están en la taxonomía. Fusiona con una existente o crea como nueva.
+              </p>
+              {orphanVerticals.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Verticales ({orphanVerticals.length})</p>
+                  <div className="flex flex-wrap gap-1">
+                    {orphanVerticals.map(name => (
+                      <div key={name} className="flex items-center gap-1">
+                        <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-600">
+                          {name} ({companiesUsingVertical(name)})
+                        </Badge>
+                        <Button variant="ghost" size="icon" className="h-5 w-5" title="Fusionar"
+                          onClick={() => { setMergeTarget({ name, type: 'vertical' }); setMergeTargetId(''); }}>
+                          <Merge className="h-3 w-3 text-amber-600" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-5 w-5" title="Crear"
+                          onClick={async () => { const v = await taxonomy.addVertical(name); if (v) showSuccess('Creada', name); }}>
+                          <Plus className="h-3 w-3 text-primary" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {orphanSubVerticals.length > 0 && (
+                <div className="space-y-1">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Sub-verticales ({orphanSubVerticals.length})</p>
+                  <div className="flex flex-wrap gap-1">
+                    {orphanSubVerticals.map(name => (
+                      <div key={name} className="flex items-center gap-1">
+                        <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-600">
+                          {name} ({companiesUsingSubVertical(name)})
+                        </Badge>
+                        <Button variant="ghost" size="icon" className="h-5 w-5" title="Crear"
+                          onClick={async () => { const sv = await taxonomy.addSubVertical(name); if (sv) showSuccess('Creada', name); }}>
+                          <Plus className="h-3 w-3 text-primary" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
     </div>
   );
 }
-
-function FormFieldsTab() {
   const { sections, fields, addSection, addField, deleteSection, deleteField, updateField, updateSection } = useCustomFields();
 
   return (
