@@ -122,6 +122,7 @@ export default function Index() {
     else if (index === 4) setBulkUpdateOpen(true);
     else if (index === 5) setFormOpen(true);
     else if (index === 6) setExportOpen(true);
+    else if (index === 7) setSettingsOpen(true);
   }, []);
 
   return (
