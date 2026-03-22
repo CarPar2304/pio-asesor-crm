@@ -563,8 +563,19 @@ export default function CompanyForm({ open, onClose, company }: Props) {
   // Group fields by section
   const unsectionedFields = fields.filter(f => !f.sectionId);
 
-  // Sub-vertical options based on current vertical
-  const subVerticalOptions = getSubVerticals(form.vertical);
+  // Sub-vertical options based on current vertical (from taxonomy)
+  const allVerticals = useMemo(() => {
+    const verts = taxonomy.getVerticalsForCategory(form.category).map(v => v.name);
+    // Also include company's current vertical if not in list
+    if (form.vertical && !verts.includes(form.vertical)) verts.push(form.vertical);
+    return verts;
+  }, [taxonomy, form.category, form.vertical]);
+
+  const subVerticalOptions = useMemo(() => {
+    const subs = taxonomy.getSubVerticalsForVertical(form.vertical).map(sv => sv.name);
+    if (form.subVertical && !subs.includes(form.subVertical)) subs.push(form.subVertical);
+    return subs;
+  }, [taxonomy, form.vertical, form.subVertical]);
 
   return (
     <Dialog open={open} onOpenChange={() => onClose()}>
