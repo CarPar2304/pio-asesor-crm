@@ -160,55 +160,9 @@ function CreatableCombobox({ value, onChange, options: baseOptions, placeholder 
   );
 }
 
-// Sub-vertical default options per vertical
-const DEFAULT_SUB_VERTICALS: Record<string, string[]> = {
-  'Biotecnología': ['Bioinformática', 'Bioprocesos', 'Diagnóstico', 'Terapéutica'],
-  'AgriTech': ['Agricultura de precisión', 'Insumos biológicos', 'Monitoreo de cultivos'],
-  'IA / Machine Learning': ['NLP', 'Visión por computador', 'Analítica predictiva', 'Automatización'],
-  'HealthTech': ['Telemedicina', 'Dispositivos médicos', 'Salud digital'],
-  'CleanTech': ['Energías renovables', 'Gestión de residuos', 'Eficiencia energética'],
-  'FinTech': ['Pagos', 'Lending', 'Seguros', 'Blockchain'],
-  'EdTech': ['E-learning', 'Gestión educativa', 'Contenido digital'],
-  'LogTech': ['Última milla', 'Gestión de flotas', 'Cadena de suministro'],
-  'FoodTech': ['Delivery', 'Alimentos alternativos', 'Trazabilidad'],
-};
+// Sub-vertical default options per vertical (kept for backward compat reference only)
+const DEFAULT_SUB_VERTICALS: Record<string, string[]> = {};
 
-// Build global verticals and sub-verticals from existing companies
-function useGlobalVerticals() {
-  const { companies } = useCRM();
-  return useMemo(() => {
-    const extraVerticals = new Set<string>();
-    const extraSubVerticals: Record<string, Set<string>> = {};
-    const extraCategories = new Set<string>();
-
-    companies.forEach(c => {
-      if (c.vertical && !VERTICALS.includes(c.vertical)) {
-        extraVerticals.add(c.vertical);
-      }
-      if (c.category && !CATEGORIES.includes(c.category)) {
-        extraCategories.add(c.category);
-      }
-      if (c.vertical && c.economicActivity) {
-        const defaults = DEFAULT_SUB_VERTICALS[c.vertical] || [];
-        if (!defaults.includes(c.economicActivity)) {
-          if (!extraSubVerticals[c.vertical]) extraSubVerticals[c.vertical] = new Set();
-          extraSubVerticals[c.vertical].add(c.economicActivity);
-        }
-      }
-    });
-
-    const allVerticals = [...VERTICALS, ...Array.from(extraVerticals).filter(v => !VERTICALS.includes(v))];
-    const allCategories = [...CATEGORIES, ...Array.from(extraCategories).filter(c => !CATEGORIES.includes(c))];
-
-    const getSubVerticals = (vertical: string) => {
-      const defaults = DEFAULT_SUB_VERTICALS[vertical] || [];
-      const extras = extraSubVerticals[vertical] ? Array.from(extraSubVerticals[vertical]) : [];
-      return [...defaults, ...extras.filter(e => !defaults.includes(e)), 'Otra'];
-    };
-
-    return { allVerticals, allCategories, getSubVerticals };
-  }, [companies]);
-}
 
 function AddFieldDialog({ open, onClose, onAdd, existingSections }: { open: boolean; onClose: () => void; onAdd: (name: string, type: CustomFieldType, options: string[], sectionId: string | null) => void; existingSections: CustomSection[] }) {
   const [name, setName] = useState('');
