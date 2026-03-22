@@ -70,7 +70,7 @@ const Field = ({ label, children, onDelete, onEdit }: { label: string; children:
   </div>
 );
 
-function CreatableCombobox({ value, onChange, options: baseOptions, placeholder, onCreate }: { value: string; onChange: (v: string) => void; options: string[]; placeholder?: string; onCreate?: (val: string) => void }) {
+function CreatableCombobox({ value, onChange, options: baseOptions, placeholder, onCreate, allowEmpty }: { value: string; onChange: (v: string) => void; options: string[]; placeholder?: string; onCreate?: (val: string) => void; allowEmpty?: boolean }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [customOptions, setCustomOptions] = useState<string[]>([]);
@@ -120,6 +120,12 @@ function CreatableCombobox({ value, onChange, options: baseOptions, placeholder,
         </div>
         <ScrollArea className="max-h-48">
           <div className="p-1">
+            {allowEmpty && (
+              <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent"
+                onClick={() => { onChange(''); setSearch(''); setOpen(false); }}>
+                <X className="h-3.5 w-3.5" /> Sin selección
+              </button>
+            )}
             {filtered.map(v => (
               <div key={v} className="group flex items-center gap-1">
                 {editingOption === v ? (
