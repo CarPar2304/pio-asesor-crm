@@ -268,6 +268,30 @@ export type Database = {
           },
         ]
       }
+      crm_categories: {
+        Row: {
+          created_at: string
+          id: string
+          level1_label: string
+          level2_label: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          level1_label?: string
+          level2_label?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          level1_label?: string
+          level2_label?: string
+          name?: string
+        }
+        Relationships: []
+      }
       crm_category_verticals: {
         Row: {
           category: string
