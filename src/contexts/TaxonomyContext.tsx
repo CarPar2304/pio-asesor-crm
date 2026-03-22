@@ -69,6 +69,8 @@ interface TaxonomyContextType {
   renameCategory: (oldName: string, newName: string) => Promise<void>;
   updateCategoryLabels: (name: string, level1: string, level2: string) => Promise<void>;
   mergeVerticalName: (oldName: string, targetVerticalId: string) => Promise<void>;
+  moveVerticalToCategory: (verticalId: string, fromCategory: string, toCategory: string) => Promise<void>;
+  moveSubVerticalToVertical: (subVerticalId: string, fromVerticalId: string, toVerticalId: string) => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -244,14 +246,28 @@ export function TaxonomyProvider({ children }: { children: React.ReactNode }) {
   const mergeVerticalName = useCallback(async (oldName: string, targetVerticalId: string) => {
     const target = verticals.find(v => v.id === targetVerticalId);
     if (!target) return;
-    // Update all companies with oldName to target.name
     const affected = companies.filter(c => c.vertical === oldName);
     for (const comp of affected) {
       await supabase.from('companies').update({ vertical: target.name }).eq('id', comp.id);
     }
-    // Refresh CRM context
     await fetchAll();
   }, [verticals, companies, fetchAll]);
+
+  // Move vertical from one category to another
+  const moveVerticalToCategory = useCallback(async (verticalId: string, fromCategory: string, toCategory: string) => {
+    await supabase.from('crm_category_verticals').delete().eq('category', fromCategory).eq('vertical_id', verticalId);
+    setCategoryVerticalLinks(prev => prev.filter(l => !(l.category === fromCategory && l.vertical_id === verticalId)));
+    const { data } = await supabase.from('crm_category_verticals').insert({ category: toCategory, vertical_id: verticalId }).select().single();
+    if (data) setCategoryVerticalLinks(prev => [...prev, data as any]);
+  }, []);
+
+  // Move sub-vertical from one vertical to another
+  const moveSubVerticalToVertical = useCallback(async (subVerticalId: string, fromVerticalId: string, toVerticalId: string) => {
+    await supabase.from('crm_vertical_sub_verticals').delete().eq('vertical_id', fromVerticalId).eq('sub_vertical_id', subVerticalId);
+    setVerticalSubVerticalLinks(prev => prev.filter(l => !(l.vertical_id === fromVerticalId && l.sub_vertical_id === subVerticalId)));
+    const { data } = await supabase.from('crm_vertical_sub_verticals').insert({ vertical_id: toVerticalId, sub_vertical_id: subVerticalId }).select().single();
+    if (data) setVerticalSubVerticalLinks(prev => [...prev, data as any]);
+  }, []);
 
   return (
     <TaxonomyContext.Provider value={{
@@ -263,6 +279,7 @@ export function TaxonomyProvider({ children }: { children: React.ReactNode }) {
       addVertical, addSubVertical, renameVertical, renameSubVertical, deleteVertical, deleteSubVertical,
       linkCategoryVertical, unlinkCategoryVertical, linkVerticalSubVertical, unlinkVerticalSubVertical,
       addCategory, deleteCategory, renameCategory, updateCategoryLabels, mergeVerticalName,
+      moveVerticalToCategory, moveSubVerticalToVertical,
       refresh: fetchAll,
     }}>
       {children}
