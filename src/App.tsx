@@ -7,6 +7,7 @@ import { CRMProvider } from "@/contexts/CRMContext";
 import { CustomFieldsProvider } from "@/contexts/CustomFieldsContext";
 import { PortfolioProvider } from "@/contexts/PortfolioContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
+import { TaxonomyProvider } from "@/contexts/TaxonomyContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Layout from "@/components/Layout";
 import Index from "./pages/Index";
@@ -26,6 +27,7 @@ const App = () => (
       <AuthProvider>
         <ProfileProvider>
         <CRMProvider>
+          <TaxonomyProvider>
           <CustomFieldsProvider>
           <PortfolioProvider>
           <Toaster position="bottom-right" options={{ fill: "#171717", roundness: 14, styles: { title: "!text-white", description: "!text-white/75" } }} />
@@ -45,6 +47,7 @@ const App = () => (
           </BrowserRouter>
           </PortfolioProvider>
           </CustomFieldsProvider>
+          </TaxonomyProvider>
         </CRMProvider>
         </ProfileProvider>
       </AuthProvider>
