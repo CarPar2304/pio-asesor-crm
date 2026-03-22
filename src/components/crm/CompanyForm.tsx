@@ -329,7 +329,8 @@ function AddSectionDialog({ open, onClose, onAdd }: { open: boolean; onClose: ()
 
 export default function CompanyForm({ open, onClose, company }: Props) {
   const { addCompany, updateCompany, saveFieldValues } = useCRM();
-  const { allVerticals, allCategories, getSubVerticals } = useGlobalVerticals();
+  const taxonomy = useTaxonomy();
+  const { allCategories } = taxonomy;
   const { sections, fields, addSection, addField, deleteSection, deleteField, updateField, updateSection } = useCustomFields();
   const isEdit = !!company;
   const fileInputRef = useRef<HTMLInputElement>(null);
