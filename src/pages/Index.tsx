@@ -54,6 +54,7 @@ export default function Index() {
     { title: 'Actualizar masivo', icon: RefreshCw },
     { title: 'Nueva empresa', icon: Plus },
     { title: 'Exportar', icon: Download },
+    { title: 'Ajustes', icon: Settings2 },
   ];
 
   const filtered = useMemo(() => {
