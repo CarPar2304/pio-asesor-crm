@@ -624,12 +624,20 @@ export default function CompanyForm({ open, onClose, company }: Props) {
                   <CreatableCombobox value={form.category} onChange={v => setForm(f => ({ ...f, category: v }))} options={allCategories} placeholder="Seleccionar categoría..." />
                 </Field>
                 <Field label="Vertical">
-                  <CreatableCombobox value={form.vertical} onChange={v => setForm(f => ({ ...f, vertical: v, subVertical: '' }))} options={allVerticals} />
+                  <CreatableCombobox value={form.vertical} onChange={v => setForm(f => ({ ...f, vertical: v, subVertical: '' }))} options={allVerticals}
+                    onCreate={async (name) => { await taxonomy.addVertical(name); }} />
                 </Field>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Sub-vertical">
-                  <CreatableCombobox value={form.subVertical} onChange={v => setForm(f => ({ ...f, subVertical: v }))} options={subVerticalOptions} placeholder="Seleccionar sub-vertical..." />
+                  <CreatableCombobox value={form.subVertical} onChange={v => setForm(f => ({ ...f, subVertical: v }))} options={subVerticalOptions} placeholder="Seleccionar sub-vertical..."
+                    onCreate={async (name) => {
+                      const sv = await taxonomy.addSubVertical(name);
+                      if (sv && form.vertical) {
+                        const vert = taxonomy.verticals.find(v => v.name === form.vertical);
+                        if (vert) await taxonomy.linkVerticalSubVertical(vert.id, sv.id);
+                      }
+                    }} />
                 </Field>
                 <Field label="Ciudad">
                   <Select value={form.city} onValueChange={v => setForm(f => ({ ...f, city: v, customCity: v === 'Otra' ? f.customCity : '' }))}>
