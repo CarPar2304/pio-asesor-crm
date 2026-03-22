@@ -572,15 +572,14 @@ export default function CompanyForm({ open, onClose, company }: Props) {
 
   // Sub-vertical options based on current vertical (from taxonomy)
   const allVerticals = useMemo(() => {
-    const verts = taxonomy.getVerticalsForCategory(form.category).map(v => v.name);
-    // Also include company's current vertical if not in list
-    if (form.vertical && !verts.includes(form.vertical)) verts.push(form.vertical);
+    const verts = taxonomy.getVerticalsForCategory(form.category).map(v => v.name).filter(n => n !== 'Otro');
+    if (form.vertical && form.vertical !== 'Otro' && !verts.includes(form.vertical)) verts.push(form.vertical);
     return verts;
   }, [taxonomy, form.category, form.vertical]);
 
   const subVerticalOptions = useMemo(() => {
-    const subs = taxonomy.getSubVerticalsForVertical(form.vertical).map(sv => sv.name);
-    if (form.subVertical && !subs.includes(form.subVertical)) subs.push(form.subVertical);
+    const subs = taxonomy.getSubVerticalsForVertical(form.vertical).map(sv => sv.name).filter(n => n !== 'Otro');
+    if (form.subVertical && form.subVertical !== 'Otro' && !subs.includes(form.subVertical)) subs.push(form.subVertical);
     return subs;
   }, [taxonomy, form.vertical, form.subVertical]);
 
