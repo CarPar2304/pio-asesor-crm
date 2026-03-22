@@ -44,6 +44,7 @@ export default function Index() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkUpdateOpen, setBulkUpdateOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const dashboardTabs = [
     { title: 'Cuadrícula', icon: LayoutGrid },
