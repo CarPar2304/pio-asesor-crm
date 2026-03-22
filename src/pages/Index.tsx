@@ -15,8 +15,9 @@ import BulkUploadDialog from '@/components/crm/BulkUploadDialog';
 import BulkUpdateDialog from '@/components/crm/BulkUpdateDialog';
 import ExportDialog from '@/components/crm/ExportDialog';
 import QuickActionDialog from '@/components/crm/QuickActionDialog';
+import CRMSettingsDialog from '@/components/crm/CRMSettingsDialog';
 import { ExpandableTabs } from '@/components/ui/expandable-tabs';
-import { LayoutGrid, List, FileSpreadsheet, Plus, Download, RefreshCw } from 'lucide-react';
+import { LayoutGrid, List, FileSpreadsheet, Plus, Download, RefreshCw, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
