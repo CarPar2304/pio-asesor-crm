@@ -70,7 +70,7 @@ const Field = ({ label, children, onDelete, onEdit }: { label: string; children:
   </div>
 );
 
-function CreatableCombobox({ value, onChange, options: baseOptions, placeholder }: { value: string; onChange: (v: string) => void; options: string[]; placeholder?: string }) {
+function CreatableCombobox({ value, onChange, options: baseOptions, placeholder, onCreate }: { value: string; onChange: (v: string) => void; options: string[]; placeholder?: string; onCreate?: (val: string) => void }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [customOptions, setCustomOptions] = useState<string[]>([]);
@@ -86,6 +86,7 @@ function CreatableCombobox({ value, onChange, options: baseOptions, placeholder 
     if (newVal) {
       setCustomOptions(prev => [...prev, newVal]);
       onChange(newVal);
+      onCreate?.(newVal);
       setSearch('');
       setOpen(false);
     }
