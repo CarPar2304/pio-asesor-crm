@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Company, Contact, ContactGender, CustomFieldValue, CustomSection, CustomField, VERTICALS, CITIES, CATEGORIES, GENDER_LABELS, FIELD_TYPE_LABELS, CustomFieldType } from '@/types/crm';
+import { useTaxonomy } from '@/contexts/TaxonomyContext';
 import { useCRM } from '@/contexts/CRMContext';
 import { showSuccess } from '@/lib/toast';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
@@ -69,7 +70,7 @@ const Field = ({ label, children, onDelete, onEdit }: { label: string; children:
   </div>
 );
 
-function CreatableCombobox({ value, onChange, options: baseOptions, placeholder }: { value: string; onChange: (v: string) => void; options: string[]; placeholder?: string }) {
+function CreatableCombobox({ value, onChange, options: baseOptions, placeholder, onCreate }: { value: string; onChange: (v: string) => void; options: string[]; placeholder?: string; onCreate?: (val: string) => void }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [customOptions, setCustomOptions] = useState<string[]>([]);
@@ -85,6 +86,7 @@ function CreatableCombobox({ value, onChange, options: baseOptions, placeholder 
     if (newVal) {
       setCustomOptions(prev => [...prev, newVal]);
       onChange(newVal);
+      onCreate?.(newVal);
       setSearch('');
       setOpen(false);
     }
@@ -159,55 +161,9 @@ function CreatableCombobox({ value, onChange, options: baseOptions, placeholder 
   );
 }
 
-// Sub-vertical default options per vertical
-const DEFAULT_SUB_VERTICALS: Record<string, string[]> = {
-  'Biotecnología': ['Bioinformática', 'Bioprocesos', 'Diagnóstico', 'Terapéutica'],
-  'AgriTech': ['Agricultura de precisión', 'Insumos biológicos', 'Monitoreo de cultivos'],
-  'IA / Machine Learning': ['NLP', 'Visión por computador', 'Analítica predictiva', 'Automatización'],
-  'HealthTech': ['Telemedicina', 'Dispositivos médicos', 'Salud digital'],
-  'CleanTech': ['Energías renovables', 'Gestión de residuos', 'Eficiencia energética'],
-  'FinTech': ['Pagos', 'Lending', 'Seguros', 'Blockchain'],
-  'EdTech': ['E-learning', 'Gestión educativa', 'Contenido digital'],
-  'LogTech': ['Última milla', 'Gestión de flotas', 'Cadena de suministro'],
-  'FoodTech': ['Delivery', 'Alimentos alternativos', 'Trazabilidad'],
-};
+// Sub-vertical default options per vertical (kept for backward compat reference only)
+const DEFAULT_SUB_VERTICALS: Record<string, string[]> = {};
 
-// Build global verticals and sub-verticals from existing companies
-function useGlobalVerticals() {
-  const { companies } = useCRM();
-  return useMemo(() => {
-    const extraVerticals = new Set<string>();
-    const extraSubVerticals: Record<string, Set<string>> = {};
-    const extraCategories = new Set<string>();
-
-    companies.forEach(c => {
-      if (c.vertical && !VERTICALS.includes(c.vertical)) {
-        extraVerticals.add(c.vertical);
-      }
-      if (c.category && !CATEGORIES.includes(c.category)) {
-        extraCategories.add(c.category);
-      }
-      if (c.vertical && c.economicActivity) {
-        const defaults = DEFAULT_SUB_VERTICALS[c.vertical] || [];
-        if (!defaults.includes(c.economicActivity)) {
-          if (!extraSubVerticals[c.vertical]) extraSubVerticals[c.vertical] = new Set();
-          extraSubVerticals[c.vertical].add(c.economicActivity);
-        }
-      }
-    });
-
-    const allVerticals = [...VERTICALS, ...Array.from(extraVerticals).filter(v => !VERTICALS.includes(v))];
-    const allCategories = [...CATEGORIES, ...Array.from(extraCategories).filter(c => !CATEGORIES.includes(c))];
-
-    const getSubVerticals = (vertical: string) => {
-      const defaults = DEFAULT_SUB_VERTICALS[vertical] || [];
-      const extras = extraSubVerticals[vertical] ? Array.from(extraSubVerticals[vertical]) : [];
-      return [...defaults, ...extras.filter(e => !defaults.includes(e)), 'Otra'];
-    };
-
-    return { allVerticals, allCategories, getSubVerticals };
-  }, [companies]);
-}
 
 function AddFieldDialog({ open, onClose, onAdd, existingSections }: { open: boolean; onClose: () => void; onAdd: (name: string, type: CustomFieldType, options: string[], sectionId: string | null) => void; existingSections: CustomSection[] }) {
   const [name, setName] = useState('');
@@ -374,7 +330,8 @@ function AddSectionDialog({ open, onClose, onAdd }: { open: boolean; onClose: ()
 
 export default function CompanyForm({ open, onClose, company }: Props) {
   const { addCompany, updateCompany, saveFieldValues } = useCRM();
-  const { allVerticals, allCategories, getSubVerticals } = useGlobalVerticals();
+  const taxonomy = useTaxonomy();
+  const { allCategories } = taxonomy;
   const { sections, fields, addSection, addField, deleteSection, deleteField, updateField, updateSection } = useCustomFields();
   const isEdit = !!company;
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -607,8 +564,19 @@ export default function CompanyForm({ open, onClose, company }: Props) {
   // Group fields by section
   const unsectionedFields = fields.filter(f => !f.sectionId);
 
-  // Sub-vertical options based on current vertical
-  const subVerticalOptions = getSubVerticals(form.vertical);
+  // Sub-vertical options based on current vertical (from taxonomy)
+  const allVerticals = useMemo(() => {
+    const verts = taxonomy.getVerticalsForCategory(form.category).map(v => v.name);
+    // Also include company's current vertical if not in list
+    if (form.vertical && !verts.includes(form.vertical)) verts.push(form.vertical);
+    return verts;
+  }, [taxonomy, form.category, form.vertical]);
+
+  const subVerticalOptions = useMemo(() => {
+    const subs = taxonomy.getSubVerticalsForVertical(form.vertical).map(sv => sv.name);
+    if (form.subVertical && !subs.includes(form.subVertical)) subs.push(form.subVertical);
+    return subs;
+  }, [taxonomy, form.vertical, form.subVertical]);
 
   return (
     <Dialog open={open} onOpenChange={() => onClose()}>
@@ -656,12 +624,20 @@ export default function CompanyForm({ open, onClose, company }: Props) {
                   <CreatableCombobox value={form.category} onChange={v => setForm(f => ({ ...f, category: v }))} options={allCategories} placeholder="Seleccionar categoría..." />
                 </Field>
                 <Field label="Vertical">
-                  <CreatableCombobox value={form.vertical} onChange={v => setForm(f => ({ ...f, vertical: v, subVertical: '' }))} options={allVerticals} />
+                  <CreatableCombobox value={form.vertical} onChange={v => setForm(f => ({ ...f, vertical: v, subVertical: '' }))} options={allVerticals}
+                    onCreate={async (name) => { await taxonomy.addVertical(name); }} />
                 </Field>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Sub-vertical">
-                  <CreatableCombobox value={form.subVertical} onChange={v => setForm(f => ({ ...f, subVertical: v }))} options={subVerticalOptions} placeholder="Seleccionar sub-vertical..." />
+                  <CreatableCombobox value={form.subVertical} onChange={v => setForm(f => ({ ...f, subVertical: v }))} options={subVerticalOptions} placeholder="Seleccionar sub-vertical..."
+                    onCreate={async (name) => {
+                      const sv = await taxonomy.addSubVertical(name);
+                      if (sv && form.vertical) {
+                        const vert = taxonomy.verticals.find(v => v.name === form.vertical);
+                        if (vert) await taxonomy.linkVerticalSubVertical(vert.id, sv.id);
+                      }
+                    }} />
                 </Field>
                 <Field label="Ciudad">
                   <Select value={form.city} onValueChange={v => setForm(f => ({ ...f, city: v, customCity: v === 'Otra' ? f.customCity : '' }))}>

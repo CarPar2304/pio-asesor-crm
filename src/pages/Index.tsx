@@ -15,8 +15,9 @@ import BulkUploadDialog from '@/components/crm/BulkUploadDialog';
 import BulkUpdateDialog from '@/components/crm/BulkUpdateDialog';
 import ExportDialog from '@/components/crm/ExportDialog';
 import QuickActionDialog from '@/components/crm/QuickActionDialog';
+import CRMSettingsDialog from '@/components/crm/CRMSettingsDialog';
 import { ExpandableTabs } from '@/components/ui/expandable-tabs';
-import { LayoutGrid, List, FileSpreadsheet, Plus, Download, RefreshCw } from 'lucide-react';
+import { LayoutGrid, List, FileSpreadsheet, Plus, Download, RefreshCw, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -43,6 +44,7 @@ export default function Index() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkUpdateOpen, setBulkUpdateOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const dashboardTabs = [
     { title: 'Cuadrícula', icon: LayoutGrid },
@@ -52,6 +54,7 @@ export default function Index() {
     { title: 'Actualizar masivo', icon: RefreshCw },
     { title: 'Nueva empresa', icon: Plus },
     { title: 'Exportar', icon: Download },
+    { title: 'Ajustes', icon: Settings2 },
   ];
 
   const filtered = useMemo(() => {
@@ -119,6 +122,7 @@ export default function Index() {
     else if (index === 4) setBulkUpdateOpen(true);
     else if (index === 5) setFormOpen(true);
     else if (index === 6) setExportOpen(true);
+    else if (index === 7) setSettingsOpen(true);
   }, []);
 
   return (
@@ -166,6 +170,7 @@ export default function Index() {
       <BulkUploadDialog open={bulkOpen} onClose={() => setBulkOpen(false)} />
       <BulkUpdateDialog open={bulkUpdateOpen} onClose={() => setBulkUpdateOpen(false)} />
       <ExportDialog open={exportOpen} onClose={() => setExportOpen(false)} companies={filtered} activeYear={filters.activeYear} />
+      <CRMSettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       {quickAction && (
         <QuickActionDialog type={quickAction.type} companyId={quickAction.companyId} onClose={() => setQuickAction(null)} />
       )}
