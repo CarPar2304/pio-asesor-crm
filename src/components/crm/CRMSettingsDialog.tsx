@@ -469,7 +469,7 @@ function TaxonomyTab() {
                                 onClick={() => setSelectedVerticalId(isSelected ? null : v.id)}
                               >
                                 <ChevronRight className={cn('h-3 w-3 shrink-0 transition-transform duration-200', isSelected && 'rotate-90')} />
-                                <span className="flex-1 truncate">{v.name}</span>
+                                <span className="flex-1 min-w-0 truncate">{v.name}</span>
                                 {sharedCats.length > 0 && (
                                   <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-primary/30 text-primary/70">{sharedCats.length}+</Badge>
                                 )}
