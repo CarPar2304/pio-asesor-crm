@@ -597,10 +597,12 @@ function TaxonomyTab() {
                   </Collapsible>
                 )}
 
-                <ScrollArea className="flex-1">
+                <ScrollArea className="max-h-[420px]">
                   <div className="space-y-0.5 pr-2">
                     {linkedSubVerticals.map(sv => {
                       const count = companiesUsingSubVertical(sv.name);
+                      const sharedVerts = getVerticalsForSubVertical(sv.id).filter(vid => vid !== selectedVerticalId);
+                      const sharedVertNames = sharedVerts.map(vid => verticals.find(v => v.id === vid)?.name).filter(Boolean);
                       return (
                         <div key={sv.id}>
                           {editingSubVertical === sv.id ? (
@@ -611,6 +613,9 @@ function TaxonomyTab() {
                             <div className="flex items-center gap-0.5 group">
                               <div className="flex-1 flex items-center gap-1 rounded-md px-2 py-1.5 text-xs hover:bg-accent transition-colors">
                                 <span className="flex-1 truncate">{sv.name}</span>
+                                {sharedVerts.length > 0 && (
+                                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-primary/30 text-primary/70">{sharedVerts.length}+</Badge>
+                                )}
                                 {count > 0 && <span className="text-[10px] text-muted-foreground">{count}</span>}
                               </div>
                               <DropdownMenu>
@@ -619,9 +624,15 @@ function TaxonomyTab() {
                                     <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
                                   </button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuContent align="end" className="w-52">
                                   <DropdownMenuItem onClick={() => setEditingSubVertical(sv.id)}>
                                     <Pencil className="h-3 w-3 mr-2" /> Renombrar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => { setMergeManagedTarget({ id: sv.id, name: sv.name, type: 'subvertical' }); setMergeManagedTargetId(''); }}>
+                                    <Merge className="h-3 w-3 mr-2" /> Fusionar con otra
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setSharingSubVerticalId(sharingSubVerticalId === sv.id ? null : sv.id)}>
+                                    <Link2 className="h-3 w-3 mr-2" /> Compartir con {level1Label.toLowerCase()}
                                   </DropdownMenuItem>
                                   {otherVerticals.map(v => (
                                     <DropdownMenuItem key={v.id} onClick={() => handleMoveSubVertical(sv.id, v.id)}>
@@ -636,6 +647,30 @@ function TaxonomyTab() {
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
+                            </div>
+                          )}
+                          {/* Share with verticals inline */}
+                          {sharingSubVerticalId === sv.id && (
+                            <div className="ml-4 mt-1 mb-1 p-2 rounded border border-border bg-muted/30 space-y-1 animate-fade-in">
+                              <p className="text-[10px] font-medium text-muted-foreground">Compartida con:</p>
+                              {sharedVertNames.map((vName, i) => (
+                                <div key={sharedVerts[i]} className="flex items-center justify-between text-xs">
+                                  <span>{vName}</span>
+                                  <Button variant="ghost" size="icon" className="h-5 w-5" onClick={async () => {
+                                    await taxonomy.unlinkVerticalSubVertical(sharedVerts[i], sv.id);
+                                    showSuccess('Desvinculada de', vName || '');
+                                  }}><X className="h-3 w-3 text-destructive" /></Button>
+                                </div>
+                              ))}
+                              <p className="text-[10px] font-medium text-muted-foreground mt-1">Agregar a:</p>
+                              {verticals.filter(v => v.id !== selectedVerticalId && !sharedVerts.includes(v.id)).map(v => (
+                                <button key={v.id} className="w-full text-left text-xs px-2 py-1 rounded hover:bg-accent transition-colors"
+                                  onClick={async () => {
+                                    await taxonomy.shareSubVerticalWithVertical(sv.id, v.id);
+                                    showSuccess('Compartida con', v.name);
+                                  }}>+ {v.name}</button>
+                              ))}
+                              <Button variant="ghost" size="sm" className="w-full h-6 text-[10px]" onClick={() => setSharingSubVerticalId(null)}>Cerrar</Button>
                             </div>
                           )}
                         </div>
