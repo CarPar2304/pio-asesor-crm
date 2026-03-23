@@ -260,11 +260,8 @@ export function TaxonomyProvider({ children }: { children: React.ReactNode }) {
     const source = verticals.find(v => v.id === sourceId);
     const target = verticals.find(v => v.id === targetId);
     if (!source || !target) return;
-    // Update all companies using source name to target name
-    const affected = companies.filter(c => c.vertical === source.name);
-    for (const comp of affected) {
-      await supabase.from('companies').update({ vertical: target.name }).eq('id', comp.id);
-    }
+    // Update all companies using source name to target name (direct DB query)
+    await supabase.from('companies').update({ vertical: target.name }).eq('vertical', source.name);
     // Move sub-vertical links from source to target (avoid duplicates)
     const sourceLinks = verticalSubVerticalLinks.filter(l => l.vertical_id === sourceId);
     const targetLinkedSvIds = new Set(verticalSubVerticalLinks.filter(l => l.vertical_id === targetId).map(l => l.sub_vertical_id));
@@ -283,8 +280,8 @@ export function TaxonomyProvider({ children }: { children: React.ReactNode }) {
     }
     // Delete source vertical (cascades links)
     await supabase.from('crm_verticals').delete().eq('id', sourceId);
-    await fetchAll();
-  }, [verticals, companies, verticalSubVerticalLinks, categoryVerticalLinks, fetchAll]);
+    await Promise.all([fetchAll(), refreshCRM()]);
+  }, [verticals, verticalSubVerticalLinks, categoryVerticalLinks, fetchAll, refreshCRM]);
 
   // Merge a managed sub-vertical into another managed sub-vertical
   const mergeSubVertical = useCallback(async (sourceId: string, targetId: string) => {
