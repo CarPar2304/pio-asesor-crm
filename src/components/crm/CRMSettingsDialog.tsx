@@ -620,7 +620,7 @@ function TaxonomyTab() {
                               </div>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <button className="p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button className="p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                                     <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
                                   </button>
                                 </DropdownMenuTrigger>
