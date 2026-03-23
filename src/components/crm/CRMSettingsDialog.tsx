@@ -460,7 +460,7 @@ function TaxonomyTab() {
                               <InlineEdit value={v.name} onSave={n => { taxonomy.renameVertical(v.id, n); setEditingVertical(null); }} onCancel={() => setEditingVertical(null)} />
                             </div>
                           ) : (
-                            <div className="flex items-center gap-0.5 group">
+                            <div className="flex items-center gap-0.5 group min-w-0">
                               <button
                                 className={cn(
                                   'flex-1 flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-left transition-all duration-200',
