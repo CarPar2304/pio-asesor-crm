@@ -244,6 +244,25 @@ function TaxonomyTab() {
     setMergeTargetId('');
   };
 
+  const handleMergeManaged = async () => {
+    if (!mergeManagedTarget || !mergeManagedTargetId) return;
+    if (mergeManagedTarget.type === 'vertical') {
+      await taxonomy.mergeVertical(mergeManagedTarget.id, mergeManagedTargetId);
+      if (selectedVerticalId === mergeManagedTarget.id) setSelectedVerticalId(null);
+      showSuccess('Fusionada', `"${mergeManagedTarget.name}" fusionada exitosamente`);
+    } else {
+      await taxonomy.mergeSubVertical(mergeManagedTarget.id, mergeManagedTargetId);
+      showSuccess('Fusionada', `"${mergeManagedTarget.name}" fusionada exitosamente`);
+    }
+    setMergeManagedTarget(null);
+    setMergeManagedTargetId('');
+  };
+
+  // Categories where a vertical is already linked (for "shared with" display)
+  const getCategoriesForVertical = (vId: string) => categoryVerticalLinks.filter(l => l.vertical_id === vId).map(l => l.category);
+  // Verticals where a sub-vertical is already linked
+  const getVerticalsForSubVertical = (svId: string) => verticalSubVerticalLinks.filter(l => l.sub_vertical_id === svId).map(l => l.vertical_id);
+
   return (
     <div className="space-y-4">
       {/* Header */}
