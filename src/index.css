@@ -121,6 +121,11 @@
   }
 }
 
+/* Sileo toast above modals */
+[data-sileo-toaster] {
+  z-index: 99999 !important;
+}
+
 /* Sileo toast text colors on dark fill */
 [data-sileo-toaster] [class*="title"],
 [data-sileo-toaster] [class*="description"],
