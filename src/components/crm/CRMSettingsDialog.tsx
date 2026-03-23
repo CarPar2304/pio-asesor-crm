@@ -813,7 +813,7 @@ function FormFieldsTab() {
 export default function CRMSettingsDialog({ open, onClose }: Props) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl h-[min(90vh,52rem)] flex flex-col p-0">
+      <DialogContent className="max-w-6xl h-[min(90vh,52rem)] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
           <DialogTitle>Ajustes del CRM</DialogTitle>
         </DialogHeader>
