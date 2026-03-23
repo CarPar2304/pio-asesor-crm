@@ -250,12 +250,10 @@ export function TaxonomyProvider({ children }: { children: React.ReactNode }) {
   const mergeVerticalName = useCallback(async (oldName: string, targetVerticalId: string) => {
     const target = verticals.find(v => v.id === targetVerticalId);
     if (!target) return;
-    const affected = companies.filter(c => c.vertical === oldName);
-    for (const comp of affected) {
-      await supabase.from('companies').update({ vertical: target.name }).eq('id', comp.id);
-    }
-    await fetchAll();
-  }, [verticals, companies, fetchAll]);
+    // Use direct DB update for all matching companies (not filtered by stale state)
+    await supabase.from('companies').update({ vertical: target.name }).eq('vertical', oldName);
+    await Promise.all([fetchAll(), refreshCRM()]);
+  }, [verticals, fetchAll, refreshCRM]);
 
   // Merge a managed vertical into another managed vertical (re-assigns companies, moves links, deletes source)
   const mergeVertical = useCallback(async (sourceId: string, targetId: string) => {
