@@ -275,7 +275,7 @@ function TaxonomyTab() {
         </p>
       </div>
 
-      {/* Merge dialog inline */}
+      {/* Merge dialog inline (orphan) */}
       {mergeTarget && (
         <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2 animate-fade-in">
           <p className="text-xs font-semibold">Fusionar "{mergeTarget.name}" con:</p>
@@ -288,6 +288,25 @@ function TaxonomyTab() {
           <div className="flex gap-2">
             <Button size="sm" variant="default" onClick={handleMerge} disabled={!mergeTargetId}>Fusionar</Button>
             <Button size="sm" variant="ghost" onClick={() => setMergeTarget(null)}>Cancelar</Button>
+          </div>
+        </div>
+      )}
+
+      {/* Merge dialog inline (managed) */}
+      {mergeManagedTarget && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2 animate-fade-in">
+          <p className="text-xs font-semibold">Fusionar "{mergeManagedTarget.name}" con:</p>
+          <Select value={mergeManagedTargetId} onValueChange={setMergeManagedTargetId}>
+            <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Seleccionar destino..." /></SelectTrigger>
+            <SelectContent>
+              {(mergeManagedTarget.type === 'vertical' ? verticals : subVerticals)
+                .filter(v => v.id !== mergeManagedTarget.id)
+                .map(v => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <div className="flex gap-2">
+            <Button size="sm" variant="default" onClick={handleMergeManaged} disabled={!mergeManagedTargetId}>Fusionar</Button>
+            <Button size="sm" variant="ghost" onClick={() => setMergeManagedTarget(null)}>Cancelar</Button>
           </div>
         </div>
       )}
