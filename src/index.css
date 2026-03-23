@@ -122,15 +122,18 @@
 }
 
 /* Sileo toast above modals */
-[data-sileo-toaster] {
+[data-sileo-viewport] {
+  z-index: 99999 !important;
+}
+[data-sileo-toast] {
   z-index: 99999 !important;
 }
 
 /* Sileo toast text colors on dark fill */
-[data-sileo-toaster] [class*="title"],
-[data-sileo-toaster] [class*="description"],
-[data-sileo-toaster] p,
-[data-sileo-toaster] span:not([class*="badge"]) {
+[data-sileo-viewport] [data-sileo-title],
+[data-sileo-viewport] [data-sileo-description],
+[data-sileo-toast] [data-sileo-title],
+[data-sileo-toast] [data-sileo-description] {
   color: white !important;
 }
 

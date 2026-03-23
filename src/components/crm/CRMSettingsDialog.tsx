@@ -460,16 +460,16 @@ function TaxonomyTab() {
                               <InlineEdit value={v.name} onSave={n => { taxonomy.renameVertical(v.id, n); setEditingVertical(null); }} onCancel={() => setEditingVertical(null)} />
                             </div>
                           ) : (
-                            <div className="flex items-center gap-0.5 group">
+                            <div className="flex items-center gap-0.5 group min-w-0">
                               <button
                                 className={cn(
-                                  'flex-1 flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-left transition-all duration-200',
+                                  'flex-1 min-w-0 flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-left transition-all duration-200',
                                   isSelected ? 'bg-primary/10 text-primary font-medium shadow-sm' : 'hover:bg-accent'
                                 )}
                                 onClick={() => setSelectedVerticalId(isSelected ? null : v.id)}
                               >
                                 <ChevronRight className={cn('h-3 w-3 shrink-0 transition-transform duration-200', isSelected && 'rotate-90')} />
-                                <span className="flex-1 truncate">{v.name}</span>
+                                <span className="flex-1 min-w-0 truncate">{v.name}</span>
                                 {sharedCats.length > 0 && (
                                   <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-primary/30 text-primary/70">{sharedCats.length}+</Badge>
                                 )}
@@ -477,7 +477,7 @@ function TaxonomyTab() {
                               </button>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <button className="p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button className="p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                                     <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
                                   </button>
                                 </DropdownMenuTrigger>
@@ -610,9 +610,9 @@ function TaxonomyTab() {
                               <InlineEdit value={sv.name} onSave={n => { taxonomy.renameSubVertical(sv.id, n); setEditingSubVertical(null); }} onCancel={() => setEditingSubVertical(null)} />
                             </div>
                           ) : (
-                            <div className="flex items-center gap-0.5 group">
-                              <div className="flex-1 flex items-center gap-1 rounded-md px-2 py-1.5 text-xs hover:bg-accent transition-colors">
-                                <span className="flex-1 truncate">{sv.name}</span>
+                            <div className="flex items-center gap-0.5 group min-w-0">
+                              <div className="flex-1 min-w-0 flex items-center gap-1 rounded-md px-2 py-1.5 text-xs hover:bg-accent transition-colors">
+                                <span className="flex-1 min-w-0 truncate">{sv.name}</span>
                                 {sharedVerts.length > 0 && (
                                   <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-primary/30 text-primary/70">{sharedVerts.length}+</Badge>
                                 )}
@@ -620,7 +620,7 @@ function TaxonomyTab() {
                               </div>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <button className="p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <button className="p-0.5 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                                     <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
                                   </button>
                                 </DropdownMenuTrigger>
