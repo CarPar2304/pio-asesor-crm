@@ -69,6 +69,10 @@ interface TaxonomyContextType {
   renameCategory: (oldName: string, newName: string) => Promise<void>;
   updateCategoryLabels: (name: string, level1: string, level2: string) => Promise<void>;
   mergeVerticalName: (oldName: string, targetVerticalId: string) => Promise<void>;
+  mergeVertical: (sourceId: string, targetId: string) => Promise<void>;
+  mergeSubVertical: (sourceId: string, targetId: string) => Promise<void>;
+  shareVerticalWithCategory: (verticalId: string, category: string) => Promise<void>;
+  shareSubVerticalWithVertical: (subVerticalId: string, verticalId: string) => Promise<void>;
   moveVerticalToCategory: (verticalId: string, fromCategory: string, toCategory: string) => Promise<void>;
   moveSubVerticalToVertical: (subVerticalId: string, fromVerticalId: string, toVerticalId: string) => Promise<void>;
   refresh: () => Promise<void>;
