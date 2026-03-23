@@ -338,7 +338,7 @@ function TaxonomyTab() {
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
-            <ScrollArea className="max-h-[420px]">
+            <ScrollArea className="h-[26rem] min-h-0">
               <div className="space-y-0.5 pr-2">
                 {allCategories.map(cat => {
                   const isSelected = selectedCategory === cat;
@@ -447,7 +447,7 @@ function TaxonomyTab() {
                   </Collapsible>
                 )}
 
-                <ScrollArea className="max-h-[420px]">
+                <ScrollArea className="h-[26rem] min-h-0">
                   <div className="space-y-0.5 pr-2">
                     {linkedVerticals.map(v => {
                       const isSelected = selectedVerticalId === v.id;
@@ -597,7 +597,7 @@ function TaxonomyTab() {
                   </Collapsible>
                 )}
 
-                <ScrollArea className="max-h-[420px]">
+                <ScrollArea className="h-[26rem] min-h-0">
                   <div className="space-y-0.5 pr-2">
                     {linkedSubVerticals.map(sv => {
                       const count = companiesUsingSubVertical(sv.name);
