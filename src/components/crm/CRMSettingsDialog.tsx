@@ -74,8 +74,12 @@ function TaxonomyTab() {
   const [editingLabels, setEditingLabels] = useState<{ l1: string; l2: string } | null>(null);
   const [mergeTarget, setMergeTarget] = useState<{ name: string; type: 'vertical' | 'subvertical' } | null>(null);
   const [mergeTargetId, setMergeTargetId] = useState('');
+  const [mergeManagedTarget, setMergeManagedTarget] = useState<{ id: string; name: string; type: 'vertical' | 'subvertical' } | null>(null);
+  const [mergeManagedTargetId, setMergeManagedTargetId] = useState('');
   const [linkingVertical, setLinkingVertical] = useState(false);
   const [linkingSubVertical, setLinkingSubVertical] = useState(false);
+  const [sharingVerticalId, setSharingVerticalId] = useState<string | null>(null);
+  const [sharingSubVerticalId, setSharingSubVerticalId] = useState<string | null>(null);
 
   const companiesUsingCategory = (cat: string) => companies.filter(c => c.category === cat).length;
   const companiesUsingVertical = (name: string) => companies.filter(c => c.vertical === name).length;
