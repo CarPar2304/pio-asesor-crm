@@ -353,6 +353,7 @@ export function TaxonomyProvider({ children }: { children: React.ReactNode }) {
       addVertical, addSubVertical, renameVertical, renameSubVertical, deleteVertical, deleteSubVertical,
       linkCategoryVertical, unlinkCategoryVertical, linkVerticalSubVertical, unlinkVerticalSubVertical,
       addCategory, deleteCategory, renameCategory, updateCategoryLabels, mergeVerticalName,
+      mergeVertical, mergeSubVertical, shareVerticalWithCategory, shareSubVerticalWithVertical,
       moveVerticalToCategory, moveSubVerticalToVertical,
       refresh: fetchAll,
     }}>
