@@ -338,7 +338,7 @@ function TaxonomyTab() {
                 <Plus className="h-3.5 w-3.5" />
               </Button>
             </div>
-            <ScrollArea className="flex-1">
+            <ScrollArea className="max-h-[420px]">
               <div className="space-y-0.5 pr-2">
                 {allCategories.map(cat => {
                   const isSelected = selectedCategory === cat;
