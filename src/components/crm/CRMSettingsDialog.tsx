@@ -447,11 +447,12 @@ function TaxonomyTab() {
                   </Collapsible>
                 )}
 
-                <ScrollArea className="flex-1">
+                <ScrollArea className="max-h-[420px]">
                   <div className="space-y-0.5 pr-2">
                     {linkedVerticals.map(v => {
                       const isSelected = selectedVerticalId === v.id;
                       const count = companiesUsingVertical(v.name);
+                      const sharedCats = getCategoriesForVertical(v.id).filter(c => c !== selectedCategory);
                       return (
                         <div key={v.id}>
                           {editingVertical === v.id ? (
@@ -469,6 +470,9 @@ function TaxonomyTab() {
                               >
                                 <ChevronRight className={cn('h-3 w-3 shrink-0 transition-transform duration-200', isSelected && 'rotate-90')} />
                                 <span className="flex-1 truncate">{v.name}</span>
+                                {sharedCats.length > 0 && (
+                                  <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-primary/30 text-primary/70">{sharedCats.length}+</Badge>
+                                )}
                                 {count > 0 && <span className="text-[10px] text-muted-foreground">{count}</span>}
                               </button>
                               <DropdownMenu>
@@ -477,9 +481,15 @@ function TaxonomyTab() {
                                     <MoreHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
                                   </button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-44">
+                                <DropdownMenuContent align="end" className="w-52">
                                   <DropdownMenuItem onClick={() => setEditingVertical(v.id)}>
                                     <Pencil className="h-3 w-3 mr-2" /> Renombrar
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => { setMergeManagedTarget({ id: v.id, name: v.name, type: 'vertical' }); setMergeManagedTargetId(''); }}>
+                                    <Merge className="h-3 w-3 mr-2" /> Fusionar con otra
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setSharingVerticalId(sharingVerticalId === v.id ? null : v.id)}>
+                                    <Link2 className="h-3 w-3 mr-2" /> Compartir con categorías
                                   </DropdownMenuItem>
                                   {otherCategories.length > 0 && otherCategories.map(cat => (
                                     <DropdownMenuItem key={cat} onClick={() => handleMoveVertical(v.id, cat)}>
@@ -494,6 +504,30 @@ function TaxonomyTab() {
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
+                            </div>
+                          )}
+                          {/* Share with categories inline */}
+                          {sharingVerticalId === v.id && (
+                            <div className="ml-4 mt-1 mb-1 p-2 rounded border border-border bg-muted/30 space-y-1 animate-fade-in">
+                              <p className="text-[10px] font-medium text-muted-foreground">Compartida con:</p>
+                              {sharedCats.map(cat => (
+                                <div key={cat} className="flex items-center justify-between text-xs">
+                                  <span>{cat}</span>
+                                  <Button variant="ghost" size="icon" className="h-5 w-5" onClick={async () => {
+                                    await taxonomy.unlinkCategoryVertical(cat, v.id);
+                                    showSuccess('Desvinculada de', cat);
+                                  }}><X className="h-3 w-3 text-destructive" /></Button>
+                                </div>
+                              ))}
+                              <p className="text-[10px] font-medium text-muted-foreground mt-1">Agregar a:</p>
+                              {allCategories.filter(c => c !== selectedCategory && !sharedCats.includes(c)).map(cat => (
+                                <button key={cat} className="w-full text-left text-xs px-2 py-1 rounded hover:bg-accent transition-colors"
+                                  onClick={async () => {
+                                    await taxonomy.shareVerticalWithCategory(v.id, cat);
+                                    showSuccess('Compartida con', cat);
+                                  }}>+ {cat}</button>
+                              ))}
+                              <Button variant="ghost" size="sm" className="w-full h-6 text-[10px]" onClick={() => setSharingVerticalId(null)}>Cerrar</Button>
                             </div>
                           )}
                         </div>
