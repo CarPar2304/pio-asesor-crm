@@ -82,7 +82,7 @@ const TaxonomyContext = createContext<TaxonomyContextType | null>(null);
 
 export function TaxonomyProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
-  const { companies, updateCompany } = useCRM();
+  const { companies, updateCompany, refresh: refreshCRM } = useCRM();
   const [verticals, setVerticals] = useState<TaxonomyVertical[]>([]);
   const [subVerticals, setSubVerticals] = useState<TaxonomySubVertical[]>([]);
   const [categoryVerticalLinks, setCategoryVerticalLinks] = useState<CategoryVerticalLink[]>([]);
