@@ -257,6 +257,76 @@ export function TaxonomyProvider({ children }: { children: React.ReactNode }) {
     await fetchAll();
   }, [verticals, companies, fetchAll]);
 
+  // Merge a managed vertical into another managed vertical (re-assigns companies, moves links, deletes source)
+  const mergeVertical = useCallback(async (sourceId: string, targetId: string) => {
+    const source = verticals.find(v => v.id === sourceId);
+    const target = verticals.find(v => v.id === targetId);
+    if (!source || !target) return;
+    // Update all companies using source name to target name
+    const affected = companies.filter(c => c.vertical === source.name);
+    for (const comp of affected) {
+      await supabase.from('companies').update({ vertical: target.name }).eq('id', comp.id);
+    }
+    // Move sub-vertical links from source to target (avoid duplicates)
+    const sourceLinks = verticalSubVerticalLinks.filter(l => l.vertical_id === sourceId);
+    const targetLinkedSvIds = new Set(verticalSubVerticalLinks.filter(l => l.vertical_id === targetId).map(l => l.sub_vertical_id));
+    for (const link of sourceLinks) {
+      if (!targetLinkedSvIds.has(link.sub_vertical_id)) {
+        await supabase.from('crm_vertical_sub_verticals').insert({ vertical_id: targetId, sub_vertical_id: link.sub_vertical_id });
+      }
+    }
+    // Move category links from source to target (avoid duplicates)
+    const sourceCatLinks = categoryVerticalLinks.filter(l => l.vertical_id === sourceId);
+    const targetCatNames = new Set(categoryVerticalLinks.filter(l => l.vertical_id === targetId).map(l => l.category));
+    for (const link of sourceCatLinks) {
+      if (!targetCatNames.has(link.category)) {
+        await supabase.from('crm_category_verticals').insert({ category: link.category, vertical_id: targetId });
+      }
+    }
+    // Delete source vertical (cascades links)
+    await supabase.from('crm_verticals').delete().eq('id', sourceId);
+    await fetchAll();
+  }, [verticals, companies, verticalSubVerticalLinks, categoryVerticalLinks, fetchAll]);
+
+  // Merge a managed sub-vertical into another managed sub-vertical
+  const mergeSubVertical = useCallback(async (sourceId: string, targetId: string) => {
+    const source = subVerticals.find(sv => sv.id === sourceId);
+    const target = subVerticals.find(sv => sv.id === targetId);
+    if (!source || !target) return;
+    // Update all companies using source name to target name
+    const affected = companies.filter(c => c.economicActivity === source.name);
+    for (const comp of affected) {
+      await supabase.from('companies').update({ economic_activity: target.name }).eq('id', comp.id);
+    }
+    // Move vertical links from source to target (avoid duplicates)
+    const sourceLinks = verticalSubVerticalLinks.filter(l => l.sub_vertical_id === sourceId);
+    const targetLinkedVIds = new Set(verticalSubVerticalLinks.filter(l => l.sub_vertical_id === targetId).map(l => l.vertical_id));
+    for (const link of sourceLinks) {
+      if (!targetLinkedVIds.has(link.vertical_id)) {
+        await supabase.from('crm_vertical_sub_verticals').insert({ vertical_id: link.vertical_id, sub_vertical_id: targetId });
+      }
+    }
+    // Delete source sub-vertical (cascades links)
+    await supabase.from('crm_sub_verticals').delete().eq('id', sourceId);
+    await fetchAll();
+  }, [subVerticals, companies, verticalSubVerticalLinks, fetchAll]);
+
+  // Share vertical with an additional category (link without unlinking from current)
+  const shareVerticalWithCategory = useCallback(async (verticalId: string, category: string) => {
+    const existing = categoryVerticalLinks.find(l => l.vertical_id === verticalId && l.category === category);
+    if (existing) return;
+    const { data } = await supabase.from('crm_category_verticals').insert({ category, vertical_id: verticalId }).select().single();
+    if (data) setCategoryVerticalLinks(prev => [...prev, data as any]);
+  }, [categoryVerticalLinks]);
+
+  // Share sub-vertical with an additional vertical
+  const shareSubVerticalWithVertical = useCallback(async (subVerticalId: string, verticalId: string) => {
+    const existing = verticalSubVerticalLinks.find(l => l.sub_vertical_id === subVerticalId && l.vertical_id === verticalId);
+    if (existing) return;
+    const { data } = await supabase.from('crm_vertical_sub_verticals').insert({ vertical_id: verticalId, sub_vertical_id: subVerticalId }).select().single();
+    if (data) setVerticalSubVerticalLinks(prev => [...prev, data as any]);
+  }, [verticalSubVerticalLinks]);
+
   // Move vertical from one category to another
   const moveVerticalToCategory = useCallback(async (verticalId: string, fromCategory: string, toCategory: string) => {
     await supabase.from('crm_category_verticals').delete().eq('category', fromCategory).eq('vertical_id', verticalId);
