@@ -321,7 +321,7 @@ function TaxonomyTab() {
       </div>
 
       {/* 3-column flow */}
-      <div className="flex items-stretch gap-0 min-h-[340px]">
+      <div className="flex items-start gap-0 min-h-[200px]">
         {/* Column 1: Categories */}
         <Card className="flex flex-col flex-1 min-w-0">
           <CardHeader className="pb-2 px-3 pt-3">
