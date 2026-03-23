@@ -463,7 +463,7 @@ function TaxonomyTab() {
                             <div className="flex items-center gap-0.5 group min-w-0">
                               <button
                                 className={cn(
-                                  'flex-1 flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-left transition-all duration-200',
+                                  'flex-1 min-w-0 flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-left transition-all duration-200',
                                   isSelected ? 'bg-primary/10 text-primary font-medium shadow-sm' : 'hover:bg-accent'
                                 )}
                                 onClick={() => setSelectedVerticalId(isSelected ? null : v.id)}
