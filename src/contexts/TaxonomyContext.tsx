@@ -288,11 +288,8 @@ export function TaxonomyProvider({ children }: { children: React.ReactNode }) {
     const source = subVerticals.find(sv => sv.id === sourceId);
     const target = subVerticals.find(sv => sv.id === targetId);
     if (!source || !target) return;
-    // Update all companies using source name to target name
-    const affected = companies.filter(c => c.economicActivity === source.name);
-    for (const comp of affected) {
-      await supabase.from('companies').update({ economic_activity: target.name }).eq('id', comp.id);
-    }
+    // Update all companies using source name to target name (direct DB query)
+    await supabase.from('companies').update({ economic_activity: target.name }).eq('economic_activity', source.name);
     // Move vertical links from source to target (avoid duplicates)
     const sourceLinks = verticalSubVerticalLinks.filter(l => l.sub_vertical_id === sourceId);
     const targetLinkedVIds = new Set(verticalSubVerticalLinks.filter(l => l.sub_vertical_id === targetId).map(l => l.vertical_id));
@@ -303,8 +300,8 @@ export function TaxonomyProvider({ children }: { children: React.ReactNode }) {
     }
     // Delete source sub-vertical (cascades links)
     await supabase.from('crm_sub_verticals').delete().eq('id', sourceId);
-    await fetchAll();
-  }, [subVerticals, companies, verticalSubVerticalLinks, fetchAll]);
+    await Promise.all([fetchAll(), refreshCRM()]);
+  }, [subVerticals, verticalSubVerticalLinks, fetchAll, refreshCRM]);
 
   // Share vertical with an additional category (link without unlinking from current)
   const shareVerticalWithCategory = useCallback(async (verticalId: string, category: string) => {
