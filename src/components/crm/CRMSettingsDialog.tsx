@@ -612,7 +612,7 @@ function TaxonomyTab() {
                           ) : (
                             <div className="flex items-center gap-0.5 group min-w-0">
                               <div className="flex-1 min-w-0 flex items-center gap-1 rounded-md px-2 py-1.5 text-xs hover:bg-accent transition-colors">
-                                <span className="flex-1 truncate">{sv.name}</span>
+                                <span className="flex-1 min-w-0 truncate">{sv.name}</span>
                                 {sharedVerts.length > 0 && (
                                   <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 border-primary/30 text-primary/70">{sharedVerts.length}+</Badge>
                                 )}
