@@ -242,6 +242,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     const stage: PipelineStage = {
       id: data.id, offerId: data.offer_id, name: data.name,
       color: data.color, icon: data.icon, displayOrder: data.display_order,
+      countsAsManagement: (data as any).counts_as_management ?? true,
       createdAt: data.created_at,
     };
     setStages(prev => [...prev, stage]);
