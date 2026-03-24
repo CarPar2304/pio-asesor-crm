@@ -46,9 +46,12 @@ const EMPTY_FILTERS: Filters = {
 export default function AddCompaniesToPipelineDialog({ open, onClose, offerId }: Props) {
   const { getStagesForOffer, addCompanyToStage, isCompanyInOffer } = usePortfolio();
   const { companies } = useCRM();
+  const { allProfiles } = useProfile();
+  const { session } = useAuth();
   const { fields } = useCustomFields();
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [selectedStageId, setSelectedStageId] = useState('');
+  const [assignedTo, setAssignedTo] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
 
