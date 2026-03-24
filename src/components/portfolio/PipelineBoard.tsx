@@ -34,6 +34,8 @@ export default function PipelineBoard({ offer, onBack }: Props) {
   const [bulkAddOpen, setBulkAddOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const [draggedEntry, setDraggedEntry] = useState<PipelineEntry | null>(null);
   const [dragOverStageId, setDragOverStageId] = useState<string | null>(null);
 
   const profileMap = useMemo(() => {
