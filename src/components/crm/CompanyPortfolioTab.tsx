@@ -3,7 +3,7 @@ import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useProfile } from '@/contexts/ProfileContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { GitBranch, User, ExternalLink } from 'lucide-react';
+import { GitBranch, User, UserCog, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface Props {
