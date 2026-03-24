@@ -3,7 +3,7 @@ import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useProfile } from '@/contexts/ProfileContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { GitBranch, User, ExternalLink } from 'lucide-react';
+import { GitBranch, User, UserCog, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface Props {
@@ -29,7 +29,8 @@ export default function CompanyPortfolioTab({ companyId }: Props) {
         const stage = stages.find(s => s.id === entry.stageId);
         const category = offer?.categoryId ? categories.find(c => c.id === offer.categoryId) : null;
         const addedByName = entry.addedBy ? profileMap[entry.addedBy] : null;
-        return { entry, offer, stage, category, addedByName };
+        const assignedToName = entry.assignedTo ? profileMap[entry.assignedTo] : null;
+        return { entry, offer, stage, category, addedByName, assignedToName };
       })
       .filter(x => x.offer);
   }, [entries, offers, stages, categories, companyId, profileMap]);
@@ -42,7 +43,7 @@ export default function CompanyPortfolioTab({ companyId }: Props) {
 
   return (
     <div className="space-y-2">
-      {companyEntries.map(({ entry, offer, stage, category, addedByName }) => (
+      {companyEntries.map(({ entry, offer, stage, category, addedByName, assignedToName }) => (
         <div
           key={entry.id}
           className="flex items-center gap-3 rounded-lg border border-border/50 bg-card p-3 transition-colors hover:bg-secondary/30 cursor-pointer"
@@ -67,7 +68,13 @@ export default function CompanyPortfolioTab({ companyId }: Props) {
                   {stage.name}
                 </span>
               )}
-              {addedByName && (
+              {assignedToName && (
+                <>
+                  <span>·</span>
+                  <span className="flex items-center gap-1"><UserCog className="h-3 w-3 text-primary/70" />{assignedToName}</span>
+                </>
+              )}
+              {addedByName && (!assignedToName || entry.addedBy !== entry.assignedTo) && (
                 <>
                   <span>·</span>
                   <span className="flex items-center gap-1"><User className="h-3 w-3" />{addedByName}</span>

@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCRM } from '@/contexts/CRMContext';
+import { useProfile } from '@/contexts/ProfileContext';
+import { useAuth } from '@/hooks/useAuth';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -35,10 +37,13 @@ interface MatchResult {
 export default function BulkAddToPipelineDialog({ open, onClose, offerId }: Props) {
   const { getStagesForOffer, addCompanyToStage, isCompanyInOffer } = usePortfolio();
   const { companies } = useCRM();
+  const { allProfiles } = useProfile();
+  const { session } = useAuth();
 
   const [matchVar, setMatchVar] = useState<MatchVariable>('nit');
   const [rawText, setRawText] = useState('');
   const [selectedStageId, setSelectedStageId] = useState('');
+  const [assignedTo, setAssignedTo] = useState('');
   const [step, setStep] = useState<'input' | 'preview'>('input');
   const [adding, setAdding] = useState(false);
 
@@ -107,9 +112,10 @@ export default function BulkAddToPipelineDialog({ open, onClose, offerId }: Prop
     if (!stageId || matched.length === 0) return;
     setAdding(true);
     let count = 0;
+    const finalAssignedTo = assignedTo || session?.user?.id || null;
     for (const r of matched) {
       if (r.companyId) {
-        await addCompanyToStage(offerId, stageId, r.companyId);
+        await addCompanyToStage(offerId, stageId, r.companyId, finalAssignedTo);
         count++;
       }
     }
@@ -124,6 +130,7 @@ export default function BulkAddToPipelineDialog({ open, onClose, offerId }: Prop
     setRawText('');
     setMatchVar('nit');
     setSelectedStageId('');
+    setAssignedTo('');
   };
 
   const handleClose = () => {
@@ -141,19 +148,34 @@ export default function BulkAddToPipelineDialog({ open, onClose, offerId }: Prop
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden flex flex-col gap-4 pt-2">
-          {/* Stage selector */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Etapa destino</label>
-            <Select value={selectedStageId || defaultStageId} onValueChange={setSelectedStageId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar etapa" />
-              </SelectTrigger>
-              <SelectContent>
-                {stages.map(s => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Stage & Assignee selectors */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Etapa destino</label>
+              <Select value={selectedStageId || defaultStageId} onValueChange={setSelectedStageId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar etapa" />
+                </SelectTrigger>
+                <SelectContent>
+                  {stages.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Gestor asignado</label>
+              <Select value={assignedTo || session?.user?.id || ''} onValueChange={setAssignedTo}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar gestor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allProfiles.map(p => (
+                    <SelectItem key={p.userId} value={p.userId}>{p.name || 'Sin nombre'}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Match variable */}

@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useCRM } from '@/contexts/CRMContext';
+import { useProfile } from '@/contexts/ProfileContext';
+import { useAuth } from '@/hooks/useAuth';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { VERTICALS, CITIES, CATEGORIES } from '@/types/crm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -44,9 +46,12 @@ const EMPTY_FILTERS: Filters = {
 export default function AddCompaniesToPipelineDialog({ open, onClose, offerId }: Props) {
   const { getStagesForOffer, addCompanyToStage, isCompanyInOffer } = usePortfolio();
   const { companies } = useCRM();
+  const { allProfiles } = useProfile();
+  const { session } = useAuth();
   const { fields } = useCustomFields();
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [selectedStageId, setSelectedStageId] = useState('');
+  const [assignedTo, setAssignedTo] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
 
@@ -156,8 +161,9 @@ export default function AddCompaniesToPipelineDialog({ open, onClose, offerId }:
     const stageId = selectedStageId || defaultStageId;
     if (!stageId || selectedIds.size === 0) return;
     setAdding(true);
+    const finalAssignedTo = assignedTo || session?.user?.id || null;
     for (const companyId of selectedIds) {
-      await addCompanyToStage(offerId, stageId, companyId);
+      await addCompanyToStage(offerId, stageId, companyId, finalAssignedTo);
     }
     setAdding(false);
     setSelectedIds(new Set());
@@ -173,18 +179,33 @@ export default function AddCompaniesToPipelineDialog({ open, onClose, offerId }:
 
         <div className="space-y-3 pt-2 flex-1 overflow-hidden flex flex-col">
           {/* Stage selector */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Etapa destino</label>
-            <Select value={selectedStageId || defaultStageId} onValueChange={setSelectedStageId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar etapa" />
-              </SelectTrigger>
-              <SelectContent>
-                {stages.map(s => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Etapa destino</label>
+              <Select value={selectedStageId || defaultStageId} onValueChange={setSelectedStageId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar etapa" />
+                </SelectTrigger>
+                <SelectContent>
+                  {stages.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Gestor asignado</label>
+              <Select value={assignedTo || session?.user?.id || ''} onValueChange={setAssignedTo}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar gestor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allProfiles.map(p => (
+                    <SelectItem key={p.userId} value={p.userId}>{p.name || 'Sin nombre'}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Search */}

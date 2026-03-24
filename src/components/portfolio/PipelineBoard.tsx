@@ -6,7 +6,9 @@ import { PortfolioOffer, PipelineEntry } from '@/types/portfolio';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Settings, Plus, ArrowLeft, Building2, X, ExternalLink, GripVertical, User, Mail, Upload, Search, ClipboardList } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Settings, Plus, ArrowLeft, Building2, X, ExternalLink, GripVertical, User, Mail, Upload, Search, ClipboardList, UserCog } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import StageManagerDialog from './StageManagerDialog';
 import AddCompaniesToPipelineDialog from './AddCompaniesToPipelineDialog';
@@ -24,7 +26,7 @@ interface Props {
 
 export default function PipelineBoard({ offer, onBack }: Props) {
   const navigate = useNavigate();
-  const { getStagesForOffer, getEntriesForOffer, moveCompanyToStage, removeEntry } = usePortfolio();
+  const { getStagesForOffer, getEntriesForOffer, moveCompanyToStage, removeEntry, updateEntryAssignment } = usePortfolio();
   const { companies } = useCRM();
   const { allProfiles } = useProfile();
   const stages = getStagesForOffer(offer.id);
@@ -178,6 +180,7 @@ export default function PipelineBoard({ offer, onBack }: Props) {
                     if (!company) return null;
                     const isDragging = draggedEntry?.id === entry.id;
                     const addedByName = entry.addedBy ? profileMap[entry.addedBy] : null;
+                    const assignedToName = entry.assignedTo ? profileMap[entry.assignedTo] : null;
 
                     return (
                       <motion.div
@@ -209,7 +212,13 @@ export default function PipelineBoard({ offer, onBack }: Props) {
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-xs font-medium">{company.tradeName}</p>
                             <p className="truncate text-[10px] text-muted-foreground">{company.vertical}</p>
-                            {addedByName && (
+                            {assignedToName && (
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <UserCog className="h-2.5 w-2.5 text-primary/70" />
+                                <span className="text-[10px] text-primary/70 font-medium">{assignedToName}</span>
+                              </div>
+                            )}
+                            {addedByName && (!assignedToName || entry.addedBy !== entry.assignedTo) && (
                               <div className="flex items-center gap-1 mt-0.5">
                                 <User className="h-2.5 w-2.5 text-muted-foreground" />
                                 <span className="text-[10px] text-muted-foreground">{addedByName}</span>
@@ -217,6 +226,35 @@ export default function PipelineBoard({ offer, onBack }: Props) {
                             )}
                           </div>
                           <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <button
+                                  className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                  title="Cambiar gestor"
+                                >
+                                  <UserCog className="h-3 w-3" />
+                                </button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-48 p-2" align="end">
+                                <p className="text-xs font-medium mb-1.5">Gestor asignado</p>
+                                <Select
+                                  value={entry.assignedTo || 'none'}
+                                  onValueChange={v => updateEntryAssignment(entry.id, v === 'none' ? null : v)}
+                                >
+                                  <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue placeholder="Sin asignar" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">Sin asignar</SelectItem>
+                                    {allProfiles.map(p => (
+                                      <SelectItem key={p.userId} value={p.userId}>
+                                        {p.name || 'Sin nombre'}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </PopoverContent>
+                            </Popover>
                             <button
                               onClick={() => setTaskTarget({ companyId: company.id, companyName: company.tradeName })}
                               className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"

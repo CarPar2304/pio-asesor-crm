@@ -31,8 +31,9 @@ interface PortfolioContextValue {
   reorderStages: (offerId: string, orderedIds: string[]) => Promise<void>;
 
   getEntriesForOffer: (offerId: string) => PipelineEntry[];
-  addCompanyToStage: (offerId: string, stageId: string, companyId: string) => Promise<void>;
+  addCompanyToStage: (offerId: string, stageId: string, companyId: string, assignedTo?: string | null) => Promise<void>;
   moveCompanyToStage: (entryId: string, newStageId: string) => Promise<void>;
+  updateEntryAssignment: (entryId: string, assignedTo: string | null) => Promise<void>;
   removeEntry: (entryId: string) => Promise<void>;
   isCompanyInOffer: (offerId: string, companyId: string) => boolean;
 
@@ -106,6 +107,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       if (entRes.data) setEntries(entRes.data.map((r: any) => ({
         id: r.id, offerId: r.offer_id, stageId: r.stage_id,
         companyId: r.company_id, notes: r.notes, addedBy: r.added_by || null,
+        assignedTo: r.assigned_to || null,
         createdAt: r.created_at,
       })));
 
@@ -279,22 +281,29 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   // Entries
   const getEntriesForOffer = (offerId: string) => entries.filter(e => e.offerId === offerId);
 
-  const addCompanyToStage = async (offerId: string, stageId: string, companyId: string) => {
+  const addCompanyToStage = async (offerId: string, stageId: string, companyId: string, assignedTo?: string | null) => {
     if (isCompanyInOffer(offerId, companyId)) {
       showError('Ya existe', 'Esta empresa ya está en el pipeline de esta oferta'); return;
     }
     const userId = session?.user?.id || null;
+    const finalAssignedTo = assignedTo !== undefined ? assignedTo : userId;
     const { data, error } = await supabase
       .from('pipeline_entries')
-      .insert({ offer_id: offerId, stage_id: stageId, company_id: companyId, notes: '', added_by: userId } as any)
+      .insert({ offer_id: offerId, stage_id: stageId, company_id: companyId, notes: '', added_by: userId, assigned_to: finalAssignedTo } as any)
       .select().single();
     if (error || !data) { showError('Error', 'No se pudo agregar la empresa'); return; }
     setEntries(prev => [...prev, {
       id: data.id, offerId: data.offer_id, stageId: data.stage_id,
       companyId: data.company_id, notes: data.notes, addedBy: (data as any).added_by || null,
+      assignedTo: (data as any).assigned_to || null,
       createdAt: data.created_at,
     }]);
     showSuccess('Empresa agregada', 'La empresa fue agregada al pipeline');
+  };
+
+  const updateEntryAssignment = async (entryId: string, assignedTo: string | null) => {
+    await supabase.from('pipeline_entries').update({ assigned_to: assignedTo } as any).eq('id', entryId);
+    setEntries(prev => prev.map(e => e.id === entryId ? { ...e, assignedTo } : e));
   };
 
   const moveCompanyToStage = async (entryId: string, newStageId: string) => {
@@ -390,7 +399,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       createOfferType, deleteOfferType,
       createOffer, updateOffer, deleteOffer,
       getStagesForOffer, createStage, updateStage, deleteStage, reorderStages,
-      getEntriesForOffer, addCompanyToStage, moveCompanyToStage, removeEntry, isCompanyInOffer,
+      getEntriesForOffer, addCompanyToStage, moveCompanyToStage, updateEntryAssignment, removeEntry, isCompanyInOffer,
       createAlly, updateAlly, deleteAlly, addAllyContact, updateAllyContact, deleteAllyContact,
       linkAllyToOffer, unlinkAllyFromOffer, getAlliesForOffer, getContactsForAlly,
       refresh: fetchAll,
