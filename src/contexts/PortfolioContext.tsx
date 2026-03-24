@@ -301,6 +301,11 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     showSuccess('Empresa agregada', 'La empresa fue agregada al pipeline');
   };
 
+  const updateEntryAssignment = async (entryId: string, assignedTo: string | null) => {
+    await supabase.from('pipeline_entries').update({ assigned_to: assignedTo } as any).eq('id', entryId);
+    setEntries(prev => prev.map(e => e.id === entryId ? { ...e, assignedTo } : e));
+  };
+
   const moveCompanyToStage = async (entryId: string, newStageId: string) => {
     await supabase.from('pipeline_entries').update({ stage_id: newStageId }).eq('id', entryId);
     setEntries(prev => prev.map(e => e.id === entryId ? { ...e, stageId: newStageId } : e));
