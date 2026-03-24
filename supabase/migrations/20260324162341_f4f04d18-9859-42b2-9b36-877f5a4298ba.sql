@@ -1,0 +1,1 @@
+ALTER TABLE public.company_tasks ADD COLUMN offer_id uuid REFERENCES public.portfolio_offers(id) ON DELETE SET NULL DEFAULT NULL;

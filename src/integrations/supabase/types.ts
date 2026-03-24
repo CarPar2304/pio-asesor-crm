@@ -184,6 +184,7 @@ export type Database = {
           description: string
           due_date: string
           id: string
+          offer_id: string | null
           status: string
           title: string
         }
@@ -196,6 +197,7 @@ export type Database = {
           description?: string
           due_date?: string
           id?: string
+          offer_id?: string | null
           status?: string
           title: string
         }
@@ -208,6 +210,7 @@ export type Database = {
           description?: string
           due_date?: string
           id?: string
+          offer_id?: string | null
           status?: string
           title?: string
         }
@@ -217,6 +220,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_tasks_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "portfolio_offers"
             referencedColumns: ["id"]
           },
         ]
