@@ -47,6 +47,7 @@ export default function PipelineTaskDialog({ open, onClose, companyId, companyNa
         status: 'pending',
         dueDate,
         assignedTo: assignedTo || undefined,
+        offerId,
       };
       await addTask(companyId, task);
       showSuccess('Tarea creada exitosamente');
