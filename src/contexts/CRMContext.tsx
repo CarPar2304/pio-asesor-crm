@@ -72,7 +72,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     const tasksByCompany = new Map<string, CompanyTask[]>();
     (tasksRes.data || []).forEach((t: any) => {
       const list = tasksByCompany.get(t.company_id) || [];
-      list.push({ id: t.id, title: t.title, description: t.description, status: t.status, dueDate: t.due_date, completedDate: t.completed_date, createdBy: t.created_by, assignedTo: t.assigned_to });
+      list.push({ id: t.id, title: t.title, description: t.description, status: t.status, dueDate: t.due_date, completedDate: t.completed_date, createdBy: t.created_by, assignedTo: t.assigned_to, offerId: t.offer_id || undefined });
       tasksByCompany.set(t.company_id, list);
     });
 
