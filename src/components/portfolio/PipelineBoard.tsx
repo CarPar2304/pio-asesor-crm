@@ -5,10 +5,11 @@ import { useProfile } from '@/contexts/ProfileContext';
 import { PortfolioOffer, PipelineEntry } from '@/types/portfolio';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Plus, ArrowLeft, Building2, X, ExternalLink, GripVertical, User, Mail } from 'lucide-react';
+import { Settings, Plus, ArrowLeft, Building2, X, ExternalLink, GripVertical, User, Mail, Upload } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import StageManagerDialog from './StageManagerDialog';
 import AddCompaniesToPipelineDialog from './AddCompaniesToPipelineDialog';
+import BulkAddToPipelineDialog from './BulkAddToPipelineDialog';
 import PipelineNotificationDialog from './PipelineNotificationDialog';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -29,6 +30,7 @@ export default function PipelineBoard({ offer, onBack }: Props) {
 
   const [stageManagerOpen, setStageManagerOpen] = useState(false);
   const [addCompaniesOpen, setAddCompaniesOpen] = useState(false);
+  const [bulkAddOpen, setBulkAddOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
 
   const [draggedEntry, setDraggedEntry] = useState<PipelineEntry | null>(null);
@@ -99,6 +101,9 @@ export default function PipelineBoard({ offer, onBack }: Props) {
           </Button>
           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setStageManagerOpen(true)}>
             <Settings className="h-3.5 w-3.5" /> Etapas
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setBulkAddOpen(true)}>
+            <Upload className="h-3.5 w-3.5" /> Masivo
           </Button>
           <Button size="sm" className="gap-1.5" onClick={() => setAddCompaniesOpen(true)}>
             <Plus className="h-3.5 w-3.5" /> Agregar empresas
@@ -220,6 +225,7 @@ export default function PipelineBoard({ offer, onBack }: Props) {
       <StageManagerDialog open={stageManagerOpen} onClose={() => setStageManagerOpen(false)} offerId={offer.id} />
       <AddCompaniesToPipelineDialog open={addCompaniesOpen} onClose={() => setAddCompaniesOpen(false)} offerId={offer.id} />
       <PipelineNotificationDialog open={notificationOpen} onClose={() => setNotificationOpen(false)} offerId={offer.id} />
+      <BulkAddToPipelineDialog open={bulkAddOpen} onClose={() => setBulkAddOpen(false)} offerId={offer.id} />
     </div>
   );
 }
