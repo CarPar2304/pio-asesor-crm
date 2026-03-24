@@ -30,6 +30,7 @@ export default function PipelineBoard({ offer, onBack }: Props) {
 
   const [stageManagerOpen, setStageManagerOpen] = useState(false);
   const [addCompaniesOpen, setAddCompaniesOpen] = useState(false);
+  const [bulkAddOpen, setBulkAddOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
 
   const [draggedEntry, setDraggedEntry] = useState<PipelineEntry | null>(null);
