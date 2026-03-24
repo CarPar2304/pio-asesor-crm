@@ -112,9 +112,10 @@ export default function BulkAddToPipelineDialog({ open, onClose, offerId }: Prop
     if (!stageId || matched.length === 0) return;
     setAdding(true);
     let count = 0;
+    const finalAssignedTo = assignedTo || session?.user?.id || null;
     for (const r of matched) {
       if (r.companyId) {
-        await addCompanyToStage(offerId, stageId, r.companyId);
+        await addCompanyToStage(offerId, stageId, r.companyId, finalAssignedTo);
         count++;
       }
     }
@@ -129,6 +130,7 @@ export default function BulkAddToPipelineDialog({ open, onClose, offerId }: Prop
     setRawText('');
     setMatchVar('nit');
     setSelectedStageId('');
+    setAssignedTo('');
   };
 
   const handleClose = () => {
