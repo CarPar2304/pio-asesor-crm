@@ -77,6 +77,7 @@ export interface PipelineEntry {
   companyId: string;
   notes: string;
   addedBy: string | null;
+  assignedTo: string | null;
   createdAt: string;
 }
 

@@ -648,6 +648,7 @@ export type Database = {
       pipeline_entries: {
         Row: {
           added_by: string | null
+          assigned_to: string | null
           company_id: string
           created_at: string
           id: string
@@ -657,6 +658,7 @@ export type Database = {
         }
         Insert: {
           added_by?: string | null
+          assigned_to?: string | null
           company_id: string
           created_at?: string
           id?: string
@@ -666,6 +668,7 @@ export type Database = {
         }
         Update: {
           added_by?: string | null
+          assigned_to?: string | null
           company_id?: string
           created_at?: string
           id?: string

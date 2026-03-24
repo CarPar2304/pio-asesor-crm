@@ -31,8 +31,9 @@ interface PortfolioContextValue {
   reorderStages: (offerId: string, orderedIds: string[]) => Promise<void>;
 
   getEntriesForOffer: (offerId: string) => PipelineEntry[];
-  addCompanyToStage: (offerId: string, stageId: string, companyId: string) => Promise<void>;
+  addCompanyToStage: (offerId: string, stageId: string, companyId: string, assignedTo?: string | null) => Promise<void>;
   moveCompanyToStage: (entryId: string, newStageId: string) => Promise<void>;
+  updateEntryAssignment: (entryId: string, assignedTo: string | null) => Promise<void>;
   removeEntry: (entryId: string) => Promise<void>;
   isCompanyInOffer: (offerId: string, companyId: string) => boolean;
 
