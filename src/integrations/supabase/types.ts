@@ -713,6 +713,7 @@ export type Database = {
       pipeline_stages: {
         Row: {
           color: string
+          counts_as_management: boolean
           created_at: string
           display_order: number
           icon: string
@@ -722,6 +723,7 @@ export type Database = {
         }
         Insert: {
           color?: string
+          counts_as_management?: boolean
           created_at?: string
           display_order?: number
           icon?: string
@@ -731,6 +733,7 @@ export type Database = {
         }
         Update: {
           color?: string
+          counts_as_management?: boolean
           created_at?: string
           display_order?: number
           icon?: string
