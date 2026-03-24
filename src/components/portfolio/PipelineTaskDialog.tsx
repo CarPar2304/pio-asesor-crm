@@ -16,6 +16,7 @@ interface Props {
   onClose: () => void;
   companyId: string;
   companyName: string;
+  offerId: string;
 }
 
 export default function PipelineTaskDialog({ open, onClose, companyId, companyName }: Props) {
