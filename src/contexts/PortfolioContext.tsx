@@ -250,9 +250,12 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   };
 
   const updateStage = async (id: string, data: Partial<PipelineStage>) => {
-    await supabase.from('pipeline_stages').update({
-      name: data.name, color: data.color, icon: data.icon,
-    }).eq('id', id);
+    const updatePayload: any = {};
+    if (data.name !== undefined) updatePayload.name = data.name;
+    if (data.color !== undefined) updatePayload.color = data.color;
+    if (data.icon !== undefined) updatePayload.icon = data.icon;
+    if (data.countsAsManagement !== undefined) updatePayload.counts_as_management = data.countsAsManagement;
+    await supabase.from('pipeline_stages').update(updatePayload).eq('id', id);
     setStages(prev => prev.map(s => s.id === id ? { ...s, ...data } : s));
   };
 

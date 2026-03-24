@@ -66,6 +66,7 @@ export interface PipelineStage {
   color: string;
   icon: string;
   displayOrder: number;
+  countsAsManagement: boolean;
   createdAt: string;
   entries?: PipelineEntry[];
 }
