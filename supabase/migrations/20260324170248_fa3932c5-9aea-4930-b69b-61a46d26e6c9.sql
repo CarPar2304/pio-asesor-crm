@@ -1,0 +1,1 @@
+ALTER TABLE public.pipeline_stages ADD COLUMN counts_as_management boolean NOT NULL DEFAULT true;

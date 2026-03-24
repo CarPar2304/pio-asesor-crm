@@ -98,9 +98,10 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
         status: r.status as any, createdAt: r.created_at, updatedAt: r.updated_at,
       })));
 
-      if (stgRes.data) setStages(stgRes.data.map(r => ({
+      if (stgRes.data) setStages(stgRes.data.map((r: any) => ({
         id: r.id, offerId: r.offer_id, name: r.name,
         color: r.color, icon: r.icon, displayOrder: r.display_order,
+        countsAsManagement: r.counts_as_management ?? true,
         createdAt: r.created_at,
       })));
 
@@ -197,6 +198,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       setStages(prev => [...prev, {
         id: stageRow.id, offerId: stageRow.offer_id, name: stageRow.name,
         color: stageRow.color, icon: stageRow.icon, displayOrder: stageRow.display_order,
+        countsAsManagement: true,
         createdAt: stageRow.created_at,
       }]);
     }
@@ -241,6 +243,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     const stage: PipelineStage = {
       id: data.id, offerId: data.offer_id, name: data.name,
       color: data.color, icon: data.icon, displayOrder: data.display_order,
+      countsAsManagement: (data as any).counts_as_management ?? true,
       createdAt: data.created_at,
     };
     setStages(prev => [...prev, stage]);
@@ -248,9 +251,12 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   };
 
   const updateStage = async (id: string, data: Partial<PipelineStage>) => {
-    await supabase.from('pipeline_stages').update({
-      name: data.name, color: data.color, icon: data.icon,
-    }).eq('id', id);
+    const updatePayload: any = {};
+    if (data.name !== undefined) updatePayload.name = data.name;
+    if (data.color !== undefined) updatePayload.color = data.color;
+    if (data.icon !== undefined) updatePayload.icon = data.icon;
+    if (data.countsAsManagement !== undefined) updatePayload.counts_as_management = data.countsAsManagement;
+    await supabase.from('pipeline_stages').update(updatePayload).eq('id', id);
     setStages(prev => prev.map(s => s.id === id ? { ...s, ...data } : s));
   };
 
