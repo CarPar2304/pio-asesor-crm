@@ -5,7 +5,8 @@ import { useProfile } from '@/contexts/ProfileContext';
 import { PortfolioOffer, PipelineEntry } from '@/types/portfolio';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Settings, Plus, ArrowLeft, Building2, X, ExternalLink, GripVertical, User, Mail, Upload } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Settings, Plus, ArrowLeft, Building2, X, ExternalLink, GripVertical, User, Mail, Upload, Search } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import StageManagerDialog from './StageManagerDialog';
 import AddCompaniesToPipelineDialog from './AddCompaniesToPipelineDialog';
@@ -32,6 +33,7 @@ export default function PipelineBoard({ offer, onBack }: Props) {
   const [addCompaniesOpen, setAddCompaniesOpen] = useState(false);
   const [bulkAddOpen, setBulkAddOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [draggedEntry, setDraggedEntry] = useState<PipelineEntry | null>(null);
   const [dragOverStageId, setDragOverStageId] = useState<string | null>(null);
@@ -110,6 +112,80 @@ export default function PipelineBoard({ offer, onBack }: Props) {
           </Button>
         </div>
       </div>
+
+      {/* Search bar */}
+      <div className="relative mb-4">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar empresa por nombre comercial, razón social o NIT…"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="pl-9 max-w-md"
+        />
+        {searchQuery && (
+          <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Search results */}
+      {searchQuery.trim() && (() => {
+        const q = searchQuery.trim().toLowerCase();
+        const results = entries
+          .map(entry => {
+            const company = getCompany(entry.companyId);
+            if (!company) return null;
+            const matches = company.tradeName.toLowerCase().includes(q)
+              || company.legalName.toLowerCase().includes(q)
+              || company.nit?.replace(/[.\-\s]/g, '').includes(q.replace(/[.\-\s]/g, ''));
+            if (!matches) return null;
+            const stage = stages.find(s => s.id === entry.stageId);
+            return { entry, company, stage };
+          })
+          .filter(Boolean) as { entry: PipelineEntry; company: any; stage: any }[];
+
+        if (results.length === 0) {
+          return (
+            <div className="mb-4 rounded-lg border border-border/50 bg-card p-4 text-center text-sm text-muted-foreground">
+              No se encontraron empresas que coincidan con "{searchQuery}"
+            </div>
+          );
+        }
+
+        return (
+          <div className="mb-4 space-y-1.5 rounded-lg border border-border/50 bg-card p-3">
+            <p className="text-xs font-medium text-muted-foreground mb-2">{results.length} resultado{results.length !== 1 ? 's' : ''}</p>
+            {results.map(({ entry, company, stage }) => (
+              <div
+                key={entry.id}
+                className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-secondary/40 cursor-pointer transition-colors"
+                onClick={() => navigate(`/empresa/${company.id}`)}
+              >
+                {company.logo ? (
+                  <img src={company.logo} alt="" className="h-7 w-7 rounded-md border border-border/40 object-contain bg-white p-0.5" />
+                ) : (
+                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
+                    {company.tradeName.charAt(0)}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">{company.tradeName}</p>
+                  {company.legalName && company.legalName !== company.tradeName && (
+                    <p className="text-[10px] text-muted-foreground truncate">{company.legalName}</p>
+                  )}
+                </div>
+                {stage && (
+                  <Badge variant="outline" className="text-[10px] gap-1 shrink-0">
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: stage.color }} />
+                    {stage.name}
+                  </Badge>
+                )}
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Kanban Board */}
       <div className="flex gap-4 overflow-x-auto pb-4">
