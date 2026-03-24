@@ -161,8 +161,9 @@ export default function AddCompaniesToPipelineDialog({ open, onClose, offerId }:
     const stageId = selectedStageId || defaultStageId;
     if (!stageId || selectedIds.size === 0) return;
     setAdding(true);
+    const finalAssignedTo = assignedTo || session?.user?.id || null;
     for (const companyId of selectedIds) {
-      await addCompanyToStage(offerId, stageId, companyId);
+      await addCompanyToStage(offerId, stageId, companyId, finalAssignedTo);
     }
     setAdding(false);
     setSelectedIds(new Set());
