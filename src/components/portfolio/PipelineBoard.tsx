@@ -218,6 +218,13 @@ export default function PipelineBoard({ offer, onBack }: Props) {
                           </div>
                           <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
+                              onClick={() => setTaskTarget({ companyId: company.id, companyName: company.tradeName })}
+                              className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                              title="Asignar tarea"
+                            >
+                              <ClipboardList className="h-3 w-3" />
+                            </button>
+                            <button
                               onClick={() => navigate(`/empresa/${company.id}`)}
                               className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                               title="Ver perfil"
