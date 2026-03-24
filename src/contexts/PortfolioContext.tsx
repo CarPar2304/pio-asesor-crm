@@ -399,7 +399,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       createOfferType, deleteOfferType,
       createOffer, updateOffer, deleteOffer,
       getStagesForOffer, createStage, updateStage, deleteStage, reorderStages,
-      getEntriesForOffer, addCompanyToStage, moveCompanyToStage, removeEntry, isCompanyInOffer,
+      getEntriesForOffer, addCompanyToStage, moveCompanyToStage, updateEntryAssignment, removeEntry, isCompanyInOffer,
       createAlly, updateAlly, deleteAlly, addAllyContact, updateAllyContact, deleteAllyContact,
       linkAllyToOffer, unlinkAllyFromOffer, getAlliesForOffer, getContactsForAlly,
       refresh: fetchAll,
