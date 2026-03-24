@@ -12,6 +12,7 @@ import StageManagerDialog from './StageManagerDialog';
 import AddCompaniesToPipelineDialog from './AddCompaniesToPipelineDialog';
 import BulkAddToPipelineDialog from './BulkAddToPipelineDialog';
 import PipelineNotificationDialog from './PipelineNotificationDialog';
+import PipelineTaskDialog from './PipelineTaskDialog';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
