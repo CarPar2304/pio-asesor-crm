@@ -72,7 +72,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     const tasksByCompany = new Map<string, CompanyTask[]>();
     (tasksRes.data || []).forEach((t: any) => {
       const list = tasksByCompany.get(t.company_id) || [];
-      list.push({ id: t.id, title: t.title, description: t.description, status: t.status, dueDate: t.due_date, completedDate: t.completed_date, createdBy: t.created_by, assignedTo: t.assigned_to });
+      list.push({ id: t.id, title: t.title, description: t.description, status: t.status, dueDate: t.due_date, completedDate: t.completed_date, createdBy: t.created_by, assignedTo: t.assigned_to, offerId: t.offer_id || undefined });
       tasksByCompany.set(t.company_id, list);
     });
 
@@ -235,7 +235,8 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       due_date: task.dueDate,
       created_by: session?.user.id,
       assigned_to: task.assignedTo || session?.user.id,
-    }).select().single();
+      offer_id: task.offerId || null,
+    } as any).select().single();
 
     // Create notification if assigned to someone else
     if (task.assignedTo && task.assignedTo !== session?.user.id) {

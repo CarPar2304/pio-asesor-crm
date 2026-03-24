@@ -65,6 +65,7 @@ export interface CompanyTask {
   completedDate?: string;
   createdBy?: string;
   assignedTo?: string;
+  offerId?: string;
 }
 
 export interface MetricByYear {

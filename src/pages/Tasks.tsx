@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCRM } from '@/contexts/CRMContext';
 import { useProfile } from '@/contexts/ProfileContext';
+import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useAuth } from '@/hooks/useAuth';
 import { CompanyTask } from '@/types/crm';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -14,7 +15,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Check, Pencil, UserCircle } from 'lucide-react';
+import { Check, Pencil, UserCircle, GitBranch } from 'lucide-react';
 
 type TaskFilter = 'all' | 'pending' | 'overdue' | 'completed';
 
@@ -31,6 +32,7 @@ export default function Tasks() {
   const navigate = useNavigate();
   const { companies, updateTask } = useCRM();
   const { allProfiles } = useProfile();
+  const { offers } = usePortfolio();
   const { session } = useAuth();
   const [filter, setFilter] = useState<TaskFilter>('all');
   const [editing, setEditing] = useState<TaskItem | null>(null);
@@ -140,6 +142,7 @@ export default function Tasks() {
             const creatorName = getProfileName(item.task.createdBy);
             const isAssignedToMe = item.task.assignedTo === myUserId;
             const wasAssignedByOther = item.task.createdBy && item.task.createdBy !== myUserId;
+            const offerName = item.task.offerId ? offers.find(o => o.id === item.task.offerId)?.name : null;
 
             return (
               <div key={item.task.id} className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
@@ -166,6 +169,15 @@ export default function Tasks() {
                         <UserCircle className="h-3 w-3" />
                         <span>Asignada por {creatorName}</span>
                       </div>
+                    )}
+                    {offerName && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); navigate(`/portafolio?pipeline=${item.task.offerId}`); }}
+                        className="flex items-center gap-1 text-xs text-primary/80 hover:text-primary hover:underline transition-colors"
+                      >
+                        <GitBranch className="h-3 w-3" />
+                        <span>{offerName}</span>
+                      </button>
                     )}
                   </div>
                 </div>

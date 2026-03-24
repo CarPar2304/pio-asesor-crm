@@ -16,9 +16,10 @@ interface Props {
   onClose: () => void;
   companyId: string;
   companyName: string;
+  offerId: string;
 }
 
-export default function PipelineTaskDialog({ open, onClose, companyId, companyName }: Props) {
+export default function PipelineTaskDialog({ open, onClose, companyId, companyName, offerId }: Props) {
   const { allProfiles } = useProfile();
   const { addTask } = useCRM();
 
@@ -46,6 +47,7 @@ export default function PipelineTaskDialog({ open, onClose, companyId, companyNa
         status: 'pending',
         dueDate,
         assignedTo: assignedTo || undefined,
+        offerId,
       };
       await addTask(companyId, task);
       showSuccess('Tarea creada exitosamente');
