@@ -142,6 +142,8 @@ export default function Tasks() {
             const creatorName = getProfileName(item.task.createdBy);
             const isAssignedToMe = item.task.assignedTo === myUserId;
             const wasAssignedByOther = item.task.createdBy && item.task.createdBy !== myUserId;
+            const offerName = item.task.offerId ? offers.find(o => o.id === item.task.offerId)?.name : null;
+            const wasAssignedByOther = item.task.createdBy && item.task.createdBy !== myUserId;
 
             return (
               <div key={item.task.id} className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
