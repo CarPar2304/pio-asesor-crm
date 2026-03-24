@@ -29,7 +29,8 @@ export default function CompanyPortfolioTab({ companyId }: Props) {
         const stage = stages.find(s => s.id === entry.stageId);
         const category = offer?.categoryId ? categories.find(c => c.id === offer.categoryId) : null;
         const addedByName = entry.addedBy ? profileMap[entry.addedBy] : null;
-        return { entry, offer, stage, category, addedByName };
+        const assignedToName = entry.assignedTo ? profileMap[entry.assignedTo] : null;
+        return { entry, offer, stage, category, addedByName, assignedToName };
       })
       .filter(x => x.offer);
   }, [entries, offers, stages, categories, companyId, profileMap]);
