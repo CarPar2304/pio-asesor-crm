@@ -98,9 +98,10 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
         status: r.status as any, createdAt: r.created_at, updatedAt: r.updated_at,
       })));
 
-      if (stgRes.data) setStages(stgRes.data.map(r => ({
+      if (stgRes.data) setStages(stgRes.data.map((r: any) => ({
         id: r.id, offerId: r.offer_id, name: r.name,
         color: r.color, icon: r.icon, displayOrder: r.display_order,
+        countsAsManagement: r.counts_as_management ?? true,
         createdAt: r.created_at,
       })));
 
