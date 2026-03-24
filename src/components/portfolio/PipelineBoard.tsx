@@ -134,7 +134,16 @@ export default function PipelineBoard({ offer, onBack }: Props) {
       {/* Kanban Board */}
       <div className="flex gap-4 overflow-x-auto pb-4">
         {stages.map(stage => {
-          const stageEntries = entries.filter(e => e.stageId === stage.id);
+          const q = searchQuery.trim().toLowerCase();
+          const stageEntries = entries.filter(e => {
+            if (e.stageId !== stage.id) return false;
+            if (!q) return true;
+            const company = getCompany(e.companyId);
+            if (!company) return false;
+            return company.tradeName.toLowerCase().includes(q)
+              || company.legalName.toLowerCase().includes(q)
+              || company.nit?.replace(/[.\-\s]/g, '').includes(q.replace(/[.\-\s]/g, ''));
+          });
           const isDropTarget = dragOverStageId === stage.id && draggedEntry?.stageId !== stage.id;
 
           return (
