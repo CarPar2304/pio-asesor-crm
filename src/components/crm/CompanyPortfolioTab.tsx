@@ -68,7 +68,13 @@ export default function CompanyPortfolioTab({ companyId }: Props) {
                   {stage.name}
                 </span>
               )}
-              {addedByName && (
+              {assignedToName && (
+                <>
+                  <span>·</span>
+                  <span className="flex items-center gap-1"><UserCog className="h-3 w-3 text-primary/70" />{assignedToName}</span>
+                </>
+              )}
+              {addedByName && (!assignedToName || entry.addedBy !== entry.assignedTo) && (
                 <>
                   <span>·</span>
                   <span className="flex items-center gap-1"><User className="h-3 w-3" />{addedByName}</span>
