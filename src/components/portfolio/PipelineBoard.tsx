@@ -6,12 +6,13 @@ import { PortfolioOffer, PipelineEntry } from '@/types/portfolio';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Settings, Plus, ArrowLeft, Building2, X, ExternalLink, GripVertical, User, Mail, Upload, Search } from 'lucide-react';
+import { Settings, Plus, ArrowLeft, Building2, X, ExternalLink, GripVertical, User, Mail, Upload, Search, ClipboardList } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import StageManagerDialog from './StageManagerDialog';
 import AddCompaniesToPipelineDialog from './AddCompaniesToPipelineDialog';
 import BulkAddToPipelineDialog from './BulkAddToPipelineDialog';
 import PipelineNotificationDialog from './PipelineNotificationDialog';
+import PipelineTaskDialog from './PipelineTaskDialog';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -34,6 +35,7 @@ export default function PipelineBoard({ offer, onBack }: Props) {
   const [bulkAddOpen, setBulkAddOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [taskTarget, setTaskTarget] = useState<{ companyId: string; companyName: string } | null>(null);
 
   const [draggedEntry, setDraggedEntry] = useState<PipelineEntry | null>(null);
   const [dragOverStageId, setDragOverStageId] = useState<string | null>(null);
@@ -216,6 +218,13 @@ export default function PipelineBoard({ offer, onBack }: Props) {
                           </div>
                           <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
+                              onClick={() => setTaskTarget({ companyId: company.id, companyName: company.tradeName })}
+                              className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                              title="Asignar tarea"
+                            >
+                              <ClipboardList className="h-3 w-3" />
+                            </button>
+                            <button
                               onClick={() => navigate(`/empresa/${company.id}`)}
                               className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                               title="Ver perfil"
@@ -255,6 +264,14 @@ export default function PipelineBoard({ offer, onBack }: Props) {
       <AddCompaniesToPipelineDialog open={addCompaniesOpen} onClose={() => setAddCompaniesOpen(false)} offerId={offer.id} />
       <PipelineNotificationDialog open={notificationOpen} onClose={() => setNotificationOpen(false)} offerId={offer.id} />
       <BulkAddToPipelineDialog open={bulkAddOpen} onClose={() => setBulkAddOpen(false)} offerId={offer.id} />
+      {taskTarget && (
+        <PipelineTaskDialog
+          open={!!taskTarget}
+          onClose={() => setTaskTarget(null)}
+          companyId={taskTarget.companyId}
+          companyName={taskTarget.companyName}
+        />
+      )}
     </div>
   );
 }
