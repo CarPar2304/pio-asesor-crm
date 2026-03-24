@@ -32,6 +32,7 @@ export default function Tasks() {
   const navigate = useNavigate();
   const { companies, updateTask } = useCRM();
   const { allProfiles } = useProfile();
+  const { offers } = usePortfolio();
   const { session } = useAuth();
   const [filter, setFilter] = useState<TaskFilter>('all');
   const [editing, setEditing] = useState<TaskItem | null>(null);
