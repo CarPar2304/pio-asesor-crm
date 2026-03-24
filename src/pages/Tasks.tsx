@@ -171,6 +171,15 @@ export default function Tasks() {
                         <span>Asignada por {creatorName}</span>
                       </div>
                     )}
+                    {offerName && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); navigate(`/portafolio?pipeline=${item.task.offerId}`); }}
+                        className="flex items-center gap-1 text-xs text-primary/80 hover:text-primary hover:underline transition-colors"
+                      >
+                        <GitBranch className="h-3 w-3" />
+                        <span>{offerName}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
