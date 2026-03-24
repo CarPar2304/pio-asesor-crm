@@ -36,10 +36,13 @@ interface MatchResult {
 export default function BulkAddToPipelineDialog({ open, onClose, offerId }: Props) {
   const { getStagesForOffer, addCompanyToStage, isCompanyInOffer } = usePortfolio();
   const { companies } = useCRM();
+  const { allProfiles } = useProfile();
+  const { session } = useAuth();
 
   const [matchVar, setMatchVar] = useState<MatchVariable>('nit');
   const [rawText, setRawText] = useState('');
   const [selectedStageId, setSelectedStageId] = useState('');
+  const [assignedTo, setAssignedTo] = useState('');
   const [step, setStep] = useState<'input' | 'preview'>('input');
   const [adding, setAdding] = useState(false);
 
