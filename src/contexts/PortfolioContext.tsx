@@ -281,19 +281,21 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   // Entries
   const getEntriesForOffer = (offerId: string) => entries.filter(e => e.offerId === offerId);
 
-  const addCompanyToStage = async (offerId: string, stageId: string, companyId: string) => {
+  const addCompanyToStage = async (offerId: string, stageId: string, companyId: string, assignedTo?: string | null) => {
     if (isCompanyInOffer(offerId, companyId)) {
       showError('Ya existe', 'Esta empresa ya está en el pipeline de esta oferta'); return;
     }
     const userId = session?.user?.id || null;
+    const finalAssignedTo = assignedTo !== undefined ? assignedTo : userId;
     const { data, error } = await supabase
       .from('pipeline_entries')
-      .insert({ offer_id: offerId, stage_id: stageId, company_id: companyId, notes: '', added_by: userId } as any)
+      .insert({ offer_id: offerId, stage_id: stageId, company_id: companyId, notes: '', added_by: userId, assigned_to: finalAssignedTo } as any)
       .select().single();
     if (error || !data) { showError('Error', 'No se pudo agregar la empresa'); return; }
     setEntries(prev => [...prev, {
       id: data.id, offerId: data.offer_id, stageId: data.stage_id,
       companyId: data.company_id, notes: data.notes, addedBy: (data as any).added_by || null,
+      assignedTo: (data as any).assigned_to || null,
       createdAt: data.created_at,
     }]);
     showSuccess('Empresa agregada', 'La empresa fue agregada al pipeline');
