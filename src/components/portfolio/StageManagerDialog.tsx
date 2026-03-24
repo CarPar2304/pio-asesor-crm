@@ -122,6 +122,13 @@ export default function StageManagerDialog({ open, onClose, offerId }: Props) {
                     <IconComponent name={stage.icon} className="h-3.5 w-3.5" style={{ color: stage.color }} />
                   </div>
                   <span className="flex-1 text-sm font-medium">{stage.name}</span>
+                  <div className="flex items-center gap-1" title={stage.countsAsManagement ? 'Suma a gestión' : 'No suma a gestión'}>
+                    <Switch
+                      checked={stage.countsAsManagement}
+                      onCheckedChange={(checked) => updateStage(stage.id, { countsAsManagement: checked })}
+                      className="scale-75"
+                    />
+                  </div>
                   <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground" onClick={() => startEdit(stage)}>
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>

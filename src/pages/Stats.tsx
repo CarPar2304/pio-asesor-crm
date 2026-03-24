@@ -15,14 +15,17 @@ import { useEffect } from 'react';
 
 const PIE_COLORS = ['#6366f1', '#3b82f6', '#06b6d4', '#10b981', '#84cc16', '#f59e0b', '#f97316', '#ef4444', '#ec4899', '#8b5cf6'];
 
+type ManagementFilter = 'pipeline' | 'tasks' | 'all';
+
 export default function Stats() {
   const { companies } = useCRM();
-  const { entries } = usePortfolio();
+  const { entries, stages } = usePortfolio();
   const { profile, allProfiles } = useProfile();
   const { session } = useAuth();
 
   const [selectedUserId, setSelectedUserId] = useState<string>('me');
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [managementFilter, setManagementFilter] = useState<ManagementFilter>('all');
 
   // Check if current user is gerente
   useEffect(() => {
@@ -42,19 +45,39 @@ export default function Stats() {
     return allProfiles.find(p => p.userId === viewingUserId) || profile;
   }, [viewingUserId, allProfiles, profile]);
 
+  // Management stage IDs (stages where countsAsManagement is true)
+  const managementStageIds = useMemo(() => {
+    return new Set(stages.filter(s => s.countsAsManagement).map(s => s.id));
+  }, [stages]);
+
   // Stats calculations
   const stats = useMemo(() => {
     const todayISO = new Date().toISOString().split('T')[0];
 
-    // Companies with interactions from this user
-    const companiesWithInteraction = new Set<string>();
-    companies.forEach(c => {
-      const hasAction = c.actions.some(a => !viewingUserId || a.createdBy === viewingUserId);
-      const hasTask = c.tasks.some(t => !viewingUserId || t.createdBy === viewingUserId || t.assignedTo === viewingUserId);
-      const hasMilestone = c.milestones.some(m => !viewingUserId || m.createdBy === viewingUserId);
-      const hasPipeline = entries.some(e => e.companyId === c.id && (!viewingUserId || e.addedBy === viewingUserId));
-      if (hasAction || hasTask || hasMilestone || hasPipeline) companiesWithInteraction.add(c.id);
+    // Companies in pipeline management stages
+    const companiesInPipeline = new Set<string>();
+    entries.forEach(e => {
+      if (managementStageIds.has(e.stageId) && (!viewingUserId || e.addedBy === viewingUserId || e.assignedTo === viewingUserId)) {
+        companiesInPipeline.add(e.companyId);
+      }
     });
+
+    // Companies with tasks (real management)
+    const companiesWithTasks = new Set<string>();
+    companies.forEach(c => {
+      const hasTask = c.tasks.some(t => !viewingUserId || t.createdBy === viewingUserId || t.assignedTo === viewingUserId);
+      if (hasTask) companiesWithTasks.add(c.id);
+    });
+
+    // Combined based on filter
+    let companiesInManagement: Set<string>;
+    if (managementFilter === 'pipeline') {
+      companiesInManagement = companiesInPipeline;
+    } else if (managementFilter === 'tasks') {
+      companiesInManagement = companiesWithTasks;
+    } else {
+      companiesInManagement = new Set([...companiesInPipeline, ...companiesWithTasks]);
+    }
 
     // Tasks
     const allUserTasks = companies.flatMap(c => c.tasks).filter(t => !viewingUserId || t.assignedTo === viewingUserId || t.createdBy === viewingUserId);
@@ -62,37 +85,28 @@ export default function Stats() {
     const completedOnTime = completedTasks.filter(t => t.completedDate && t.completedDate <= t.dueDate);
     const pendingTasks = allUserTasks.filter(t => t.status === 'pending');
 
-    // New companies created (we don't have createdBy on companies, so show all if global or count from actions)
     const newCompaniesCount = companies.length;
 
     // Category distribution (companies with interaction)
     const categoryMap: Record<string, number> = {};
     companies.forEach(c => {
-      if (companiesWithInteraction.has(c.id)) {
+      if (companiesInManagement.has(c.id)) {
         const cat = c.category || 'Sin categoría';
         categoryMap[cat] = (categoryMap[cat] || 0) + 1;
       }
     });
 
-    // Product distribution from pipeline
-    const productMap: Record<string, Set<string>> = {};
-    entries.forEach(e => {
-      if (!viewingUserId || e.addedBy === viewingUserId) {
-        // We need offer product - get from portfolio context
-        productMap[e.offerId] = productMap[e.offerId] || new Set();
-        productMap[e.offerId].add(e.companyId);
-      }
-    });
-
     return {
-      companiesInManagement: companiesWithInteraction.size,
+      companiesInManagement: companiesInManagement.size,
+      companiesInPipeline: companiesInPipeline.size,
+      companiesWithTasks: companiesWithTasks.size,
       completedOnTime: completedOnTime.length,
       totalTasks: allUserTasks.length,
       pendingTasks: pendingTasks.length,
       newCompanies: newCompaniesCount,
       categoryMap,
     };
-  }, [companies, entries, viewingUserId]);
+  }, [companies, entries, viewingUserId, managementFilter, managementStageIds]);
 
   // Product distribution
   const { offers, categories } = usePortfolio();
@@ -114,7 +128,7 @@ export default function Stats() {
     return Object.entries(stats.categoryMap).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
   }, [stats.categoryMap]);
 
-  // Offer category donut data (from portfolio offer categories)
+  // Offer category donut data
   const offerCategoryData = useMemo(() => {
     const catCompanies: Record<string, Set<string>> = {};
     entries.forEach(e => {
@@ -130,7 +144,7 @@ export default function Stats() {
     return Object.entries(catCompanies).map(([name, set]) => ({ name, value: set.size }));
   }, [entries, offers, categories, viewingUserId]);
 
-  const totalInteracted = stats.companiesInManagement || 1;
+  const managementFilterLabel = managementFilter === 'pipeline' ? 'En pipeline' : managementFilter === 'tasks' ? 'Con tareas' : 'Todas';
 
   return (
     <div className="container py-6 space-y-6 animate-fade-in">
@@ -171,7 +185,29 @@ export default function Stats() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KPICard icon={<Building2 className="h-5 w-5" />} label="Empresas en gestión" value={stats.companiesInManagement} color="text-primary" />
+        <Card>
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-current/10 text-primary">
+              <Building2 className="h-5 w-5" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-1.5">
+                <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Empresas en gestión</p>
+              </div>
+              <p className="text-xl font-bold">{stats.companiesInManagement}</p>
+              <Select value={managementFilter} onValueChange={(v) => setManagementFilter(v as ManagementFilter)}>
+                <SelectTrigger className="h-6 w-full text-[10px] mt-1 border-dashed">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas ({stats.companiesInPipeline + stats.companiesWithTasks > 0 ? stats.companiesInManagement : 0})</SelectItem>
+                  <SelectItem value="pipeline">En pipeline ({stats.companiesInPipeline})</SelectItem>
+                  <SelectItem value="tasks">Con tareas ({stats.companiesWithTasks})</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
         <KPICard icon={<CheckCircle className="h-5 w-5" />} label="Tareas completadas a tiempo" value={`${stats.completedOnTime}/${stats.totalTasks}`} color="text-success" />
         <KPICard icon={<AlertCircle className="h-5 w-5" />} label="Tareas sin completar" value={stats.pendingTasks} color="text-amber-500" />
         <KPICard icon={<TrendingUp className="h-5 w-5" />} label="Total empresas" value={stats.newCompanies} color="text-primary" />
