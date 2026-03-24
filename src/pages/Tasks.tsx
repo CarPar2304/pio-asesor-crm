@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCRM } from '@/contexts/CRMContext';
 import { useProfile } from '@/contexts/ProfileContext';
+import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useAuth } from '@/hooks/useAuth';
 import { CompanyTask } from '@/types/crm';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
