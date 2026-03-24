@@ -308,6 +308,7 @@ export default function PipelineBoard({ offer, onBack }: Props) {
           onClose={() => setTaskTarget(null)}
           companyId={taskTarget.companyId}
           companyName={taskTarget.companyName}
+          offerId={offer.id}
         />
       )}
     </div>
