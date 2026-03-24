@@ -107,6 +107,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       if (entRes.data) setEntries(entRes.data.map((r: any) => ({
         id: r.id, offerId: r.offer_id, stageId: r.stage_id,
         companyId: r.company_id, notes: r.notes, addedBy: r.added_by || null,
+        assignedTo: r.assigned_to || null,
         createdAt: r.created_at,
       })));
 
