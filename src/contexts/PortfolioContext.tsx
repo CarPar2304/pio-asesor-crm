@@ -198,6 +198,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       setStages(prev => [...prev, {
         id: stageRow.id, offerId: stageRow.offer_id, name: stageRow.name,
         color: stageRow.color, icon: stageRow.icon, displayOrder: stageRow.display_order,
+        countsAsManagement: true,
         createdAt: stageRow.created_at,
       }]);
     }
