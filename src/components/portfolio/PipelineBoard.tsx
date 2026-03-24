@@ -264,6 +264,14 @@ export default function PipelineBoard({ offer, onBack }: Props) {
       <AddCompaniesToPipelineDialog open={addCompaniesOpen} onClose={() => setAddCompaniesOpen(false)} offerId={offer.id} />
       <PipelineNotificationDialog open={notificationOpen} onClose={() => setNotificationOpen(false)} offerId={offer.id} />
       <BulkAddToPipelineDialog open={bulkAddOpen} onClose={() => setBulkAddOpen(false)} offerId={offer.id} />
+      {taskTarget && (
+        <PipelineTaskDialog
+          open={!!taskTarget}
+          onClose={() => setTaskTarget(null)}
+          companyId={taskTarget.companyId}
+          companyName={taskTarget.companyName}
+        />
+      )}
     </div>
   );
 }
