@@ -19,7 +19,7 @@ interface Props {
   offerId: string;
 }
 
-export default function PipelineTaskDialog({ open, onClose, companyId, companyName }: Props) {
+export default function PipelineTaskDialog({ open, onClose, companyId, companyName, offerId }: Props) {
   const { allProfiles } = useProfile();
   const { addTask } = useCRM();
 
