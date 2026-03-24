@@ -43,7 +43,7 @@ export default function CompanyPortfolioTab({ companyId }: Props) {
 
   return (
     <div className="space-y-2">
-      {companyEntries.map(({ entry, offer, stage, category, addedByName }) => (
+      {companyEntries.map(({ entry, offer, stage, category, addedByName, assignedToName }) => (
         <div
           key={entry.id}
           className="flex items-center gap-3 rounded-lg border border-border/50 bg-card p-3 transition-colors hover:bg-secondary/30 cursor-pointer"
