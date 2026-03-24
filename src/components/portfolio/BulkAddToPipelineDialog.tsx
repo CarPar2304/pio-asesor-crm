@@ -148,19 +148,34 @@ export default function BulkAddToPipelineDialog({ open, onClose, offerId }: Prop
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden flex flex-col gap-4 pt-2">
-          {/* Stage selector */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Etapa destino</label>
-            <Select value={selectedStageId || defaultStageId} onValueChange={setSelectedStageId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Seleccionar etapa" />
-              </SelectTrigger>
-              <SelectContent>
-                {stages.map(s => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Stage & Assignee selectors */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Etapa destino</label>
+              <Select value={selectedStageId || defaultStageId} onValueChange={setSelectedStageId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar etapa" />
+                </SelectTrigger>
+                <SelectContent>
+                  {stages.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Gestor asignado</label>
+              <Select value={assignedTo || session?.user?.id || ''} onValueChange={setAssignedTo}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar gestor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allProfiles.map(p => (
+                    <SelectItem key={p.userId} value={p.userId}>{p.name || 'Sin nombre'}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Match variable */}
