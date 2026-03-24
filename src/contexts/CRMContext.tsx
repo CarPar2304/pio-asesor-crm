@@ -235,7 +235,8 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       due_date: task.dueDate,
       created_by: session?.user.id,
       assigned_to: task.assignedTo || session?.user.id,
-    }).select().single();
+      offer_id: task.offerId || null,
+    } as any).select().single();
 
     // Create notification if assigned to someone else
     if (task.assignedTo && task.assignedTo !== session?.user.id) {
