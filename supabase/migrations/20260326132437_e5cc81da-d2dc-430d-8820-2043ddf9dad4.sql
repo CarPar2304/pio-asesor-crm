@@ -1,0 +1,1 @@
+ALTER TABLE public.pipeline_notes ADD COLUMN stage_id uuid REFERENCES pipeline_stages(id) ON DELETE SET NULL DEFAULT NULL;
