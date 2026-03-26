@@ -281,6 +281,11 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     await fetchAll();
   }, [fetchAll, session, companies]);
 
+  const deleteTask = useCallback(async (taskId: string) => {
+    await supabase.from('company_tasks').delete().eq('id', taskId);
+    await fetchAll();
+  }, [fetchAll]);
+
   const addContact = useCallback(async (companyId: string, contact: Contact) => {
     await supabase.from('contacts').insert({
       company_id: companyId,
