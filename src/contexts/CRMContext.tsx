@@ -15,6 +15,7 @@ interface CRMContextType {
   addMilestone: (companyId: string, milestone: Milestone) => Promise<void>;
   addTask: (companyId: string, task: CompanyTask) => Promise<void>;
   updateTask: (companyId: string, taskId: string, updates: Partial<CompanyTask>) => Promise<void>;
+  deleteTask: (taskId: string) => Promise<void>;
   addContact: (companyId: string, contact: Contact) => Promise<void>;
   updateContact: (companyId: string, contact: Contact) => Promise<void>;
   removeContact: (companyId: string, contactId: string) => Promise<void>;
