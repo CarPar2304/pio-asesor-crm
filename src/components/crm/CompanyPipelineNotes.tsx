@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useProfile } from '@/contexts/ProfileContext';
-import { StickyNote, ExternalLink } from 'lucide-react';
+import { StickyNote, ExternalLink, Layers } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
@@ -12,7 +12,9 @@ interface PipelineNoteWithOffer {
   created_by: string | null;
   created_at: string;
   offer_id: string;
+  stage_id: string | null;
   offer_name?: string;
+  stage_name?: string;
 }
 
 interface Props {
@@ -37,17 +39,21 @@ export default function CompanyPipelineNotes({ companyId }: Props) {
         .order('created_at', { ascending: false });
 
       if (data && data.length > 0) {
-        // Fetch offer names
         const offerIds = [...new Set(data.map(n => n.offer_id))];
-        const { data: offers } = await supabase
-          .from('portfolio_offers')
-          .select('id, name')
-          .in('id', offerIds);
-        const offerMap = new Map((offers || []).map(o => [o.id, o.name]));
+        const stageIds = [...new Set(data.map(n => n.stage_id).filter(Boolean))] as string[];
+
+        const [offersRes, stagesRes] = await Promise.all([
+          supabase.from('portfolio_offers').select('id, name').in('id', offerIds),
+          stageIds.length > 0 ? supabase.from('pipeline_stages').select('id, name').in('id', stageIds) : { data: [] },
+        ]);
+
+        const offerMap = new Map((offersRes.data || []).map(o => [o.id, o.name]));
+        const stageMap = new Map((stagesRes.data || []).map(s => [s.id, s.name]));
 
         setNotes(data.map(n => ({
           ...n,
           offer_name: offerMap.get(n.offer_id) || 'Pipeline',
+          stage_name: n.stage_id ? stageMap.get(n.stage_id) || undefined : undefined,
         })));
       } else {
         setNotes([]);
@@ -73,6 +79,11 @@ export default function CompanyPipelineNotes({ companyId }: Props) {
               <span className="text-[10px] text-muted-foreground">
                 {profileMap.get(note.created_by || '') || 'Desconocido'} · {format(new Date(note.created_at), "d MMM yyyy, HH:mm", { locale: es })}
               </span>
+              {note.stage_name && (
+                <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <Layers className="h-2.5 w-2.5" /> {note.stage_name}
+                </span>
+              )}
               <button
                 onClick={() => navigate('/portafolio')}
                 className="inline-flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"
