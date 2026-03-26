@@ -15,6 +15,7 @@ interface CRMContextType {
   addMilestone: (companyId: string, milestone: Milestone) => Promise<void>;
   addTask: (companyId: string, task: CompanyTask) => Promise<void>;
   updateTask: (companyId: string, taskId: string, updates: Partial<CompanyTask>) => Promise<void>;
+  deleteTask: (taskId: string) => Promise<void>;
   addContact: (companyId: string, contact: Contact) => Promise<void>;
   updateContact: (companyId: string, contact: Contact) => Promise<void>;
   removeContact: (companyId: string, contactId: string) => Promise<void>;
@@ -280,6 +281,11 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     await fetchAll();
   }, [fetchAll, session, companies]);
 
+  const deleteTask = useCallback(async (taskId: string) => {
+    await supabase.from('company_tasks').delete().eq('id', taskId);
+    await fetchAll();
+  }, [fetchAll]);
+
   const addContact = useCallback(async (companyId: string, contact: Contact) => {
     await supabase.from('contacts').insert({
       company_id: companyId,
@@ -348,7 +354,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     <CRMContext.Provider value={{
       companies, savedViews, loading, getCompany,
       addCompany, updateCompany, deleteCompany,
-      addAction, addMilestone, addTask, updateTask,
+      addAction, addMilestone, addTask, updateTask, deleteTask,
       addContact, updateContact, removeContact,
       saveView, deleteView, saveFieldValues, refresh: fetchAll,
     }}>

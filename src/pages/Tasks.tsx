@@ -5,19 +5,21 @@ import { useProfile } from '@/contexts/ProfileContext';
 import { usePortfolio } from '@/contexts/PortfolioContext';
 import { useAuth } from '@/hooks/useAuth';
 import { CompanyTask } from '@/types/crm';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Check, Pencil, UserCircle, GitBranch } from 'lucide-react';
-
-type TaskFilter = 'all' | 'pending' | 'overdue' | 'completed';
+import { Check, Pencil, Trash2, UserCircle, GitBranch } from 'lucide-react';
 
 interface TaskItem {
   companyId: string;
@@ -30,12 +32,12 @@ const isOverdueTask = (task: CompanyTask) => task.status === 'pending' && task.d
 
 export default function Tasks() {
   const navigate = useNavigate();
-  const { companies, updateTask } = useCRM();
+  const { companies, updateTask, deleteTask } = useCRM();
   const { allProfiles } = useProfile();
   const { offers } = usePortfolio();
   const { session } = useAuth();
-  const [filter, setFilter] = useState<TaskFilter>('all');
   const [editing, setEditing] = useState<TaskItem | null>(null);
+  const [deleting, setDeleting] = useState<TaskItem | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [dueDate, setDueDate] = useState('');
@@ -56,36 +58,31 @@ export default function Tasks() {
     return { url: p?.avatarUrl || undefined, initials: p?.name ? p.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : '?' };
   };
 
-  // Only show tasks created by me OR assigned to me
-  const allTasks = useMemo<TaskItem[]>(() => {
+  // "Mis tareas" = assigned to me
+  const myTasks = useMemo<TaskItem[]>(() => {
     return companies
-      .flatMap((company) =>
-        company.tasks
-          .filter(task => task.assignedTo === myUserId || task.createdBy === myUserId)
-          .map((task) => ({
-            companyId: company.id,
-            companyName: company.tradeName,
-            task,
-          }))
-      )
+      .flatMap(c => c.tasks.filter(t => t.assignedTo === myUserId).map(t => ({ companyId: c.id, companyName: c.tradeName, task: t })))
       .sort((a, b) => a.task.dueDate.localeCompare(b.task.dueDate));
   }, [companies, myUserId]);
 
-  const counts = useMemo(() => {
-    const pending = allTasks.filter((item) => item.task.status === 'pending').length;
-    const overdue = allTasks.filter((item) => isOverdueTask(item.task)).length;
-    const completed = allTasks.filter((item) => item.task.status === 'completed').length;
-    return { total: allTasks.length, pending, overdue, completed };
-  }, [allTasks]);
+  // "Asignadas" = created by me BUT assigned to someone else
+  const delegatedTasks = useMemo<TaskItem[]>(() => {
+    return companies
+      .flatMap(c => c.tasks.filter(t => t.createdBy === myUserId && t.assignedTo !== myUserId).map(t => ({ companyId: c.id, companyName: c.tradeName, task: t })))
+      .sort((a, b) => a.task.dueDate.localeCompare(b.task.dueDate));
+  }, [companies, myUserId]);
 
-  const filteredTasks = useMemo(() => {
-    switch (filter) {
-      case 'pending': return allTasks.filter((item) => item.task.status === 'pending');
-      case 'overdue': return allTasks.filter((item) => isOverdueTask(item.task));
-      case 'completed': return allTasks.filter((item) => item.task.status === 'completed');
-      default: return allTasks;
-    }
-  }, [allTasks, filter]);
+  const splitByStatus = (items: TaskItem[]) => ({
+    pending: items.filter(i => i.task.status === 'pending'),
+    completed: items.filter(i => i.task.status === 'completed'),
+  });
+
+  const myTasksSplit = useMemo(() => splitByStatus(myTasks), [myTasks]);
+  const delegatedSplit = useMemo(() => splitByStatus(delegatedTasks), [delegatedTasks]);
+
+  const myPendingCount = myTasksSplit.pending.length;
+  const myOverdueCount = myTasksSplit.pending.filter(i => isOverdueTask(i.task)).length;
+  const delegatedPendingCount = delegatedSplit.pending.length;
 
   const openEditor = (item: TaskItem) => {
     setEditing(item);
@@ -106,104 +103,131 @@ export default function Tasks() {
     setEditing(null);
   };
 
+  const handleDelete = async () => {
+    if (!deleting) return;
+    await deleteTask(deleting.task.id);
+    setDeleting(null);
+  };
+
+  const renderTaskList = (items: TaskItem[], showAssignee = false) => {
+    if (items.length === 0) {
+      return (
+        <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+          No hay tareas aquí
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-2">
+        {items.map(item => {
+          const overdue = isOverdueTask(item.task);
+          const avatar = getProfileAvatar(item.task.assignedTo);
+          const assigneeName = getProfileName(item.task.assignedTo);
+          const offerName = item.task.offerId ? offers.find(o => o.id === item.task.offerId)?.name : null;
+
+          return (
+            <div key={item.task.id} className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0 flex-1">
+                <button onClick={() => navigate(`/empresa/${item.companyId}`)} className="text-sm font-medium text-left hover:underline">
+                  {item.companyName}
+                </button>
+                <p className="text-sm">{item.task.title}</p>
+                {item.task.description && <p className="text-xs text-muted-foreground">{item.task.description}</p>}
+                <div className="mt-1 flex items-center gap-2 flex-wrap">
+                  <Badge variant={overdue ? 'destructive' : 'outline'}>{item.task.dueDate}</Badge>
+                  {item.task.status === 'completed' && <Badge variant="secondary">Completada</Badge>}
+                  {showAssignee && assigneeName && (
+                    <div className="flex items-center gap-1.5">
+                      <Avatar className="h-5 w-5">
+                        <AvatarImage src={avatar?.url} />
+                        <AvatarFallback className="bg-primary/10 text-primary text-[9px]">{avatar?.initials}</AvatarFallback>
+                      </Avatar>
+                      <span className="text-xs text-muted-foreground">{assigneeName}</span>
+                    </div>
+                  )}
+                  {!showAssignee && item.task.createdBy && item.task.createdBy !== myUserId && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <UserCircle className="h-3 w-3" />
+                      <span>Asignada por {getProfileName(item.task.createdBy)}</span>
+                    </div>
+                  )}
+                  {offerName && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); navigate(`/portafolio?pipeline=${item.task.offerId}`); }}
+                      className="flex items-center gap-1 text-xs text-primary/80 hover:text-primary hover:underline transition-colors"
+                    >
+                      <GitBranch className="h-3 w-3" />
+                      <span>{offerName}</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                {item.task.status === 'pending' && (
+                  <Button size="sm" variant="outline" className="gap-1.5"
+                    onClick={() => updateTask(item.companyId, item.task.id, { status: 'completed', completedDate: todayISO() })}>
+                    <Check className="h-3.5 w-3.5" /> Completar
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" className="gap-1.5" onClick={() => openEditor(item)}>
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                <Button size="sm" variant="ghost" className="gap-1.5 text-destructive hover:text-destructive" onClick={() => setDeleting(item)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderSubTabs = (split: { pending: TaskItem[]; completed: TaskItem[] }, showAssignee = false) => (
+    <Tabs defaultValue="pending" className="mt-3">
+      <TabsList>
+        <TabsTrigger value="pending">Por ejecutar ({split.pending.length})</TabsTrigger>
+        <TabsTrigger value="completed">Completadas ({split.completed.length})</TabsTrigger>
+      </TabsList>
+      <TabsContent value="pending">{renderTaskList(split.pending, showAssignee)}</TabsContent>
+      <TabsContent value="completed">{renderTaskList(split.completed, showAssignee)}</TabsContent>
+    </Tabs>
+  );
+
   return (
     <div className="container py-6 space-y-6">
       <div>
         <h1 className="text-xl font-bold">Mis tareas</h1>
-        <p className="text-sm text-muted-foreground">Tareas asignadas a ti o creadas por ti</p>
+        <p className="text-sm text-muted-foreground">Gestiona tus tareas y las que has asignado</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label="Total" value={counts.total} />
-        <StatCard label="Pendientes" value={counts.pending} />
-        <StatCard label="Vencidas" value={counts.overdue} />
-        <StatCard label="Completadas" value={counts.completed} />
+        <StatCard label="Mis pendientes" value={myPendingCount} />
+        <StatCard label="Mis vencidas" value={myOverdueCount} />
+        <StatCard label="Mis completadas" value={myTasksSplit.completed.length} />
+        <StatCard label="Asignadas a otros" value={delegatedPendingCount} />
       </div>
 
-      <Tabs value={filter} onValueChange={(value) => setFilter(value as TaskFilter)}>
+      <Tabs defaultValue="mine" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="all">Todas</TabsTrigger>
-          <TabsTrigger value="pending">Pendientes</TabsTrigger>
-          <TabsTrigger value="overdue">Vencidas</TabsTrigger>
-          <TabsTrigger value="completed">Completadas</TabsTrigger>
+          <TabsTrigger value="mine">Mis tareas ({myTasks.length})</TabsTrigger>
+          <TabsTrigger value="delegated">Asignadas ({delegatedTasks.length})</TabsTrigger>
         </TabsList>
+        <TabsContent value="mine">
+          {renderSubTabs(myTasksSplit, false)}
+        </TabsContent>
+        <TabsContent value="delegated">
+          {renderSubTabs(delegatedSplit, true)}
+        </TabsContent>
       </Tabs>
 
-      <div className="space-y-2">
-        {filteredTasks.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-            No hay tareas para este filtro
-          </div>
-        ) : (
-          filteredTasks.map((item) => {
-            const overdue = isOverdueTask(item.task);
-            const avatar = getProfileAvatar(item.task.assignedTo);
-            const assigneeName = getProfileName(item.task.assignedTo);
-            const creatorName = getProfileName(item.task.createdBy);
-            const isAssignedToMe = item.task.assignedTo === myUserId;
-            const wasAssignedByOther = item.task.createdBy && item.task.createdBy !== myUserId;
-            const offerName = item.task.offerId ? offers.find(o => o.id === item.task.offerId)?.name : null;
-
-            return (
-              <div key={item.task.id} className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0 flex-1">
-                  <button onClick={() => navigate(`/empresa/${item.companyId}`)} className="text-sm font-medium text-left hover:underline">
-                    {item.companyName}
-                  </button>
-                  <p className="text-sm">{item.task.title}</p>
-                  {item.task.description && <p className="text-xs text-muted-foreground">{item.task.description}</p>}
-                  <div className="mt-1 flex items-center gap-2 flex-wrap">
-                    <Badge variant={overdue ? 'destructive' : 'outline'}>{item.task.dueDate}</Badge>
-                    {item.task.status === 'completed' && <Badge variant="secondary">Completada</Badge>}
-                    {assigneeName && (
-                      <div className="flex items-center gap-1.5">
-                        <Avatar className="h-5 w-5">
-                          <AvatarImage src={avatar?.url} />
-                          <AvatarFallback className="bg-primary/10 text-primary text-[9px]">{avatar?.initials}</AvatarFallback>
-                        </Avatar>
-                        <span className="text-xs text-muted-foreground">{assigneeName}</span>
-                      </div>
-                    )}
-                    {wasAssignedByOther && creatorName && (
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <UserCircle className="h-3 w-3" />
-                        <span>Asignada por {creatorName}</span>
-                      </div>
-                    )}
-                    {offerName && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); navigate(`/portafolio?pipeline=${item.task.offerId}`); }}
-                        className="flex items-center gap-1 text-xs text-primary/80 hover:text-primary hover:underline transition-colors"
-                      >
-                        <GitBranch className="h-3 w-3" />
-                        <span>{offerName}</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {item.task.status === 'pending' && (
-                    <Button size="sm" variant="outline" className="gap-1.5"
-                      onClick={() => updateTask(item.companyId, item.task.id, { status: 'completed', completedDate: todayISO() })}>
-                      <Check className="h-3.5 w-3.5" /> Completar
-                    </Button>
-                  )}
-                  <Button size="sm" variant="ghost" className="gap-1.5" onClick={() => openEditor(item)}>
-                    <Pencil className="h-3.5 w-3.5" /> Editar
-                  </Button>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-
+      {/* Edit Dialog */}
       <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Editar tarea</DialogTitle>
-            <DialogDescription>Actualiza título, fecha, responsable y estado de la tarea.</DialogDescription>
+            <DialogDescription>Actualiza título, fecha, responsable y estado.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título" />
@@ -231,6 +255,24 @@ export default function Tasks() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar tarea?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se eliminará permanentemente la tarea "{deleting?.task.title}". Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
