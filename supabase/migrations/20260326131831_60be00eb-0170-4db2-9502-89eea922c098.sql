@@ -1,0 +1,1 @@
+ALTER TABLE public.pipeline_notes ADD COLUMN company_id uuid REFERENCES companies(id) ON DELETE SET NULL DEFAULT NULL;
