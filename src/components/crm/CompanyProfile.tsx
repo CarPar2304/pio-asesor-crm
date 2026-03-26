@@ -14,6 +14,7 @@ import QuickActionDialog from './QuickActionDialog';
 import CompanyForm from './CompanyForm';
 import SalesChart from './SalesChart';
 import AddToPipelineDialog from '@/components/portfolio/AddToPipelineDialog';
+import CompanyPipelineNotes from './CompanyPipelineNotes';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -249,6 +250,10 @@ export default function CompanyProfile({ company, onBack }: Props) {
           </>
         );
       })()}
+
+      <Separator className="my-6" />
+
+      <CompanyPipelineNotes companyId={company.id} />
 
       <Separator className="my-6" />
 

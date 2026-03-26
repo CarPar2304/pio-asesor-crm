@@ -712,6 +712,7 @@ export type Database = {
       }
       pipeline_notes: {
         Row: {
+          company_id: string | null
           content: string
           created_at: string
           created_by: string | null
@@ -719,6 +720,7 @@ export type Database = {
           offer_id: string
         }
         Insert: {
+          company_id?: string | null
           content?: string
           created_at?: string
           created_by?: string | null
@@ -726,6 +728,7 @@ export type Database = {
           offer_id: string
         }
         Update: {
+          company_id?: string | null
           content?: string
           created_at?: string
           created_by?: string | null
@@ -733,6 +736,13 @@ export type Database = {
           offer_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "pipeline_notes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pipeline_notes_offer_id_fkey"
             columns: ["offer_id"]
