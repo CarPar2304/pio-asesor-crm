@@ -718,6 +718,7 @@ export type Database = {
           created_by: string | null
           id: string
           offer_id: string
+          stage_id: string | null
         }
         Insert: {
           company_id?: string | null
@@ -726,6 +727,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           offer_id: string
+          stage_id?: string | null
         }
         Update: {
           company_id?: string | null
@@ -734,6 +736,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           offer_id?: string
+          stage_id?: string | null
         }
         Relationships: [
           {
@@ -748,6 +751,13 @@ export type Database = {
             columns: ["offer_id"]
             isOneToOne: false
             referencedRelation: "portfolio_offers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pipeline_notes_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
             referencedColumns: ["id"]
           },
         ]
