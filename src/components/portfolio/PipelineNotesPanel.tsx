@@ -9,7 +9,7 @@ import { StickyNote, Plus, Trash2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { toast } from '@/lib/toast';
+import { showError } from '@/lib/toast';
 
 interface PipelineNote {
   id: string;
