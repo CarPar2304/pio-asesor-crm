@@ -253,6 +253,10 @@ export default function CompanyProfile({ company, onBack }: Props) {
 
       <Separator className="my-6" />
 
+      <CompanyPipelineNotes companyId={company.id} />
+
+      <Separator className="my-6" />
+
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Actividad</h2>
         <ActivityTimeline company={company} />
