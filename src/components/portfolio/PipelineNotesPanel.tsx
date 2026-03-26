@@ -55,7 +55,7 @@ export default function PipelineNotesPanel({ offerId, open, onClose }: Props) {
       created_by: session.user.id,
     });
     if (error) {
-      toast.error('Error al guardar nota');
+      showError('Error al guardar nota');
     } else {
       setNewNote('');
       await fetchNotes();
