@@ -713,6 +713,7 @@ export type Database = {
       pipeline_notes: {
         Row: {
           company_id: string | null
+          company_ids: Json | null
           content: string
           created_at: string
           created_by: string | null
@@ -722,6 +723,7 @@ export type Database = {
         }
         Insert: {
           company_id?: string | null
+          company_ids?: Json | null
           content?: string
           created_at?: string
           created_by?: string | null
@@ -731,6 +733,7 @@ export type Database = {
         }
         Update: {
           company_id?: string | null
+          company_ids?: Json | null
           content?: string
           created_at?: string
           created_by?: string | null

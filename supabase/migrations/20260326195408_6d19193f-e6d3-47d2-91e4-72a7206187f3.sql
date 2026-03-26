@@ -1,0 +1,1 @@
+ALTER TABLE public.pipeline_notes ADD COLUMN company_ids jsonb DEFAULT NULL;

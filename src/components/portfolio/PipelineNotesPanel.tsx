@@ -24,6 +24,7 @@ interface PipelineNote {
   created_by: string | null;
   created_at: string;
   company_id: string | null;
+  company_ids: string[] | null;
   stage_id: string | null;
 }
 
@@ -48,7 +49,7 @@ export default function PipelineNotesPanel({ offerId, open, onClose }: Props) {
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
-  const [editCompanyId, setEditCompanyId] = useState<string>('none');
+  const [editCompanyIds, setEditCompanyIds] = useState<string[]>([]);
   const [editStageId, setEditStageId] = useState<string>('none');
   const [editCompanySearch, setEditCompanySearch] = useState('');
 
@@ -74,7 +75,12 @@ export default function PipelineNotesPanel({ offerId, open, onClose }: Props) {
       .select('*')
       .eq('offer_id', offerId)
       .order('created_at', { ascending: false });
-    if (data) setNotes(data);
+    if (data) {
+      setNotes(data.map((n: any) => ({
+        ...n,
+        company_ids: Array.isArray(n.company_ids) ? n.company_ids : null,
+      })));
+    }
   };
 
   useEffect(() => {
@@ -87,28 +93,40 @@ export default function PipelineNotesPanel({ offerId, open, onClose }: Props) {
     );
   };
 
+  const toggleEditCompany = (id: string) => {
+    setEditCompanyIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  // Get all company IDs for a note (supports both old company_id and new company_ids)
+  const getNoteCompanyIds = (note: PipelineNote): string[] => {
+    if (note.company_ids && note.company_ids.length > 0) return note.company_ids;
+    if (note.company_id) return [note.company_id];
+    return [];
+  };
+
   const handleAdd = async () => {
     if (!newNote.trim() || !session?.user?.id) return;
     setLoading(true);
 
-    const companyIds = selectedCompanyIds.length > 0 ? selectedCompanyIds : [null];
-
-    const rows = companyIds.map(cid => ({
+    const row: any = {
       offer_id: offerId,
       content: newNote.trim(),
       created_by: session.user.id,
-      company_id: cid,
+      company_id: selectedCompanyIds.length === 1 ? selectedCompanyIds[0] : null,
+      company_ids: selectedCompanyIds.length > 0 ? selectedCompanyIds : null,
       stage_id: selectedStageId === 'none' ? null : selectedStageId,
-    }));
+    };
 
-    const { error } = await supabase.from('pipeline_notes').insert(rows);
+    const { error } = await supabase.from('pipeline_notes').insert(row);
     if (error) {
       showError('Error al guardar nota');
     } else {
       setNewNote('');
       setSelectedCompanyIds([]);
       setSelectedStageId('none');
-      showSuccess('Nota agregada', companyIds.length > 1 ? `Nota anclada a ${companyIds.length} empresas` : undefined);
+      showSuccess('Nota agregada');
       await fetchNotes();
     }
     setLoading(false);
@@ -122,7 +140,7 @@ export default function PipelineNotesPanel({ offerId, open, onClose }: Props) {
   const handleStartEdit = (note: PipelineNote) => {
     setEditingId(note.id);
     setEditContent(note.content);
-    setEditCompanyId(note.company_id || 'none');
+    setEditCompanyIds(getNoteCompanyIds(note));
     setEditStageId(note.stage_id || 'none');
     setEditCompanySearch('');
   };
@@ -131,15 +149,35 @@ export default function PipelineNotesPanel({ offerId, open, onClose }: Props) {
     if (!editingId || !editContent.trim()) return;
     const { error } = await supabase.from('pipeline_notes').update({
       content: editContent.trim(),
-      company_id: editCompanyId === 'none' ? null : editCompanyId,
+      company_id: editCompanyIds.length === 1 ? editCompanyIds[0] : null,
+      company_ids: editCompanyIds.length > 0 ? editCompanyIds : null,
       stage_id: editStageId === 'none' ? null : editStageId,
-    }).eq('id', editingId);
+    } as any).eq('id', editingId);
     if (error) {
       showError('Error al actualizar nota');
     } else {
       setEditingId(null);
       await fetchNotes();
     }
+  };
+
+  const renderCompanyBadges = (ids: string[], max = 3) => {
+    if (ids.length === 0) return null;
+    const visible = ids.slice(0, max);
+    const remaining = ids.length - max;
+    return (
+      <div className="flex items-center gap-1 flex-wrap">
+        <Building2 className="h-3 w-3 text-primary/70 shrink-0" />
+        {visible.map(id => (
+          <span key={id} className="text-[10px] font-medium text-primary/70">
+            {companyMap.get(id) || 'Empresa'}
+          </span>
+        ))}
+        {remaining > 0 && (
+          <span className="text-[10px] text-muted-foreground">+{remaining} más</span>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -150,9 +188,9 @@ export default function PipelineNotesPanel({ offerId, open, onClose }: Props) {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -12, scale: 0.96 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
-          className="rounded-xl border border-border/60 bg-card shadow-lg mb-4 overflow-hidden"
+          className="rounded-xl border border-border/60 bg-card shadow-lg mb-4 overflow-hidden flex flex-col max-h-[70vh]"
         >
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border/40">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border/40 shrink-0">
             <div className="flex items-center gap-2">
               <StickyNote className="h-4 w-4 text-primary" />
               <h3 className="text-sm font-semibold">Notas del pipeline</h3>
@@ -163,7 +201,7 @@ export default function PipelineNotesPanel({ offerId, open, onClose }: Props) {
             </button>
           </div>
 
-          <div className="p-4 space-y-3">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {/* New note input */}
             <div className="space-y-2">
               <div className="flex gap-2">
@@ -269,10 +307,11 @@ export default function PipelineNotesPanel({ offerId, open, onClose }: Props) {
             </div>
 
             {/* Notes list */}
-            <ScrollArea className="max-h-[250px]">
-              <div className="space-y-2 pr-2">
-                <AnimatePresence mode="popLayout">
-                  {notes.map(note => (
+            <div className="space-y-2">
+              <AnimatePresence mode="popLayout">
+                {notes.map(note => {
+                  const noteCompanyIds = getNoteCompanyIds(note);
+                  return (
                     <motion.div
                       key={note.id}
                       layout
@@ -291,12 +330,12 @@ export default function PipelineNotesPanel({ offerId, open, onClose }: Props) {
                               autoFocus
                             />
                             <div className="flex gap-2 flex-wrap">
-                              {/* Edit company selector */}
+                              {/* Edit multi-company selector */}
                               <Popover>
                                 <PopoverTrigger asChild>
                                   <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1">
                                     <Building2 className="h-2.5 w-2.5" />
-                                    {editCompanyId === 'none' ? 'Sin empresa' : (companyMap.get(editCompanyId) || 'Empresa')}
+                                    {editCompanyIds.length === 0 ? 'Sin empresa' : `${editCompanyIds.length} empresa${editCompanyIds.length > 1 ? 's' : ''}`}
                                   </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-56 p-2" side="bottom" align="start">
@@ -309,22 +348,30 @@ export default function PipelineNotesPanel({ offerId, open, onClose }: Props) {
                                       className="h-7 pl-6 text-xs"
                                     />
                                   </div>
-                                  <ScrollArea className="max-h-[150px]">
+                                  {editCompanyIds.length > 0 && (
                                     <button
-                                      onClick={() => setEditCompanyId('none')}
-                                      className={`w-full text-left rounded px-2 py-1 text-xs hover:bg-muted ${editCompanyId === 'none' ? 'bg-muted font-medium' : ''}`}
+                                      onClick={() => setEditCompanyIds([])}
+                                      className="text-[10px] text-muted-foreground hover:text-foreground mb-1 px-1"
                                     >
-                                      Sin empresa
+                                      Limpiar
                                     </button>
-                                    {editFilteredCompanies.map(c => (
-                                      <button
-                                        key={c.id}
-                                        onClick={() => setEditCompanyId(c.id)}
-                                        className={`w-full text-left rounded px-2 py-1 text-xs hover:bg-muted truncate ${editCompanyId === c.id ? 'bg-muted font-medium' : ''}`}
-                                      >
-                                        {c.tradeName}
-                                      </button>
-                                    ))}
+                                  )}
+                                  <ScrollArea className="max-h-[150px]">
+                                    <div className="space-y-0.5">
+                                      {editFilteredCompanies.map(c => (
+                                        <label
+                                          key={c.id}
+                                          className="flex items-center gap-2 rounded-md px-2 py-1 text-xs hover:bg-muted cursor-pointer"
+                                        >
+                                          <Checkbox
+                                            checked={editCompanyIds.includes(c.id)}
+                                            onCheckedChange={() => toggleEditCompany(c.id)}
+                                            className="h-3 w-3"
+                                          />
+                                          <span className="truncate">{c.tradeName}</span>
+                                        </label>
+                                      ))}
+                                    </div>
                                   </ScrollArea>
                                 </PopoverContent>
                               </Popover>
@@ -342,6 +389,18 @@ export default function PipelineNotesPanel({ offerId, open, onClose }: Props) {
                                 </SelectContent>
                               </Select>
                             </div>
+                            {editCompanyIds.length > 0 && (
+                              <div className="flex flex-wrap gap-1">
+                                {editCompanyIds.map(id => (
+                                  <Badge key={id} variant="secondary" className="text-[10px] gap-1 pr-1">
+                                    {companyMap.get(id) || 'Empresa'}
+                                    <button onClick={() => toggleEditCompany(id)} className="hover:text-destructive">
+                                      <X className="h-2.5 w-2.5" />
+                                    </button>
+                                  </Badge>
+                                ))}
+                              </div>
+                            )}
                             <div className="flex gap-1">
                               <Button size="sm" variant="default" className="h-6 text-xs gap-1 px-2" onClick={handleSaveEdit}>
                                 <Check className="h-3 w-3" /> Guardar
@@ -355,12 +414,7 @@ export default function PipelineNotesPanel({ offerId, open, onClose }: Props) {
                           <>
                             <p className="text-sm whitespace-pre-wrap break-words">{note.content}</p>
                             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1">
-                              {note.company_id && companyMap.get(note.company_id) && (
-                                <div className="flex items-center gap-1">
-                                  <Building2 className="h-3 w-3 text-primary/70" />
-                                  <span className="text-[10px] font-medium text-primary/70">{companyMap.get(note.company_id)}</span>
-                                </div>
-                              )}
+                              {renderCompanyBadges(noteCompanyIds)}
                               {note.stage_id && stageMap.get(note.stage_id) && (
                                 <div className="flex items-center gap-1">
                                   <Layers className="h-3 w-3 text-muted-foreground" />
@@ -391,13 +445,13 @@ export default function PipelineNotesPanel({ offerId, open, onClose }: Props) {
                         </div>
                       )}
                     </motion.div>
-                  ))}
-                </AnimatePresence>
-                {notes.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-4">Sin notas aún</p>
-                )}
-              </div>
-            </ScrollArea>
+                  );
+                })}
+              </AnimatePresence>
+              {notes.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center py-4">Sin notas aún</p>
+              )}
+            </div>
           </div>
         </motion.div>
       )}
