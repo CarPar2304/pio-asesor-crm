@@ -349,7 +349,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     <CRMContext.Provider value={{
       companies, savedViews, loading, getCompany,
       addCompany, updateCompany, deleteCompany,
-      addAction, addMilestone, addTask, updateTask,
+      addAction, addMilestone, addTask, updateTask, deleteTask,
       addContact, updateContact, removeContact,
       saveView, deleteView, saveFieldValues, refresh: fetchAll,
     }}>
