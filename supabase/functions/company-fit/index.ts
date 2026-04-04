@@ -307,8 +307,14 @@ Responde ÚNICAMENTE llamando la función analyze_company con los resultados.`;
             ],
             additionalProperties: false,
           },
-        },
-      ],
+    });
+
+    const response = await client.responses.create({
+      model,
+      reasoning: {
+        effort: reasoningEffort as any,
+      },
+      tools,
       input: fullPrompt,
     });
 
