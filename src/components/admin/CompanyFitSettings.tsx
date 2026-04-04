@@ -262,17 +262,24 @@ export default function CompanyFitSettings() {
   }, [fetchSettings, fetchLogs]);
 
   const handleSave = async () => {
-    if (!settingsId) return;
     setSaving(true);
-    const { error } = await supabase
-      .from('feature_settings')
-      .update({ config: config as any, updated_at: new Date().toISOString() } as any)
-      .eq('id', settingsId);
+    let error: any = null;
+    if (settingsId) {
+      ({ error } = await supabase
+        .from('feature_settings')
+        .update({ config: config as any, updated_at: new Date().toISOString() } as any)
+        .eq('id', settingsId));
+    } else {
+      ({ error } = await supabase
+        .from('feature_settings')
+        .insert({ feature_key: 'company_fit', config: config as any } as any));
+    }
     setSaving(false);
     if (error) {
       showError('Error', 'No tienes permisos de admin para guardar configuración');
     } else {
       showSuccess('Guardado', 'Configuración de Company Fit actualizada');
+      fetchSettings();
     }
   };
 
