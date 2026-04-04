@@ -730,7 +730,35 @@ export default function CompanyForm({ open, onClose, company }: Props) {
     <Dialog open={open} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-3xl p-0 gap-0 max-h-[90vh] overflow-hidden">
         <DialogHeader className="border-b border-border px-6 py-4">
-          <DialogTitle>{isEdit ? 'Editar empresa' : 'Nueva empresa'}</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>{isEdit ? 'Editar empresa' : 'Nueva empresa'}</DialogTitle>
+            {(isEdit || form.website) && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs"
+                onClick={handleCompanyFit}
+                disabled={companyFitLoading || !form.tradeName.trim()}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Company Fit
+              </Button>
+            )}
+          </div>
+          {companyFitLoading && (
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Progress value={companyFitProgress} className="h-2" />
+                  <div className="absolute inset-0 h-2 rounded-full overflow-hidden">
+                    <div className="h-full w-full bg-gradient-to-r from-primary/20 via-primary/60 to-primary/20 animate-pulse" />
+                  </div>
+                </div>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">{companyFitProgress}%</span>
+              </div>
+              <p className="text-xs text-primary font-medium animate-pulse">{companyFitStage}</p>
+            </div>
+          )}
         </DialogHeader>
         <ScrollArea className="max-h-[calc(90vh-130px)] px-6 py-4">
           <div className="space-y-6 pb-6">
