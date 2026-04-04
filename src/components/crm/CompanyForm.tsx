@@ -358,6 +358,146 @@ export default function CompanyForm({ open, onClose, company }: Props) {
   const [uploading, setUploading] = useState(false);
   const [fieldValues, setFieldValues] = useState<Record<string, CustomFieldValue>>({});
 
+  // Company Fit AI state
+  const [companyFitLoading, setCompanyFitLoading] = useState(false);
+  const [companyFitProgress, setCompanyFitProgress] = useState(0);
+  const [companyFitStage, setCompanyFitStage] = useState('');
+  const [aiModifiedFields, setAiModifiedFields] = useState<Set<string>>(new Set());
+
+  const handleCompanyFit = async () => {
+    setCompanyFitLoading(true);
+    setAiModifiedFields(new Set());
+    setCompanyFitProgress(10);
+    setCompanyFitStage('Analizando sitio web...');
+
+    try {
+      // Build taxonomy data to send
+      const taxonomyData = {
+        categories: taxonomy.allCategories,
+        verticals: taxonomy.verticals.map(v => {
+          const catLinks = taxonomy.categoryVerticalLinks.filter(l => l.vertical_id === v.id);
+          return { name: v.name, category: catLinks.map(l => l.category).join(', ') };
+        }),
+        subVerticals: taxonomy.subVerticals.map(sv => {
+          const vertLinks = taxonomy.verticalSubVerticalLinks.filter(l => l.sub_vertical_id === sv.id);
+          const vertNames = vertLinks.map(l => taxonomy.verticals.find(v => v.id === l.vertical_id)?.name || '').filter(Boolean);
+          return { name: sv.name, vertical: vertNames.join(', ') };
+        }),
+      };
+
+      setCompanyFitProgress(30);
+      setCompanyFitStage('Consultando RUES...');
+
+      const progressInterval = setInterval(() => {
+        setCompanyFitProgress(prev => Math.min(prev + 5, 85));
+      }, 2000);
+
+      setTimeout(() => setCompanyFitStage('Clasificando empresa...'), 4000);
+      setTimeout(() => setCompanyFitStage('Generando resultados...'), 8000);
+
+      const { data: result, error } = await supabase.functions.invoke('company-fit', {
+        body: {
+          tradeName: form.tradeName,
+          legalName: form.legalName,
+          nit: form.nit,
+          category: form.category,
+          vertical: form.vertical,
+          subVertical: form.subVertical,
+          description: form.description,
+          website: form.website,
+          city: form.city === 'Otra' ? form.customCity : form.city,
+          contacts: contacts.map(c => ({ id: c.id, name: c.name, gender: c.gender })),
+          taxonomy: taxonomyData,
+        },
+      });
+
+      clearInterval(progressInterval);
+
+      if (error) throw new Error(error.message || 'Error al analizar');
+      if (result?.error) throw new Error(result.error);
+
+      setCompanyFitProgress(100);
+      setCompanyFitStage('¡Listo!');
+
+      // Apply results to form
+      const modified = new Set<string>();
+
+      if (result.category && result.category !== form.category) {
+        setForm(f => ({ ...f, category: result.category }));
+        modified.add('category');
+      }
+      if (result.vertical && result.vertical !== form.vertical) {
+        setForm(f => ({ ...f, vertical: result.vertical }));
+        modified.add('vertical');
+      }
+      if (result.subVertical && result.subVertical !== form.subVertical) {
+        setForm(f => ({ ...f, subVertical: result.subVertical }));
+        modified.add('subVertical');
+      }
+      if (result.description && result.description !== form.description) {
+        setForm(f => ({ ...f, description: result.description }));
+        modified.add('description');
+      }
+      if (result.legalName && result.legalName !== form.legalName) {
+        setForm(f => ({ ...f, legalName: result.legalName }));
+        modified.add('legalName');
+      }
+      if (result.nit && result.nit !== form.nit) {
+        setForm(f => ({ ...f, nit: result.nit }));
+        modified.add('nit');
+      }
+      if (result.tradeName && result.tradeName !== form.tradeName) {
+        setForm(f => ({ ...f, tradeName: result.tradeName }));
+        modified.add('tradeName');
+      }
+
+      // Update contact genders
+      if (result.contacts?.length > 0) {
+        setContacts(prev => prev.map(c => {
+          const aiContact = result.contacts.find((ac: any) => ac.id === c.id);
+          if (aiContact && aiContact.gender !== c.gender) {
+            modified.add(`contact-${c.id}`);
+            return { ...c, gender: aiContact.gender as ContactGender };
+          }
+          return c;
+        }));
+      }
+
+      // Handle logo URL
+      if (result.logoUrl && !logoUrl) {
+        try {
+          const logoRes = await fetch(result.logoUrl);
+          if (logoRes.ok) {
+            const blob = await logoRes.blob();
+            const ext = blob.type.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
+            const fileName = `${crypto.randomUUID()}.${ext}`;
+            const { error: uploadErr } = await supabase.storage.from('company-logos').upload(fileName, blob, { upsert: true });
+            if (!uploadErr) {
+              const { data: urlData } = supabase.storage.from('company-logos').getPublicUrl(fileName);
+              setLogoUrl(urlData.publicUrl);
+              setLogoPreview(urlData.publicUrl);
+              modified.add('logo');
+            }
+          }
+        } catch { /* logo fetch failed, skip */ }
+      }
+
+      setAiModifiedFields(modified);
+
+      const confidenceLabel = result.confidence === 'high' ? 'alta' : result.confidence === 'medium' ? 'media' : 'baja';
+      showSuccess('Company Fit completado', `Confianza ${confidenceLabel}. ${result.reasoning?.slice(0, 100) || ''}`);
+    } catch (err: any) {
+      console.error('Company Fit error:', err);
+      showError('Error en Company Fit', err.message || 'No se pudo analizar la empresa');
+    } finally {
+      setTimeout(() => {
+        setCompanyFitLoading(false);
+        setCompanyFitProgress(0);
+        setCompanyFitStage('');
+      }, 1000);
+    }
+  };
+
   // Dialogs
   const [addFieldOpen, setAddFieldOpen] = useState(false);
   const [addSectionOpen, setAddSectionOpen] = useState(false);
