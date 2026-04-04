@@ -23,6 +23,8 @@ interface CompanyFitConfig {
   web_search_enabled: boolean;
   rues_enabled: boolean;
   rues_api_url: string;
+  rues_search_fields: string[];
+  rues_response_mapping: Array<{ source: string; target: string; label: string }>;
 }
 
 interface LogEntry {
