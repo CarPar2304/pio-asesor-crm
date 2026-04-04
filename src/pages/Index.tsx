@@ -36,7 +36,13 @@ export default function Index() {
   const { companies, loading, deleteCompany } = useCRM();
   const { fields } = useCustomFields();
   const [view, setView] = useState<'grid' | 'table'>('grid');
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('crm-page');
+      if (saved) return Number(saved);
+    } catch {}
+    return 1;
+  });
   const [pageSize, setPageSize] = useState(() => {
     try {
       const saved = sessionStorage.getItem('crm-pageSize');
@@ -62,8 +68,16 @@ export default function Index() {
   // Persist filters to sessionStorage
   const updateFilters = useCallback((f: FilterState) => {
     setFilters(f);
-    setPage(1); // Reset page on filter change
-    try { sessionStorage.setItem('crm-filters', JSON.stringify(f)); } catch {}
+    setPage(1);
+    try {
+      sessionStorage.setItem('crm-filters', JSON.stringify(f));
+      sessionStorage.setItem('crm-page', '1');
+    } catch {}
+  }, []);
+
+  const updatePage = useCallback((p: number) => {
+    setPage(p);
+    try { sessionStorage.setItem('crm-page', String(p)); } catch {}
   }, []);
 
   const updatePageSize = useCallback((size: number) => {
@@ -174,7 +188,19 @@ export default function Index() {
 
       <CRMFilters filters={filters} onChange={updateFilters} />
 
-      <div className="mt-6">
+      {filtered.length > 0 && (
+        <div className="mt-4">
+          <CRMPagination
+            total={filtered.length}
+            page={safePage}
+            pageSize={pageSize}
+            onPageChange={updatePage}
+            onPageSizeChange={updatePageSize}
+          />
+        </div>
+      )}
+
+      <div className="mt-4">
         {loading ? (
           view === 'grid' ? <CompanyGridSkeleton /> : <CompanyTableSkeleton />
         ) : filtered.length === 0 ? (
@@ -205,7 +231,7 @@ export default function Index() {
             total={filtered.length}
             page={safePage}
             pageSize={pageSize}
-            onPageChange={setPage}
+            onPageChange={updatePage}
             onPageSizeChange={updatePageSize}
           />
         )}

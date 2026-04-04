@@ -71,17 +71,32 @@ async function lookupRUES(
   }
 
   if (tradeName) {
-    attempts.push(`razon_social=${tradeName.toUpperCase()}`);
-    const r3 = await queryRUES(baseUrl, { razon_social: tradeName.toUpperCase() });
+    const tradeUpper = tradeName.toUpperCase();
+    // Exact match first
+    attempts.push(`razon_social=${tradeUpper}`);
+    const r3 = await queryRUES(baseUrl, { razon_social: tradeUpper });
     if (r3.length > 0)
       return { data: r3, query: `razon_social=${tradeName}`, attempts };
+
+    // Partial match (LIKE) - useful when legal name includes suffixes like "S.A.S", "BIC", etc.
+    attempts.push(`razon_social LIKE '%${tradeUpper}%'`);
+    const r3b = await queryRUES(baseUrl, { "$where": `upper(razon_social) like '%${tradeUpper}%'` });
+    if (r3b.length > 0)
+      return { data: r3b, query: `razon_social LIKE ${tradeName}`, attempts };
   }
 
   if (legalName && legalName !== tradeName) {
-    attempts.push(`razon_social=${legalName.toUpperCase()}`);
-    const r4 = await queryRUES(baseUrl, { razon_social: legalName.toUpperCase() });
+    const legalUpper = legalName.toUpperCase();
+    attempts.push(`razon_social=${legalUpper}`);
+    const r4 = await queryRUES(baseUrl, { razon_social: legalUpper });
     if (r4.length > 0)
       return { data: r4, query: `razon_social=${legalName}`, attempts };
+
+    // Partial match for legal name too
+    attempts.push(`razon_social LIKE '%${legalUpper}%'`);
+    const r4b = await queryRUES(baseUrl, { "$where": `upper(razon_social) like '%${legalUpper}%'` });
+    if (r4b.length > 0)
+      return { data: r4b, query: `razon_social LIKE ${legalName}`, attempts };
   }
 
   return { data: null, query: "no results", attempts };
@@ -278,9 +293,9 @@ Responde ÚNICAMENTE llamando la función analyze_company con los resultados.`;
               vertical: { type: "string", description: "Vertical (existing or new suggested)" },
               subVertical: { type: "string", description: "Sub-vertical (existing or new suggested)" },
               description: { type: "string", description: "Short company description, 1-3 sentences" },
-              logoUrl: { type: ["string", "null"], description: "Direct URL to company logo image, or null" },
+              logoUrl: { type: ["string", "null"], description: "Direct URL to company logo image (must be a publicly accessible direct link to a PNG, JPG, SVG, or WebP file, NOT a data URI or relative path). Try the company's Open Graph image, favicon, or look for <img> tags with 'logo' in the class/alt. Return null if no valid logo URL found." },
               legalName: { type: ["string", "null"], description: "Validated legal name from RUES or web" },
-              nit: { type: ["string", "null"], description: "Validated NIT from RUES or web" },
+              nit: { type: ["string", "null"], description: "Validated NIT from RUES or web. Return ONLY the base NIT number WITHOUT the verification digit (e.g. '901313597' not '901313597-7')" },
               tradeName: { type: ["string", "null"], description: "Validated trade/brand name" },
               contacts: {
                 type: "array",
@@ -359,6 +374,11 @@ Responde ÚNICAMENTE llamando la función analyze_company con los resultados.`;
         JSON.stringify({ error: "No structured response from AI", raw: textOutput }),
         { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // Strip verification digit from NIT if present (e.g. "901313597-7" → "901313597")
+    if (result.nit && typeof result.nit === 'string') {
+      result.nit = result.nit.replace(/-\d$/, '');
     }
 
     // Add RUES data and status to response
