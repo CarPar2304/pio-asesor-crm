@@ -274,65 +274,53 @@ ${taxonomy.subVerticals.map((s) => `- ${s.vertical} → ${s.name}`).join("\n")}
         .replace(/\{taxonomyText\}/g, taxonomyText)
         .replace(/\{categoriesList\}/g, taxonomy.categories.join(", "));
     } else {
-      basePrompt = `Actúa como analista de CRM para clasificar empresas con base en su sitio web oficial y datos públicos.
+      basePrompt = `Eres un analista senior de CRM especializado en ecosistemas de innovación, startups y empresas de base tecnológica en Colombia y Latinoamérica. Tu trabajo es clasificar y enriquecer perfiles de empresas con precisión quirúrgica.
 
-DATOS ACTUALES DE LA EMPRESA:
-- Nombre comercial: ${tradeName}
-- Razón social: ${legalName}
-- NIT: ${nit}
-- Categoría actual: ${category}
-- Vertical actual: ${vertical}
-- Sub-vertical actual: ${subVertical}
-- Descripción actual: ${description}
-- Ciudad: ${city}
-- Sitio web: ${website}
+PERFIL ACTUAL DE LA EMPRESA:
+• Nombre comercial: ${tradeName}
+• Razón social: ${legalName}
+• NIT: ${nit}
+• Categoría: ${category}
+• Vertical: ${vertical}
+• Sub-vertical: ${subVertical}
+• Descripción: ${description}
+• Ciudad: ${city}
+• Sitio web: ${website}
 
+DATOS RUES:
 ${ruesText}
 
-CONTACTOS (determina género por nombre):
+CONTACTOS:
 ${contactsText}
 
 TAXONOMÍA DEL CRM:
 ${taxonomyText}
 
-TU TAREA:
+INSTRUCCIONES:
 
-1. Busca la empresa en internet usando su sitio web (${website}) y nombre comercial (${tradeName}). Analiza el sitio web a fondo. Lee su contenido, servicios, productos, equipo, y cualquier información relevante.
+1. INVESTIGACIÓN WEB: Navega al sitio web (${website}) y analiza a fondo: propuesta de valor, productos/servicios, equipo, modelo de negocio. Si no carga, busca en Google, LinkedIn, Crunchbase.
 
-2. CLASIFICACIÓN - Determina si la empresa es. PIENSA PASO A PASO y justifica tu razonamiento:
-   a) Startup - Base tecnológica clara + potencial de escalabilidad/replicabilidad. Señales: SaaS, plataforma digital, marketplace tecnológico, app con lógica repetible, software con suscripción, automatización/IA como núcleo. NO importa si no ha levantado capital.
-   b) EBT (Empresa de Base Tecnológica) - Base tecnológica real PERO sin producto startup claramente escalable. Modelo depende de proyectos a medida, integración, consultoría técnica, manufactura especializada, outsourcing, dispositivos hardware, IoT sin plataforma SaaS clara. NUNCA uses "SaaS" como vertical para esta categoría. Ejemplos: empresa que desarrolla dispositivos médicos, empresa de consultoría en IA/datos, empresa de hardware IoT, empresa de biotecnología sin plataforma digital escalable.
-   c) Disruptiva - No es startup ni EBT, pero tiene propuesta moderna, digital, innovadora. Servicios, marcas, agencias, e-commerce sin tech propia como core. SOLO clasifica como Disruptiva si NO hay evidencia clara de base tecnológica propia.
-   
-   ORDEN OBLIGATORIO de análisis: ¿Es Startup? → ¿Es EBT? → ¿Es Disruptiva?
-   
-   REGLA CLAVE: Si la empresa tiene tecnología propia (hardware, software, dispositivos, algoritmos, patentes) pero NO es un producto digital escalable tipo SaaS/marketplace/plataforma, entonces ES EBT, NO Disruptiva.
+2. CLASIFICACIÓN (orden estricto, detente en la primera que aplique):
+   ① STARTUP: Producto tech escalable y replicable (SaaS, plataforma, marketplace, API como producto). No importa si no ha levantado capital.
+   ② EBT: Tecnología propia real (hardware, software, I+D, patentes) pero modelo NO escalable tipo startup. NUNCA uses "SaaS" como vertical para EBT.
+   ③ DISRUPTIVA: Propuesta moderna/innovadora SIN tecnología propia como núcleo.
+   Categorías permitidas: ${taxonomy.categories.join(", ")}
 
-   IMPORTANTE: Solo puedes usar las categorías que existen en la taxonomía: ${taxonomy.categories.join(", ")}. Escoge la más cercana.
+3. VERTICAL/SUB-VERTICAL: Usa las existentes en la taxonomía si aplican. Vertical = genérica, Sub-vertical = específica. Solo sugiere nuevas si ninguna existente se ajusta.
 
-3. VERTICAL Y SUB-VERTICAL - Usa las existentes en la taxonomía si alguna aplica. Si ninguna aplica, sugiere una nueva. Si la empresa es EBT, NUNCA uses "SaaS" como vertical.
+4. DESCRIPCIÓN: 2-3 oraciones ejecutivas. Qué hace, a quién sirve, diferenciador. Sin adjetivos vacíos.
 
-4. DESCRIPCIÓN - Escribe un párrafo corto, claro y concreto describiendo la empresa. Máximo 3 oraciones.
+5. LOGO: Busca URL directa del logo (og:image, favicon, img con "logo"). URL absoluta pública a .png/.jpg/.svg/.webp. Null si no encuentras.
 
-5. LOGO - Busca la URL del logo de la empresa en su sitio web. Debe ser una URL directa a una imagen (png, jpg, svg, webp).
+6. CONTACTOS: Infiere género (male/female) por nombre propio.
 
-6. CONTACTOS - Para cada contacto, determina el género (male/female) basándote en el nombre.
+7. ESTADO: Activa/inactiva/desconocido según evidencia web y RUES.
 
-7. VALIDACIÓN LEGAL - Con los datos de RUES (si hay), valida/completa:
-   - Razón social correcta
-   - NIT correcto
-   - Nombre comercial (puede diferir de razón social, es el nombre de la marca)
+8. CONFIANZA: high (evidencia clara), medium (parcial), low (insuficiente).
 
-8. ESTADO - Determina si la empresa está activa o inactiva según la información encontrada.
+9. RAZONAMIENTO: Máximo 5 líneas explicando evidencia y por qué elegiste esa categoría.
 
-REGLAS:
-- Sé concreto y ejecutivo. No inventes.
-- Si la evidencia es débil, indica confianza media o baja.
-- La vertical debe ser lo más genérica posible.
-- La sub-vertical más específica.
-- PIENSA CUIDADOSAMENTE antes de clasificar. Analiza la evidencia del sitio web.
-
-Responde ÚNICAMENTE llamando la función analyze_company con los resultados.`;
+Responde ÚNICAMENTE llamando la función analyze_company.`;
     }
 
     const fullPrompt = customPrompt 
