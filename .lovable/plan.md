@@ -1,53 +1,96 @@
 
 
-## Plan: Taxonomy UI Redesign
+## Company Fit — Plan de implementación
 
-### Issues Identified
+### Resumen
 
-1. **Sub-verticals bug**: Column 3 iterates all `subVerticals` with checkboxes, but the UX expects to show only those linked to the selected vertical. When no links exist yet, the list is empty - this is correct behavior but confusing. The real fix: show all sub-verticals with link/unlink capability.
-2. **Performance**: `TaxonomyContext` depends on `useCRM().companies` for orphan detection, causing cascading re-renders on every company change. Will memoize and debounce.
-3. **Multi-select checkboxes**: Current UI shows all verticals with checkboxes. User wants single-click selection showing only linked items, with move/unlink actions instead.
+Feature de IA dentro del formulario de edición que analiza una empresa usando OpenAI (modelo `gpt-5.4` con `web_search`), consulta RUES, y devuelve clasificación + datos para revisión manual antes de guardar.
 
-### Changes
+### Requisito previo: API Key de OpenAI
 
-#### 1. `CRMSettingsDialog.tsx` - Full Taxonomy Tab Redesign
+Necesito que me proporciones tu API key de OpenAI. La almacenaré como secret de Supabase (`OPENAI_API_KEY`) para que solo la edge function tenga acceso.
 
-**3-Column Flow with connector lines:**
-- Add dashed SVG connector lines between columns (inspired by the n8n reference image)
-- Columns 2 and 3 start hidden/collapsed, animate in (fade + slide) when a category/vertical is selected
-- Use `animate-fade-in` and transition classes
+### Arquitectura
 
-**Single-selection model:**
-- Remove checkboxes from verticals and sub-verticals columns
-- Category click → show only linked verticals for that category
-- Vertical click → show only linked sub-verticals for that vertical
-- Add "Vincular existente" dropdown button to link an existing vertical/sub-vertical to the current branch
-- Add "Mover a otra categoría/vertical" action per item via a small dropdown
+```text
+CompanyForm.tsx ── POST ──> Edge Function (company-fit)
+                                │
+                                ├─ OpenAI Responses API (gpt-5.4 + web_search)
+                                ├─ RUES API (datos.gov.co)
+                                │
+                  <── JSON ─────┘
+```
 
-**Move functionality:**
-- Each vertical gets a "Mover" action → opens a small select to pick target category
-- Each sub-vertical gets a "Mover" action → opens a small select to pick target vertical
-- Moving = unlink from current parent + link to new parent
+### Archivos a crear/modificar
 
-**Orphan section:**
-- Move orphan alerts below the 3-column flow
-- Wrap in a collapsible section (hidden by default) with toggle button: "Mostrar valores sin gestionar (N)"
+**1. Secret: `OPENAI_API_KEY`**
+- Se te pedirá el token vía la herramienta de secrets.
 
-#### 2. `TaxonomyContext.tsx` - Performance
+**2. Edge Function: `supabase/functions/company-fit/index.ts`**
 
-- Memoize `orphanVerticals` and `orphanSubVerticals` more aggressively
-- Remove unnecessary re-computation triggers
-- Use `useMemo` with stable references for company field extraction
+Lógica:
+- Recibe datos de la empresa + taxonomía actual (categorías, verticales, sub-verticales)
+- **Paso 1**: Consulta RUES (datos.gov.co) con NIT (con y sin dígito de verificación) y por razón social. Hasta 4 intentos con variaciones.
+- **Paso 2**: Llama a OpenAI Responses API usando `web_search` tool:
+  ```typescript
+  import OpenAI from "npm:openai";
+  const client = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
+  const response = await client.responses.create({
+    model: "gpt-5.4",
+    tools: [{ type: "web_search" }],
+    input: promptCompleto,
+  });
+  ```
+- El prompt incluye: las reglas de clasificación completas (Startup / EBT / Tecnología No Startup / Disruptiva), la taxonomía existente, datos actuales de la empresa, e instrucciones para inferir género de contactos, buscar logo URL, y determinar estado.
+- **Tool calling** para structured output con los campos: `category`, `vertical`, `subVertical`, `description`, `logoUrl`, `legalName`, `nit`, `tradeName`, `contacts` (con género), `companyStatus`, `confidence`, `reasoning`, `isNewVertical`, `isNewSubVertical`.
 
-#### 3. Add `moveVerticalToCategory` and `moveSubVerticalToVertical` functions to TaxonomyContext
+Respuesta JSON:
+```typescript
+{
+  category: string;
+  vertical: string;
+  subVertical: string;
+  description: string;
+  logoUrl: string | null;
+  legalName: string | null;
+  nit: string | null;
+  tradeName: string | null;
+  contacts: Array<{ id: string; gender: 'male' | 'female' }>;
+  companyStatus: 'active' | 'inactive' | 'unknown';
+  confidence: 'high' | 'medium' | 'low';
+  reasoning: string;
+  isNewVertical: boolean;
+  isNewSubVertical: boolean;
+  ruesData: object | null;
+}
+```
 
-- `moveVerticalToCategory(verticalId, fromCategory, toCategory)`: unlink from old, link to new
-- `moveSubVerticalToVertical(subVerticalId, fromVerticalId, toVerticalId)`: unlink from old, link to new
+**3. Modificar: `src/components/crm/CompanyForm.tsx`**
 
-### Technical Details
+- Botón "Company Fit" con icono Sparkles en el header del diálogo (solo en modo edición o cuando hay website).
+- Estado `companyFitLoading` para controlar animaciones.
+- Al hacer clic:
+  - Skeleton loaders en campos: categoría, vertical, sub-vertical, descripción, logo, razón social, NIT, género de contactos.
+  - Barra de progreso animada con color primario y texto que cambia: "Analizando sitio web..." → "Consultando RUES..." → "Clasificando empresa..."
+  - Llamar al edge function con datos actuales + taxonomía del contexto.
+- Al recibir respuesta:
+  - Poblar campos del formulario temporalmente (sin guardar).
+  - Badge sutil "IA" en campos modificados.
+  - Soporte para cargar logo desde URL (fetch blob → upload a storage).
+- Manejo de errores: toast con mensaje, campos vuelven a estado original.
 
-- Flow connector lines: CSS pseudo-elements or inline SVG dashes between the 3 Card components
-- Animations: `transition-all duration-300` on column visibility, `animate-fade-in` on content
-- The "Vincular existente" button shows a filtered list of verticals/sub-verticals NOT already linked to the current parent
-- Sub-vertical fix: when a vertical is selected, show its linked sub-verticals plus ability to add/link more
+**4. Actualizar: `supabase/config.toml`**
+
+Agregar configuración de la edge function `company-fit`.
+
+### Resumen de cambios
+
+| Archivo | Acción |
+|---|---|
+| Secret `OPENAI_API_KEY` | Agregar vía herramienta de secrets |
+| `supabase/functions/company-fit/index.ts` | Crear |
+| `supabase/config.toml` | Agregar función |
+| `src/components/crm/CompanyForm.tsx` | Agregar botón, skeletons, lógica de carga, URL logo |
+
+No se requieren migraciones de base de datos.
 
