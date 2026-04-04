@@ -85,6 +85,51 @@ function TaxonomyTab() {
   const [sharingVerticalId, setSharingVerticalId] = useState<string | null>(null);
   const [sharingSubVerticalId, setSharingSubVerticalId] = useState<string | null>(null);
 
+  // Definitions state
+  const [definitions, setDefinitions] = useState('');
+  const [definitionsOpen, setDefinitionsOpen] = useState(false);
+  const [savingDefinitions, setSavingDefinitions] = useState(false);
+  const [organizeOpen, setOrganizeOpen] = useState(false);
+
+  // Load definitions from feature_settings
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase
+        .from('feature_settings')
+        .select('config')
+        .eq('feature_key', 'taxonomy_definitions')
+        .single();
+      if (data) {
+        const cfg = data.config as any;
+        setDefinitions(cfg?.definitions || '');
+      }
+    };
+    load();
+  }, []);
+
+  const handleSaveDefinitions = async () => {
+    setSavingDefinitions(true);
+    // Upsert into feature_settings
+    const { data: existing } = await supabase
+      .from('feature_settings')
+      .select('id')
+      .eq('feature_key', 'taxonomy_definitions')
+      .single();
+
+    if (existing) {
+      await supabase
+        .from('feature_settings')
+        .update({ config: { definitions } as any, updated_at: new Date().toISOString() } as any)
+        .eq('id', existing.id);
+    } else {
+      await supabase
+        .from('feature_settings')
+        .insert({ feature_key: 'taxonomy_definitions', config: { definitions } as any } as any);
+    }
+    setSavingDefinitions(false);
+    showSuccess('Definiciones guardadas');
+  };
+
   const companiesUsingCategory = (cat: string) => companies.filter(c => c.category === cat).length;
   const companiesUsingVertical = (name: string) => companies.filter(c => c.vertical === name).length;
   const companiesUsingSubVertical = (name: string) => companies.filter(c => c.economicActivity === name).length;
