@@ -773,10 +773,16 @@ export default function CompanyForm({ open, onClose, company }: Props) {
       <DialogContent className="max-w-3xl p-0 gap-0 max-h-[90vh] overflow-hidden">
         <DialogHeader className="border-b border-border px-6 py-4">
           <DialogTitle>{isEdit ? 'Editar empresa' : 'Nueva empresa'}</DialogTitle>
-          {companyFitLoading && (
+          {variablesLoading && (
             <div className="mt-3 flex flex-col items-center gap-2">
               <GooeyLoader className="h-12" />
               <p className="text-xs text-primary font-medium animate-pulse">{companyFitStage}</p>
+            </div>
+          )}
+          {ruesLoading && (
+            <div className="mt-2 flex items-center gap-2 justify-center">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              <p className="text-xs text-primary font-medium">Consultando RUES...</p>
             </div>
           )}
         </DialogHeader>
