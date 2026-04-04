@@ -10,7 +10,8 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Save, Sparkles, RefreshCw, Clock, CheckCircle2, XCircle, Search } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Save, Sparkles, RefreshCw, Clock, CheckCircle2, XCircle, Search, Globe, ChevronDown, ChevronRight, Code2, ExternalLink } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -18,6 +19,8 @@ interface CompanyFitConfig {
   model: string;
   reasoning_effort: string;
   prompt: string;
+  base_prompt: string;
+  web_search_enabled: boolean;
   rues_enabled: boolean;
   rues_api_url: string;
 }
@@ -37,13 +40,83 @@ interface LogEntry {
   created_at: string;
 }
 
+const SYSTEM_BASE_PROMPT = `Actúa como analista de CRM para clasificar empresas con base en su sitio web oficial y datos públicos.
+
+DATOS ACTUALES DE LA EMPRESA:
+- Nombre comercial: {tradeName}
+- Razón social: {legalName}
+- NIT: {nit}
+- Categoría actual: {category}
+- Vertical actual: {vertical}
+- Sub-vertical actual: {subVertical}
+- Descripción actual: {description}
+- Ciudad: {city}
+- Sitio web: {website}
+
+{ruesText}
+
+CONTACTOS (determina género por nombre):
+{contactsText}
+
+TAXONOMÍA DEL CRM:
+{taxonomyText}
+
+TU TAREA:
+
+1. Busca la empresa en internet usando su sitio web ({website}) y nombre comercial ({tradeName}). Analiza el sitio web a fondo. Lee su contenido, servicios, productos, equipo, y cualquier información relevante.
+
+2. CLASIFICACIÓN - Determina si la empresa es. PIENSA PASO A PASO y justifica tu razonamiento:
+   a) Startup - Base tecnológica clara + potencial de escalabilidad/replicabilidad. Señales: SaaS, plataforma digital, marketplace tecnológico, app con lógica repetible, software con suscripción, automatización/IA como núcleo. NO importa si no ha levantado capital.
+   b) EBT (Empresa de Base Tecnológica) - Base tecnológica real PERO sin producto startup claramente escalable. Modelo depende de proyectos a medida, integración, consultoría técnica, manufactura especializada, outsourcing, dispositivos hardware, IoT sin plataforma SaaS clara. NUNCA uses "SaaS" como vertical para esta categoría. Ejemplos: empresa que desarrolla dispositivos médicos, empresa de consultoría en IA/datos, empresa de hardware IoT, empresa de biotecnología sin plataforma digital escalable.
+   c) Disruptiva - No es startup ni EBT, pero tiene propuesta moderna, digital, innovadora. Servicios, marcas, agencias, e-commerce sin tech propia como core. SOLO clasifica como Disruptiva si NO hay evidencia clara de base tecnológica propia.
+   
+   ORDEN OBLIGATORIO de análisis: ¿Es Startup? → ¿Es EBT? → ¿Es Disruptiva?
+   
+   REGLA CLAVE: Si la empresa tiene tecnología propia (hardware, software, dispositivos, algoritmos, patentes) pero NO es un producto digital escalable tipo SaaS/marketplace/plataforma, entonces ES EBT, NO Disruptiva.
+
+   IMPORTANTE: Solo puedes usar las categorías que existen en la taxonomía: {categoriesList}. Escoge la más cercana.
+
+3. VERTICAL Y SUB-VERTICAL - Usa las existentes en la taxonomía si alguna aplica. Si ninguna aplica, sugiere una nueva. Si la empresa es EBT, NUNCA uses "SaaS" como vertical.
+
+4. DESCRIPCIÓN - Escribe un párrafo corto, claro y concreto describiendo la empresa. Máximo 3 oraciones.
+
+5. LOGO - Busca la URL del logo de la empresa en su sitio web. Debe ser una URL directa a una imagen (png, jpg, svg, webp).
+
+6. CONTACTOS - Para cada contacto, determina el género (male/female) basándote en el nombre.
+
+7. VALIDACIÓN LEGAL - Con los datos de RUES (si hay), valida/completa:
+   - Razón social correcta
+   - NIT correcto
+   - Nombre comercial (puede diferir de razón social, es el nombre de la marca)
+
+8. ESTADO - Determina si la empresa está activa o inactiva según la información encontrada.
+
+REGLAS:
+- Sé concreto y ejecutivo. No inventes.
+- Si la evidencia es débil, indica confianza media o baja.
+- La vertical debe ser lo más genérica posible.
+- La sub-vertical más específica.
+- PIENSA CUIDADOSAMENTE antes de clasificar. Analiza la evidencia del sitio web.
+
+Responde ÚNICAMENTE llamando la función analyze_company con los resultados.`;
+
 const DEFAULT_CONFIG: CompanyFitConfig = {
   model: 'gpt-5.4',
   reasoning_effort: 'high',
   prompt: '',
+  base_prompt: SYSTEM_BASE_PROMPT,
+  web_search_enabled: true,
   rues_enabled: true,
   rues_api_url: 'https://www.datos.gov.co/resource/c82u-588k.json',
 };
+
+const EDGE_FUNCTIONS = [
+  {
+    name: 'company-fit',
+    description: 'Analiza empresas con IA usando OpenAI + RUES para clasificación y enriquecimiento de datos.',
+    path: 'supabase/functions/company-fit/index.ts',
+  },
+];
 
 export default function CompanyFitSettings() {
   const [config, setConfig] = useState<CompanyFitConfig>(DEFAULT_CONFIG);
@@ -52,6 +125,8 @@ export default function CompanyFitSettings() {
   const [saving, setSaving] = useState(false);
   const [expandedLog, setExpandedLog] = useState<string | null>(null);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [basePromptOpen, setBasePromptOpen] = useState(false);
+  const [edgeFunctionsOpen, setEdgeFunctionsOpen] = useState<Record<string, boolean>>({});
 
   const fetchSettings = useCallback(async () => {
     const { data } = await supabase
@@ -61,7 +136,13 @@ export default function CompanyFitSettings() {
       .single();
     if (data) {
       setSettingsId(data.id);
-      setConfig({ ...DEFAULT_CONFIG, ...(data.config as any) });
+      const dbConfig = data.config as any;
+      setConfig({
+        ...DEFAULT_CONFIG,
+        ...dbConfig,
+        base_prompt: dbConfig.base_prompt || SYSTEM_BASE_PROMPT,
+        web_search_enabled: dbConfig.web_search_enabled !== false,
+      });
     }
   }, []);
 
@@ -111,9 +192,11 @@ export default function CompanyFitSettings() {
             <Select value={config.model} onValueChange={v => setConfig(c => ({ ...c, model: v }))}>
               <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="gpt-4.1">gpt-4.1</SelectItem>
-                <SelectItem value="gpt-4.1-mini">gpt-4.1-mini</SelectItem>
                 <SelectItem value="gpt-4.1-nano">gpt-4.1-nano</SelectItem>
+                <SelectItem value="gpt-4.1-mini">gpt-4.1-mini</SelectItem>
+                <SelectItem value="gpt-4.1">gpt-4.1</SelectItem>
+                <SelectItem value="gpt-5">gpt-5</SelectItem>
+                <SelectItem value="gpt-5-mini">gpt-5-mini</SelectItem>
                 <SelectItem value="gpt-5.4">gpt-5.4</SelectItem>
                 <SelectItem value="o3">o3</SelectItem>
                 <SelectItem value="o4-mini">o4-mini</SelectItem>
@@ -134,19 +217,64 @@ export default function CompanyFitSettings() {
           </div>
         </div>
 
-        <div>
-          <Label>Prompt personalizado (se agrega al prompt base)</Label>
-          <Textarea
-            className="mt-1 min-h-[120px] text-xs font-mono"
-            value={config.prompt}
-            onChange={e => setConfig(c => ({ ...c, prompt: e.target.value }))}
-            placeholder="Instrucciones adicionales para el análisis de empresas..."
-          />
-          <p className="text-xs text-muted-foreground mt-1">Deja vacío para usar solo el prompt base del sistema.</p>
+        {/* Web Search */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Globe className="h-4 w-4 text-muted-foreground" />
+            <div>
+              <p className="text-sm font-medium">Búsqueda web (web_search)</p>
+              <p className="text-xs text-muted-foreground">Permite al modelo buscar información en internet sobre la empresa</p>
+            </div>
+          </div>
+          <Switch checked={config.web_search_enabled} onCheckedChange={v => setConfig(c => ({ ...c, web_search_enabled: v }))} />
         </div>
 
         <Separator />
 
+        {/* Base Prompt */}
+        <Collapsible open={basePromptOpen} onOpenChange={setBasePromptOpen}>
+          <CollapsibleTrigger className="flex items-center gap-2 w-full text-left">
+            {basePromptOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            <span className="text-sm font-semibold">Prompt base del sistema</span>
+            <Badge variant="outline" className="text-[10px] ml-auto">editable</Badge>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-3">
+            <Textarea
+              className="min-h-[300px] text-xs font-mono leading-relaxed"
+              value={config.base_prompt}
+              onChange={e => setConfig(c => ({ ...c, base_prompt: e.target.value }))}
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Variables disponibles: {'{tradeName}'}, {'{legalName}'}, {'{nit}'}, {'{category}'}, {'{vertical}'}, {'{subVertical}'}, {'{description}'}, {'{city}'}, {'{website}'}, {'{ruesText}'}, {'{contactsText}'}, {'{taxonomyText}'}, {'{categoriesList}'}
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mt-2 text-xs"
+              onClick={() => setConfig(c => ({ ...c, base_prompt: SYSTEM_BASE_PROMPT }))}
+            >
+              Restaurar prompt por defecto
+            </Button>
+          </CollapsibleContent>
+        </Collapsible>
+
+        <Separator />
+
+        {/* Custom prompt */}
+        <div>
+          <Label>Prompt personalizado (se agrega al prompt base)</Label>
+          <Textarea
+            className="mt-1 min-h-[80px] text-xs font-mono"
+            value={config.prompt}
+            onChange={e => setConfig(c => ({ ...c, prompt: e.target.value }))}
+            placeholder="Instrucciones adicionales para el análisis de empresas..."
+          />
+          <p className="text-xs text-muted-foreground mt-1">Deja vacío para usar solo el prompt base.</p>
+        </div>
+
+        <Separator />
+
+        {/* RUES */}
         <div className="space-y-4">
           <div className="flex items-center gap-2">
             <Search className="h-4 w-4 text-muted-foreground" />
@@ -266,6 +394,61 @@ export default function CompanyFitSettings() {
             </div>
           </ScrollArea>
         )}
+      </div>
+
+      {/* Edge Functions */}
+      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Code2 className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-sm font-semibold">Edge Functions</h2>
+        </div>
+
+        <div className="space-y-3">
+          {EDGE_FUNCTIONS.map(fn => (
+            <div key={fn.name} className="rounded-lg border border-border p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold font-mono">{fn.name}</p>
+                    <Badge variant="secondary" className="text-[10px]">deployed</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">{fn.description}</p>
+                </div>
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1 text-xs"
+                    asChild
+                  >
+                    <a
+                      href={`https://supabase.com/dashboard/project/xcrlxgfwzxuvqztmvrvv/functions/company-fit/logs`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink className="h-3 w-3" /> Logs
+                    </a>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1 text-xs"
+                    asChild
+                  >
+                    <a
+                      href={`https://supabase.com/dashboard/project/xcrlxgfwzxuvqztmvrvv/functions`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink className="h-3 w-3" /> Dashboard
+                    </a>
+                  </Button>
+                </div>
+              </div>
+              <p className="text-[10px] font-mono text-muted-foreground">{fn.path}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -128,6 +128,8 @@ serve(async (req) => {
     const model = settings.model || "gpt-5.4";
     const reasoningEffort = settings.reasoning_effort || "high";
     const customPrompt = settings.prompt || "";
+    const dbBasePrompt = settings.base_prompt || "";
+    const webSearchEnabled = settings.web_search_enabled !== false;
     const ruesEnabled = settings.rues_enabled !== false;
     const ruesApiUrl = settings.rues_api_url || "https://www.datos.gov.co/resource/c82u-588k.json";
 
@@ -173,7 +175,26 @@ ${taxonomy.subVerticals.map((s) => `- ${s.vertical} → ${s.name}`).join("\n")}
       .map((c) => `- ${c.name} (id: ${c.id}, género actual: ${c.gender || "sin definir"})`)
       .join("\n");
 
-    const basePrompt = `Actúa como analista de CRM para clasificar empresas con base en su sitio web oficial y datos públicos.
+    // Use DB base prompt if set, otherwise use hardcoded default
+    let basePrompt: string;
+    if (dbBasePrompt && dbBasePrompt.trim()) {
+      // Replace template variables
+      basePrompt = dbBasePrompt
+        .replace(/\{tradeName\}/g, tradeName)
+        .replace(/\{legalName\}/g, legalName)
+        .replace(/\{nit\}/g, nit)
+        .replace(/\{category\}/g, category)
+        .replace(/\{vertical\}/g, vertical)
+        .replace(/\{subVertical\}/g, subVertical)
+        .replace(/\{description\}/g, description)
+        .replace(/\{city\}/g, city)
+        .replace(/\{website\}/g, website)
+        .replace(/\{ruesText\}/g, ruesText)
+        .replace(/\{contactsText\}/g, contactsText)
+        .replace(/\{taxonomyText\}/g, taxonomyText)
+        .replace(/\{categoriesList\}/g, taxonomy.categories.join(", "));
+    } else {
+      basePrompt = `Actúa como analista de CRM para clasificar empresas con base en su sitio web oficial y datos públicos.
 
 DATOS ACTUALES DE LA EMPRESA:
 - Nombre comercial: ${tradeName}
@@ -232,6 +253,7 @@ REGLAS:
 - PIENSA CUIDADOSAMENTE antes de clasificar. Analiza la evidencia del sitio web.
 
 Responde ÚNICAMENTE llamando la función analyze_company con los resultados.`;
+    }
 
     const fullPrompt = customPrompt 
       ? `${basePrompt}\n\nINSTRUCCIONES ADICIONALES DEL ADMINISTRADOR:\n${customPrompt}`
@@ -239,16 +261,13 @@ Responde ÚNICAMENTE llamando la función analyze_company con los resultados.`;
 
     const client = new OpenAI({ apiKey: OPENAI_API_KEY });
 
-    console.log(`Calling OpenAI ${model} with reasoning effort: ${reasoningEffort}...`);
+    console.log(`Calling OpenAI ${model} with reasoning effort: ${reasoningEffort}, web_search: ${webSearchEnabled}...`);
 
-    const response = await client.responses.create({
-      model,
-      reasoning: {
-        effort: reasoningEffort as any,
-      },
-      tools: [
-        { type: "web_search" as any },
-        {
+    const tools: any[] = [];
+    if (webSearchEnabled) {
+      tools.push({ type: "web_search" as any });
+    }
+    tools.push({
           type: "function",
           name: "analyze_company",
           description: "Return structured analysis results for the company",
@@ -288,8 +307,14 @@ Responde ÚNICAMENTE llamando la función analyze_company con los resultados.`;
             ],
             additionalProperties: false,
           },
-        },
-      ],
+    });
+
+    const response = await client.responses.create({
+      model,
+      reasoning: {
+        effort: reasoningEffort as any,
+      },
+      tools,
       input: fullPrompt,
     });
 
