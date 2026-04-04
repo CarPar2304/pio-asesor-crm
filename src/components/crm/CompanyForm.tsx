@@ -827,17 +827,17 @@ export default function CompanyForm({ open, onClose, company }: Props) {
 
             <Section title="Segmentación">
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Categoría" aiModified={aiModifiedFields.has('category')} isLoading={companyFitLoading}>
+                <Field label="Categoría" aiModified={aiModifiedFields.has('category')} isLoading={variablesLoading}>
                   <CreatableCombobox value={form.category} onChange={v => setForm(f => ({ ...f, category: v }))} options={allCategories} placeholder="Seleccionar categoría..." />
                 </Field>
-                <Field label="Vertical" aiModified={aiModifiedFields.has('vertical')} isLoading={companyFitLoading}>
+                <Field label="Vertical" aiModified={aiModifiedFields.has('vertical')} isLoading={variablesLoading}>
                   <CreatableCombobox value={form.vertical} onChange={v => setForm(f => ({ ...f, vertical: v, subVertical: '' }))} options={allVerticals}
                     placeholder="Seleccionar vertical..." allowEmpty
                     onCreate={async (name) => { await taxonomy.addVertical(name); }} />
                 </Field>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Sub-vertical" aiModified={aiModifiedFields.has('subVertical')} isLoading={companyFitLoading}>
+                <Field label="Sub-vertical" aiModified={aiModifiedFields.has('subVertical')} isLoading={variablesLoading}>
                   <CreatableCombobox value={form.subVertical} onChange={v => setForm(f => ({ ...f, subVertical: v }))} options={subVerticalOptions} placeholder="Seleccionar sub-vertical..."
                     allowEmpty
                     onCreate={async (name) => {
