@@ -104,17 +104,24 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     })));
   }, [session]);
 
+  const fetchAdminStatus = useCallback(async () => {
+    if (!session) { setIsAdmin(false); return; }
+    const { data } = await supabase.from('user_roles').select('role').eq('user_id', session.user.id);
+    setIsAdmin((data || []).some((r: any) => r.role === 'admin'));
+  }, [session]);
+
   useEffect(() => {
     if (!session) {
       setProfile(null);
       setAllProfiles([]);
       setSegments([]);
       setNotifications([]);
+      setIsAdmin(false);
       setLoading(false);
       return;
     }
-    Promise.all([fetchProfiles(), fetchSegments(), fetchNotifications()]).then(() => setLoading(false));
-  }, [session, fetchProfiles, fetchSegments, fetchNotifications]);
+    Promise.all([fetchProfiles(), fetchSegments(), fetchNotifications(), fetchAdminStatus()]).then(() => setLoading(false));
+  }, [session, fetchProfiles, fetchSegments, fetchNotifications, fetchAdminStatus]);
 
   // Real-time notifications
   useEffect(() => {
