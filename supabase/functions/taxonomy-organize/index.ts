@@ -8,6 +8,37 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+function buildManagedVerticalsBlock(managedVerticals: any[]) {
+  if (!managedVerticals?.length) return "Ninguna vertical gestionada.";
+  return managedVerticals.map((v: any) => {
+    const cats = v.categories?.length ? v.categories.join(", ") : "SIN CATEGORÍA";
+    const subs = v.sub_verticals?.length
+      ? v.sub_verticals.map((sv: any) => `${sv.name} [id:${sv.id}]`).join(", ")
+      : "ninguna";
+    return `- "${v.name}" [id:${v.id}] — categorías: [${cats}] — ${v.company_count} empresas — sub-verticales: [${subs}]`;
+  }).join("\n");
+}
+
+function buildManagedSubVerticalsBlock(managedSubVerticals: any[]) {
+  if (!managedSubVerticals?.length) return "Ninguna sub-vertical gestionada.";
+  return managedSubVerticals.map((sv: any) => {
+    const verts = sv.verticals?.length
+      ? sv.verticals.map((v: any) => `${v.name} [id:${v.id}]`).join(", ")
+      : "SIN VERTICAL";
+    return `- "${sv.name}" [id:${sv.id}] — verticales: [${verts}] — ${sv.company_count} empresas`;
+  }).join("\n");
+}
+
+function buildCategoriesBlock(categories: any[]) {
+  if (!categories?.length) return "Sin categorías.";
+  return categories.map((c: any) => {
+    const verts = c.verticals?.length
+      ? c.verticals.map((v: any) => v.name).join(", ")
+      : "ninguna";
+    return `- "${c.name}" — ${c.company_count} empresas — verticales vinculadas: [${verts}]`;
+  }).join("\n");
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -23,11 +54,20 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { taxonomyTree, definitions, orphanVerticals, orphanSubVerticals, companyCounts } = body;
+    const {
+      taxonomyTree,
+      definitions,
+      categories: categoriesData,
+      managedVerticals,
+      managedSubVerticals,
+      orphanVerticals,
+      orphanSubVerticals,
+      companyCounts,
+      diagnostics,
+    } = body;
 
     const client = new OpenAI({ apiKey: OPENAI_API_KEY });
 
-    // Fetch settings for model config dynamically
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
@@ -44,82 +84,130 @@ serve(async (req) => {
     const webSearchEnabled = settings.web_search_enabled !== false;
     const customPrompt = settings.prompt || "";
 
+    const orphanVerticalsBlock = orphanVerticals?.length > 0
+      ? orphanVerticals.map((v: any) => `- "${v.name}" (${v.count} empresas)`).join("\n")
+      : "Ninguna";
+
+    const orphanSubVerticalsBlock = orphanSubVerticals?.length > 0
+      ? orphanSubVerticals.map((v: any) => `- "${v.name}" (${v.count} empresas)`).join("\n")
+      : "Ninguna";
+
     const prompt = `Eres un experto en gestión de taxonomías para CRM de ecosistemas de innovación, startups y empresas de base tecnológica en Colombia y Latinoamérica.
 
-Tu MISIÓN PRINCIPAL es organizar COMPLETAMENTE la taxonomía. Esto significa:
-1. TODOS los valores huérfanos (sin gestionar) DEBEN quedar organizados: vinculados, fusionados o eliminados.
-2. Las verticales y sub-verticales existentes deben estar limpias, sin duplicados ni inconsistencias.
-3. Las verticales que aplican a múltiples categorías deben compartirse.
+Tu misión es realizar un ANÁLISIS INTEGRAL Y EXHAUSTIVO de toda la taxonomía. No te limites a una sola tarea. Debes cubrir TODAS estas áreas en una sola pasada:
+
+▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰
+ÁREA 1: HUÉRFANOS — Organizar TODOS los valores sin gestionar
+▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰
+Cada valor huérfano DEBE recibir una acción: link, merge, rename, share o delete.
+NO dejes NINGÚN huérfano sin procesar. Si no encaja en nada existente, créalo con link.
+
+▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰
+ÁREA 2: FUSIONES entre verticales YA GESTIONADAS
+▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰
+Analiza TODAS las verticales gestionadas buscando:
+- Sinónimos o variantes: "FoodTech" vs "FoodTech: alimentos", "IA / Machine Learning" vs "IA + Soluciones de Negocio"
+- Subconjuntos: si una vertical es un caso particular de otra más general
+- Duplicados con distinta capitalización o formato
+Sugiere merge del menos usado al más usado.
+
+▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰
+ÁREA 3: FUSIONES entre sub-verticales YA GESTIONADAS
+▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰
+Misma lógica que Área 2 pero para sub-verticales. Busca duplicados, sinónimos y subconjuntos.
+
+▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰
+ÁREA 4: COMPARTIR verticales entre categorías
+▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰
+Usa las DEFINICIONES de cada categoría para determinar si una vertical debería estar disponible en más de una categoría.
+Ejemplo: "HealthTech" puede aplicar a Startup, EBT y Disruptiva. "FinTech" a Startup y EBT.
+Revisa CADA vertical gestionada y evalúa si debería compartirse según las definiciones.
+
+▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰
+ÁREA 5: RENOMBRAMIENTOS de consistencia
+▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰▰
+- PascalCase para verticales tech: "HealthTech", "EdTech", "FinTech", "AgriTech"
+- Eliminar sufijos innecesarios como ": salud", ": alimentos", ": procesos industriales"
+- Corregir errores tipográficos
 
 ═══════════════════════════════════════
 DEFINICIONES DEL SISTEMA DE CLASIFICACIÓN
 ═══════════════════════════════════════
-${definitions || "No hay definiciones configuradas aún. Usa tu criterio de experto en ecosistemas de innovación."}
+${definitions || "No hay definiciones configuradas. Usa tu criterio de experto."}
 
 ═══════════════════════════════════════
-ÁRBOL TAXONÓMICO ACTUAL (COMPLETO)
+ÁRBOL TAXONÓMICO LEGIBLE
 ═══════════════════════════════════════
 ${taxonomyTree}
 
 ═══════════════════════════════════════
-VALORES SIN GESTIONAR (HUÉRFANOS) — PRIORIDAD MÁXIMA
+CATEGORÍAS ESTRUCTURADAS (con verticales vinculadas)
 ═══════════════════════════════════════
-⚠️ TODOS estos valores DEBEN ser procesados. No dejes ninguno sin una acción asignada.
+${buildCategoriesBlock(categoriesData)}
 
-Verticales huérfanas (existen en empresas pero no están vinculadas a ninguna categoría):
-${orphanVerticals.length > 0 ? orphanVerticals.map((v: any) => `- "${v.name}" (${v.count} empresas)`).join("\n") : "Ninguna"}
+═══════════════════════════════════════
+VERTICALES GESTIONADAS (con relaciones completas)
+═══════════════════════════════════════
+${buildManagedVerticalsBlock(managedVerticals)}
+
+═══════════════════════════════════════
+SUB-VERTICALES GESTIONADAS (con relaciones completas)
+═══════════════════════════════════════
+${buildManagedSubVerticalsBlock(managedSubVerticals)}
+
+═══════════════════════════════════════
+VALORES HUÉRFANOS — PRIORIDAD MÁXIMA
+═══════════════════════════════════════
+⚠️ TODOS deben tener una acción asignada. No dejes ninguno.
+
+Verticales huérfanas:
+${orphanVerticalsBlock}
 
 Sub-verticales huérfanas:
-${orphanSubVerticals.length > 0 ? orphanSubVerticals.map((v: any) => `- "${v.name}" (${v.count} empresas)`).join("\n") : "Ninguna"}
+${orphanSubVerticalsBlock}
 
 ═══════════════════════════════════════
-CONTEO DE USO POR EMPRESA
+CONTEO DE USO
 ═══════════════════════════════════════
 ${companyCounts}
 
 ═══════════════════════════════════════
-INSTRUCCIONES DETALLADAS
+DIAGNÓSTICO DEL PAYLOAD VALIDADO
 ═══════════════════════════════════════
+${diagnostics ? JSON.stringify(diagnostics, null, 2) : "No disponible"}
 
-Para cada valor huérfano, decide UNA de estas acciones:
-
-1. **VINCULAR (link)** — Si el valor huérfano corresponde a una vertical/sub-vertical existente en la taxonomía pero no está vinculado:
-   - Vincula a la categoría correcta (para verticales) o a la vertical correcta (para sub-verticales).
-   - Si aplica a múltiples categorías, usa COMPARTIR en vez de vincular.
-
-2. **FUSIONAR (merge)** — Si el valor huérfano es un sinónimo o variante de un término existente:
-   - Fusiona con el término ya gestionado.
-   - Ejemplo: "Fintech" y "FinTech" → fusionar. "IoT" y "Internet of Things" → fusionar.
-
-3. **RENOMBRAR (rename)** — Si el nombre tiene errores tipográficos, capitalización inconsistente o podría ser más claro.
-
-4. **COMPARTIR (share)** — Si una vertical aplica a más de una categoría (ej: "SaaS" en Startup, "IoT" en EBT y Startup).
-
-5. **MOVER (move)** — Si una vertical está en la categoría incorrecta.
-
-6. **ELIMINAR (delete)** — SOLO si no tiene empresas asociadas Y no aporta valor a la taxonomía.
+═══════════════════════════════════════
+ACCIONES DISPONIBLES
+═══════════════════════════════════════
+1. link — Vincular un huérfano a una categoría (para verticales) o a una vertical (para sub-verticales). Incluye destination_name (categoría o vertical) y destination_id si es vertical.
+2. merge — Fusionar un término (huérfano O gestionado) con otro gestionado. Incluye target_id (vacío si huérfano) y destination_id.
+3. rename — Renombrar un término. Incluye target_id (vacío si huérfano) y new_name.
+4. share — Compartir una vertical gestionada con una categoría adicional. target_id = ID de la vertical, destination_name = nombre de la categoría destino.
+5. move — Mover una vertical de una categoría a otra. target_id = ID vertical, destination_name = categoría destino.
+6. delete — Eliminar un término sin empresas y sin valor. target_id (vacío si huérfano).
 
 REGLAS CRÍTICAS:
-- ⚠️ NO dejes NINGÚN valor huérfano sin acción. Cada uno debe tener una sugerencia.
-- Prioriza VINCULAR sobre crear nuevos términos.
-- Si un huérfano no coincide con nada existente pero tiene empresas, VINCÚLALO a la categoría más apropiada.
-- SaaS NUNCA como vertical de EBT. Es exclusiva de Startup.
-- Si una vertical como "HealthTech", "EdTech", "FinTech" aplica a múltiples categorías, sugiere COMPARTIR.
-- Sé agresivo fusionando: si dos términos significan esencialmente lo mismo, fusiona.
-- Prioriza consistencia de nombres (PascalCase para verticales tech: "HealthTech", "EdTech", "FinTech", "AgriTech").
-- Las sub-verticales huérfanas deben vincularse a la vertical más apropiada.
+- ⚠️ CERO huérfanos deben quedar sin acción.
+- Analiza fusiones entre verticales GESTIONADAS (no solo huérfanos).
+- Analiza fusiones entre sub-verticales GESTIONADAS.
+- Evalúa sharing de verticales entre categorías usando las DEFINICIONES.
+- SaaS NUNCA como vertical de EBT.
+- Sé agresivo fusionando sinónimos y variantes.
+- Incluye target_id y destination_id siempre que los IDs estén disponibles en el contexto.
 
 PRIORIDADES:
-- HIGH: todos los valores huérfanos con empresas, fusiones de duplicados
-- MEDIUM: compartir verticales entre categorías, renombramientos de consistencia
-- LOW: eliminar términos vacíos, reorganizaciones menores
+- HIGH: huérfanos con empresas, fusiones de duplicados gestionados
+- MEDIUM: compartir verticales entre categorías, renombramientos
+- LOW: eliminar vacíos, reorganizaciones menores
 
-${customPrompt ? `\nINSTRUCCIONES ADICIONALES DEL USUARIO:\n${customPrompt}` : ""}
+${customPrompt ? "\nINSTRUCCIONES ADICIONALES DEL USUARIO:\n" + customPrompt : ""}
 
-Responde ÚNICAMENTE llamando la función suggest_taxonomy_changes. DEBES incluir una sugerencia para CADA valor huérfano listado arriba.`;
+Responde ÚNICAMENTE llamando la función suggest_taxonomy_changes.`;
 
-    console.log(`Calling OpenAI ${model} (reasoning: ${reasoningEffort}, web: ${webSearchEnabled}) for taxonomy organization...`);
-    console.log(`Orphan verticals: ${orphanVerticals.length}, Orphan sub-verticals: ${orphanSubVerticals.length}`);
+    console.log("Calling OpenAI " + model + " (reasoning: " + reasoningEffort + ", web: " + webSearchEnabled + ")");
+    console.log("Payload: " + (diagnostics ? JSON.stringify(diagnostics) : "no diagnostics"));
+    console.log("Orphan verticals: " + (orphanVerticals?.length || 0) + ", Orphan sub-verticals: " + (orphanSubVerticals?.length || 0));
+    console.log("Managed verticals: " + (managedVerticals?.length || 0) + ", Managed sub-verticals: " + (managedSubVerticals?.length || 0));
 
     const tools: any[] = [];
     if (webSearchEnabled) {
@@ -128,20 +216,20 @@ Responde ÚNICAMENTE llamando la función suggest_taxonomy_changes. DEBES inclui
     tools.push({
       type: "function",
       name: "suggest_taxonomy_changes",
-      description: "Return structured taxonomy reorganization suggestions. MUST include a suggestion for every orphan value.",
+      description: "Return structured taxonomy reorganization suggestions covering ALL 5 areas: orphans, vertical merges, sub-vertical merges, category sharing, and renames.",
       parameters: {
         type: "object",
         properties: {
           summary: {
             type: "string",
-            description: "Brief overall assessment of the taxonomy health (2-3 sentences). Include count of orphans processed.",
+            description: "Assessment covering all 5 areas analyzed. Include counts: orphans processed, merges proposed, shares proposed, renames proposed.",
           },
           suggestions: {
             type: "array",
             items: {
               type: "object",
               properties: {
-                id: { type: "string", description: "Unique ID for this suggestion (e.g. 'sug-1')" },
+                id: { type: "string", description: "Unique ID (e.g. 'sug-1')" },
                 action: {
                   type: "string",
                   enum: ["merge", "rename", "delete", "move", "link", "share"],
@@ -155,12 +243,12 @@ Responde ÚNICAMENTE llamando la función suggest_taxonomy_changes. DEBES inclui
                   enum: ["category", "vertical", "sub_vertical"],
                 },
                 target_name: { type: "string", description: "Name of the item to act on" },
-                target_id: { type: "string", description: "ID of the item if known, empty string if orphan" },
+                target_id: { type: "string", description: "ID of the item if known (from the structured data), empty string if orphan" },
                 destination_name: { type: ["string", "null"], description: "For merge/move/link/share: destination name" },
-                destination_id: { type: ["string", "null"], description: "For merge/move/link/share: destination ID if known" },
+                destination_id: { type: ["string", "null"], description: "For merge/move/link/share: destination ID from the structured data" },
                 new_name: { type: ["string", "null"], description: "For rename: the new name" },
-                reason: { type: "string", description: "Brief explanation of why this change is suggested" },
-                affected_companies: { type: "number", description: "Number of companies affected by this change" },
+                reason: { type: "string", description: "Brief explanation" },
+                affected_companies: { type: "number", description: "Number of companies affected" },
               },
               required: ["id", "action", "priority", "target_type", "target_name", "reason", "affected_companies"],
             },
@@ -200,10 +288,22 @@ Responde ÚNICAMENTE llamando la función suggest_taxonomy_changes. DEBES inclui
       );
     }
 
+    result._meta = {
+      model,
+      reasoning_effort: reasoningEffort,
+      orphan_verticals: orphanVerticals?.length || 0,
+      orphan_sub_verticals: orphanSubVerticals?.length || 0,
+      managed_verticals: managedVerticals?.length || 0,
+      managed_sub_verticals: managedSubVerticals?.length || 0,
+      diagnostics: diagnostics || null,
+    };
+
     console.log("Taxonomy organize result:", {
       suggestionsCount: result.suggestions?.length || 0,
-      orphanVerticalsInput: orphanVerticals.length,
-      orphanSubVerticalsInput: orphanSubVerticals.length,
+      orphanVerticalsInput: orphanVerticals?.length || 0,
+      orphanSubVerticalsInput: orphanSubVerticals?.length || 0,
+      managedVerticalsInput: managedVerticals?.length || 0,
+      managedSubVerticalsInput: managedSubVerticals?.length || 0,
     });
 
     return new Response(JSON.stringify(result), {
