@@ -16,8 +16,8 @@ import { Plus, Trash2, Upload, X, ChevronsUpDown, Check, Settings2, Pencil, Spar
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { GooeyLoader } from '@/components/ui/gooey-loader';
 
 interface Props {
   open: boolean;
