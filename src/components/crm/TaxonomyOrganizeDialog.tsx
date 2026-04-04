@@ -309,6 +309,41 @@ export default function TaxonomyOrganizeDialog({ open, onClose, definitions }: P
       setSelectedIds(new Set(highPriority));
 
       setStage('¡Listo!');
+
+      // Persist run log to feature_settings
+      try {
+        const meta = data._meta || {};
+        const logEntry = {
+          id: crypto.randomUUID(),
+          created_at: new Date().toISOString(),
+          model: meta.model || 'unknown',
+          reasoning_effort: meta.reasoning_effort || 'unknown',
+          suggestions_count: data.suggestions?.length || 0,
+          orphan_verticals: meta.orphan_verticals || 0,
+          orphan_sub_verticals: meta.orphan_sub_verticals || 0,
+          diagnostics: meta.diagnostics || diagnostics,
+          summary: data.summary || '',
+        };
+
+        const { data: existing } = await supabase
+          .from('feature_settings')
+          .select('id, config')
+          .eq('feature_key', 'taxonomy_organize')
+          .single();
+
+        if (existing) {
+          const currentConfig = (existing.config as any) || {};
+          const history = Array.isArray(currentConfig.run_history) ? currentConfig.run_history : [];
+          history.unshift(logEntry);
+          if (history.length > 20) history.length = 20;
+          await supabase
+            .from('feature_settings')
+            .update({ config: { ...currentConfig, run_history: history } as any, updated_at: new Date().toISOString() } as any)
+            .eq('id', existing.id);
+        }
+      } catch (logErr) {
+        console.warn('Failed to persist organize log:', logErr);
+      }
     } catch (err: any) {
       console.error('Taxonomy organize error:', err);
       showError('Error', err.message || 'No se pudo analizar la taxonomía');
