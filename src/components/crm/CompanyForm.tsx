@@ -1072,15 +1072,17 @@ export default function CompanyForm({ open, onClose, company }: Props) {
         </ScrollArea>
         <div className="flex items-center border-t border-border px-6 py-3">
           <div className="flex items-center gap-1.5">
-            {isEdit && company?.id && (
+            {form.website && (
               <Button
                 variant="ghost"
                 size="sm"
                 className="gap-1 text-xs text-muted-foreground"
-                onClick={() => { onClose(); navigate(`/empresa/${company.id}`); }}
+                asChild
               >
-                <ExternalLink className="h-3.5 w-3.5" />
-                Ver perfil
+                <a href={form.website.startsWith('http') ? form.website : `https://${form.website}`} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Visitar web
+                </a>
               </Button>
             )}
             {(isEdit || form.website || form.tradeName.trim()) && (
