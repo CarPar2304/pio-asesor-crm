@@ -71,17 +71,32 @@ async function lookupRUES(
   }
 
   if (tradeName) {
-    attempts.push(`razon_social=${tradeName.toUpperCase()}`);
-    const r3 = await queryRUES(baseUrl, { razon_social: tradeName.toUpperCase() });
+    const tradeUpper = tradeName.toUpperCase();
+    // Exact match first
+    attempts.push(`razon_social=${tradeUpper}`);
+    const r3 = await queryRUES(baseUrl, { razon_social: tradeUpper });
     if (r3.length > 0)
       return { data: r3, query: `razon_social=${tradeName}`, attempts };
+
+    // Partial match (LIKE) - useful when legal name includes suffixes like "S.A.S", "BIC", etc.
+    attempts.push(`razon_social LIKE '%${tradeUpper}%'`);
+    const r3b = await queryRUES(baseUrl, { "$where": `upper(razon_social) like '%${tradeUpper}%'` });
+    if (r3b.length > 0)
+      return { data: r3b, query: `razon_social LIKE ${tradeName}`, attempts };
   }
 
   if (legalName && legalName !== tradeName) {
-    attempts.push(`razon_social=${legalName.toUpperCase()}`);
-    const r4 = await queryRUES(baseUrl, { razon_social: legalName.toUpperCase() });
+    const legalUpper = legalName.toUpperCase();
+    attempts.push(`razon_social=${legalUpper}`);
+    const r4 = await queryRUES(baseUrl, { razon_social: legalUpper });
     if (r4.length > 0)
       return { data: r4, query: `razon_social=${legalName}`, attempts };
+
+    // Partial match for legal name too
+    attempts.push(`razon_social LIKE '%${legalUpper}%'`);
+    const r4b = await queryRUES(baseUrl, { "$where": `upper(razon_social) like '%${legalUpper}%'` });
+    if (r4b.length > 0)
+      return { data: r4b, query: `razon_social LIKE ${legalName}`, attempts };
   }
 
   return { data: null, query: "no results", attempts };
