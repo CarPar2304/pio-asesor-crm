@@ -128,6 +128,8 @@ serve(async (req) => {
     const model = settings.model || "gpt-5.4";
     const reasoningEffort = settings.reasoning_effort || "high";
     const customPrompt = settings.prompt || "";
+    const dbBasePrompt = settings.base_prompt || "";
+    const webSearchEnabled = settings.web_search_enabled !== false;
     const ruesEnabled = settings.rues_enabled !== false;
     const ruesApiUrl = settings.rues_api_url || "https://www.datos.gov.co/resource/c82u-588k.json";
 
