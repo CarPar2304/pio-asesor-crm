@@ -341,6 +341,63 @@ function AddSectionDialog({ open, onClose, onAdd }: { open: boolean; onClose: ()
   );
 }
 
+function CompanyFitLoadingAnimation({ stage }: { stage: string }) {
+  const [elapsed, setElapsed] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval>>();
+
+  useEffect(() => {
+    setElapsed(0);
+    intervalRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
+    return () => clearInterval(intervalRef.current);
+  }, []);
+
+  const formatTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return m > 0 ? `${m}:${sec.toString().padStart(2, '0')}` : `${sec}s`;
+  };
+
+  const steps = [
+    { label: 'Analizando sitio web', done: elapsed >= 3 },
+    { label: 'Clasificando empresa', done: elapsed >= 8 },
+    { label: 'Razonando categoría', done: elapsed >= 15 },
+    { label: 'Generando resultados', done: elapsed >= 22 },
+  ];
+
+  return (
+    <div className="flex flex-col items-center gap-3 py-3">
+      <div className="relative">
+        <div className="h-10 w-10 rounded-full border-3 border-primary/20 border-t-primary animate-spin" />
+        <Sparkles className="h-4 w-4 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+      </div>
+      <div className="text-center space-y-0.5">
+        <p className="text-xs font-medium text-primary animate-pulse">{stage}</p>
+        <div className="flex items-center gap-1 justify-center text-muted-foreground">
+          <Clock className="h-2.5 w-2.5" />
+          <p className="text-[10px]">{formatTime(elapsed)}</p>
+        </div>
+      </div>
+      <div className="space-y-1 w-48">
+        {steps.map((step, i) => (
+          <div key={i} className="flex items-center gap-1.5">
+            {step.done ? (
+              <CheckCircle2 className="h-3 w-3 text-primary shrink-0" />
+            ) : (
+              <div className="h-3 w-3 rounded-full border border-muted-foreground/30 shrink-0" />
+            )}
+            <span className={cn("text-[10px]", step.done ? "text-foreground" : "text-muted-foreground")}>{step.label}</span>
+          </div>
+        ))}
+      </div>
+      {elapsed > 25 && (
+        <p className="text-[9px] text-muted-foreground max-w-[200px] text-center">
+          El modelo está razonando. Puede tardar hasta 2 min.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function CompanyForm({ open, onClose, company }: Props) {
   const { addCompany, updateCompany, saveFieldValues } = useCRM();
   const taxonomy = useTaxonomy();
@@ -348,6 +405,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
   const { sections, fields, addSection, addField, deleteSection, deleteField, updateField, updateSection } = useCustomFields();
   const isEdit = !!company;
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
 
   const [form, setForm] = useState({
     tradeName: '', legalName: '', nit: '', category: 'Startup',
