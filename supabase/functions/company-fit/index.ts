@@ -280,7 +280,7 @@ Responde ÚNICAMENTE llamando la función analyze_company con los resultados.`;
               description: { type: "string", description: "Short company description, 1-3 sentences" },
               logoUrl: { type: ["string", "null"], description: "Direct URL to company logo image, or null" },
               legalName: { type: ["string", "null"], description: "Validated legal name from RUES or web" },
-              nit: { type: ["string", "null"], description: "Validated NIT from RUES or web" },
+              nit: { type: ["string", "null"], description: "Validated NIT from RUES or web. Return ONLY the base NIT number WITHOUT the verification digit (e.g. '901313597' not '901313597-7')" },
               tradeName: { type: ["string", "null"], description: "Validated trade/brand name" },
               contacts: {
                 type: "array",
