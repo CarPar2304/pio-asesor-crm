@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback, memo } from 'react';
 import { Company } from '@/types/crm';
 import { calculateGrowth, formatCOP, formatPercentage } from '@/lib/calculations';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -17,16 +17,22 @@ interface Props {
 type SortKey = 'tradeName' | 'category' | 'vertical' | 'city' | 'sales' | 'avgYoY' | 'lastYoY' | 'tasks';
 type SortDir = 'asc' | 'desc';
 
-export default function CompanyTable({ companies, onOpenProfile, activeYear, onDelete }: Props) {
+function CompanyTable({ companies, onOpenProfile, activeYear, onDelete }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('tradeName');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
 
-  const toggleSort = (key: SortKey) => {
-    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-    else { setSortKey(key); setSortDir('asc'); }
-  };
+  const toggleSort = useCallback((key: SortKey) => {
+    setSortKey(prev => {
+      if (prev === key) {
+        setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+        return prev;
+      }
+      setSortDir('asc');
+      return key;
+    });
+  }, []);
 
-  const sorted = [...companies].sort((a, b) => {
+  const sorted = useMemo(() => [...companies].sort((a, b) => {
     const dir = sortDir === 'asc' ? 1 : -1;
     switch (sortKey) {
       case 'tradeName': return a.tradeName.localeCompare(b.tradeName) * dir;
@@ -39,7 +45,7 @@ export default function CompanyTable({ companies, onOpenProfile, activeYear, onD
       case 'tasks': return (a.tasks.filter(t => t.status === 'pending').length - b.tasks.filter(t => t.status === 'pending').length) * dir;
       default: return 0;
     }
-  });
+  }), [companies, sortKey, sortDir, activeYear]);
 
   const SortIcon = ({ col }: { col: SortKey }) => {
     if (sortKey !== col) return null;
@@ -118,3 +124,5 @@ export default function CompanyTable({ companies, onOpenProfile, activeYear, onD
     </div>
   );
 }
+
+export default memo(CompanyTable);
