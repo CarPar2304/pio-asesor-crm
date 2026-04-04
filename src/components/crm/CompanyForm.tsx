@@ -363,7 +363,6 @@ export default function CompanyForm({ open, onClose, company }: Props) {
 
   // Company Fit AI state
   const [companyFitLoading, setCompanyFitLoading] = useState(false);
-  const [companyFitProgress, setCompanyFitProgress] = useState(0);
   const [companyFitStage, setCompanyFitStage] = useState('');
   const [aiModifiedFields, setAiModifiedFields] = useState<Set<string>>(new Set());
 
