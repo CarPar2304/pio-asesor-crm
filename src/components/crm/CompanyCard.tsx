@@ -39,7 +39,7 @@ function CompanyCard({ company, onOpenProfile, onQuickAction, onDelete }: Props)
 
   return (
     <Card
-      className="group relative flex flex-col overflow-hidden border border-border/60 bg-card transition-all duration-200 hover:shadow-lg hover:shadow-primary/5 hover:border-primary/20 cursor-pointer"
+      className="group relative flex flex-col overflow-hidden border border-border/60 bg-card transition-colors duration-150 hover:border-primary/20 cursor-pointer"
       onClick={() => onOpenProfile(company.id)}
     >
       <CardHeader className="pb-2">
