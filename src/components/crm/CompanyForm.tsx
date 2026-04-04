@@ -865,7 +865,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
             <Separator />
 
             <Section title="Descripción">
-              {companyFitLoading ? (
+              {variablesLoading ? (
                 <div className="space-y-2">
                   <Skeleton className="h-4 w-full" />
                   <Skeleton className="h-4 w-3/4" />
