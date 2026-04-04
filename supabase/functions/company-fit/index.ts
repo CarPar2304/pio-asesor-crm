@@ -261,16 +261,13 @@ Responde ÚNICAMENTE llamando la función analyze_company con los resultados.`;
 
     const client = new OpenAI({ apiKey: OPENAI_API_KEY });
 
-    console.log(`Calling OpenAI ${model} with reasoning effort: ${reasoningEffort}...`);
+    console.log(`Calling OpenAI ${model} with reasoning effort: ${reasoningEffort}, web_search: ${webSearchEnabled}...`);
 
-    const response = await client.responses.create({
-      model,
-      reasoning: {
-        effort: reasoningEffort as any,
-      },
-      tools: [
-        { type: "web_search" as any },
-        {
+    const tools: any[] = [];
+    if (webSearchEnabled) {
+      tools.push({ type: "web_search" as any });
+    }
+    tools.push({
           type: "function",
           name: "analyze_company",
           description: "Return structured analysis results for the company",
