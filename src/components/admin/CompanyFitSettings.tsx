@@ -395,6 +395,58 @@ export default function CompanyFitSettings() {
               onChange={e => setConfig(c => ({ ...c, rues_api_url: e.target.value }))}
             />
           </div>
+
+          <Separator />
+
+          {/* RUES Search Fields */}
+          <div className="space-y-2">
+            <Label className="text-xs">Campos de búsqueda (orden de prioridad)</Label>
+            <p className="text-[10px] text-muted-foreground">Campos que se envían a RUES para buscar la empresa</p>
+            <div className="space-y-1.5">
+              {['nit', 'razon_social', 'nombre_comercial'].map(field => {
+                const isActive = config.rues_search_fields.includes(field);
+                const labels: Record<string, string> = { nit: 'NIT', razon_social: 'Razón Social', nombre_comercial: 'Nombre Comercial' };
+                return (
+                  <label key={field} className="flex items-center gap-2 text-xs cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isActive}
+                      onChange={e => {
+                        setConfig(c => ({
+                          ...c,
+                          rues_search_fields: e.target.checked
+                            ? [...c.rues_search_fields, field]
+                            : c.rues_search_fields.filter(f => f !== field),
+                        }));
+                      }}
+                      className="rounded"
+                    />
+                    <span className="font-mono text-muted-foreground">{field}</span>
+                    <span className="text-muted-foreground">→</span>
+                    <span>{labels[field]}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* RUES Response Mapping */}
+          <div className="space-y-2">
+            <Label className="text-xs">Mapeo de respuesta RUES</Label>
+            <p className="text-[10px] text-muted-foreground">Campos que se extraen de RUES y su destino en el CRM</p>
+            <div className="space-y-1 rounded-lg border border-border p-2">
+              {config.rues_response_mapping.map((m, i) => (
+                <div key={i} className="flex items-center gap-2 text-xs">
+                  <span className="font-mono text-muted-foreground min-w-[140px]">{m.source}</span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="font-medium">{m.label}</span>
+                  <span className="text-[10px] text-muted-foreground ml-auto">({m.target})</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         <Button onClick={handleSave} disabled={saving} className="gap-2">
