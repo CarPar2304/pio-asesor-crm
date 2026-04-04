@@ -1071,32 +1071,45 @@ export default function CompanyForm({ open, onClose, company }: Props) {
           </div>
         </ScrollArea>
         <div className="flex items-center border-t border-border px-6 py-3">
-          {(isEdit || form.website || form.tradeName.trim()) && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 text-xs mr-auto"
-                  disabled={companyFitLoading || !form.tradeName.trim()}
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Company Fit
-                  <ChevronDown className="h-3 w-3 ml-0.5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuItem onClick={() => handleCompanyFit('rues')} className="gap-2 text-xs">
-                  <Search className="h-3.5 w-3.5" />
-                  RUES (Razón social y NIT)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleCompanyFit('variables')} disabled={!form.website} className="gap-2 text-xs">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Variables (Clasificación IA)
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          <div className="flex items-center gap-1.5">
+            {isEdit && company?.id && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1 text-xs text-muted-foreground"
+                onClick={() => { onClose(); navigate(`/empresa/${company.id}`); }}
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Ver perfil
+              </Button>
+            )}
+            {(isEdit || form.website || form.tradeName.trim()) && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-xs"
+                    disabled={companyFitLoading || !form.tradeName.trim()}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Company Fit
+                    <ChevronDown className="h-3 w-3 ml-0.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem onClick={() => handleCompanyFit('rues')} className="gap-2 text-xs">
+                    <Search className="h-3.5 w-3.5" />
+                    RUES (Razón social y NIT)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleCompanyFit('variables')} disabled={!form.website} className="gap-2 text-xs">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Variables (Clasificación IA)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
           <div className="flex gap-2 ml-auto">
             <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
             <Button size="sm" onClick={handleSave} disabled={!form.tradeName.trim() || uploading}>

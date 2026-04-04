@@ -39,17 +39,22 @@ serve(async (req) => {
       .single();
 
     const settings = (settingsRow?.config as any) || {};
-    const model = settings.model || "gpt-4.1-mini";
+    const model = settings.model || "gpt-4.1";
     const reasoningEffort = settings.reasoning_effort || "high";
     const webSearchEnabled = settings.web_search_enabled !== false;
     const customPrompt = settings.prompt || "";
 
     const prompt = `Eres un experto en gestión de taxonomías para CRM de ecosistemas de innovación, startups y empresas de base tecnológica en Colombia y Latinoamérica.
 
+Tu MISIÓN PRINCIPAL es organizar COMPLETAMENTE la taxonomía. Esto significa:
+1. TODOS los valores huérfanos (sin gestionar) DEBEN quedar organizados: vinculados, fusionados o eliminados.
+2. Las verticales y sub-verticales existentes deben estar limpias, sin duplicados ni inconsistencias.
+3. Las verticales que aplican a múltiples categorías deben compartirse.
+
 ═══════════════════════════════════════
 DEFINICIONES DEL SISTEMA DE CLASIFICACIÓN
 ═══════════════════════════════════════
-${definitions || "No hay definiciones configuradas aún."}
+${definitions || "No hay definiciones configuradas aún. Usa tu criterio de experto en ecosistemas de innovación."}
 
 ═══════════════════════════════════════
 ÁRBOL TAXONÓMICO ACTUAL (COMPLETO)
@@ -57,8 +62,10 @@ ${definitions || "No hay definiciones configuradas aún."}
 ${taxonomyTree}
 
 ═══════════════════════════════════════
-VALORES SIN GESTIONAR (HUÉRFANOS)
+VALORES SIN GESTIONAR (HUÉRFANOS) — PRIORIDAD MÁXIMA
 ═══════════════════════════════════════
+⚠️ TODOS estos valores DEBEN ser procesados. No dejes ninguno sin una acción asignada.
+
 Verticales huérfanas (existen en empresas pero no están vinculadas a ninguna categoría):
 ${orphanVerticals.length > 0 ? orphanVerticals.map((v: any) => `- "${v.name}" (${v.count} empresas)`).join("\n") : "Ninguna"}
 
@@ -71,30 +78,48 @@ CONTEO DE USO POR EMPRESA
 ${companyCounts}
 
 ═══════════════════════════════════════
-TU TAREA
+INSTRUCCIONES DETALLADAS
 ═══════════════════════════════════════
 
-Analiza la taxonomía completa y sugiere acciones de organización. Para cada sugerencia, especifica:
+Para cada valor huérfano, decide UNA de estas acciones:
 
-1. **FUSIONAR** - Dos o más términos que significan lo mismo o son muy similares deben fusionarse en uno.
-2. **RENOMBRAR** - Nombres inconsistentes, con errores tipográficos, o que podrían ser más claros.
-3. **ELIMINAR** - Términos redundantes, vacíos, o que no tienen empresas asociadas y no aportan valor.
-4. **MOVER** - Verticales o sub-verticales que están en la categoría incorrecta.
-5. **VINCULAR** - Valores huérfanos que deberían integrarse en la taxonomía gestionada.
-6. **COMPARTIR** - Verticales que aplican a más de una categoría.
+1. **VINCULAR (link)** — Si el valor huérfano corresponde a una vertical/sub-vertical existente en la taxonomía pero no está vinculado:
+   - Vincula a la categoría correcta (para verticales) o a la vertical correcta (para sub-verticales).
+   - Si aplica a múltiples categorías, usa COMPARTIR en vez de vincular.
 
-REGLAS IMPORTANTES:
-- NO sugieras eliminar términos que tienen empresas asociadas a menos que exista un claro reemplazo (fusión).
-- Prioriza la consistencia de nombres (capitalización, formato).
-- Respeta las definiciones del sistema: SaaS NUNCA como vertical de EBT.
-- Sé conservador: solo sugiere cambios con alta confianza.
-- Explica brevemente POR QUÉ sugieres cada cambio.
-- Agrupa las sugerencias por prioridad: alta, media, baja.
-${customPrompt ? `\nINSTRUCCIONES ADICIONALES:\n${customPrompt}` : ""}
+2. **FUSIONAR (merge)** — Si el valor huérfano es un sinónimo o variante de un término existente:
+   - Fusiona con el término ya gestionado.
+   - Ejemplo: "Fintech" y "FinTech" → fusionar. "IoT" y "Internet of Things" → fusionar.
 
-Responde ÚNICAMENTE llamando la función suggest_taxonomy_changes.`;
+3. **RENOMBRAR (rename)** — Si el nombre tiene errores tipográficos, capitalización inconsistente o podría ser más claro.
+
+4. **COMPARTIR (share)** — Si una vertical aplica a más de una categoría (ej: "SaaS" en Startup, "IoT" en EBT y Startup).
+
+5. **MOVER (move)** — Si una vertical está en la categoría incorrecta.
+
+6. **ELIMINAR (delete)** — SOLO si no tiene empresas asociadas Y no aporta valor a la taxonomía.
+
+REGLAS CRÍTICAS:
+- ⚠️ NO dejes NINGÚN valor huérfano sin acción. Cada uno debe tener una sugerencia.
+- Prioriza VINCULAR sobre crear nuevos términos.
+- Si un huérfano no coincide con nada existente pero tiene empresas, VINCÚLALO a la categoría más apropiada.
+- SaaS NUNCA como vertical de EBT. Es exclusiva de Startup.
+- Si una vertical como "HealthTech", "EdTech", "FinTech" aplica a múltiples categorías, sugiere COMPARTIR.
+- Sé agresivo fusionando: si dos términos significan esencialmente lo mismo, fusiona.
+- Prioriza consistencia de nombres (PascalCase para verticales tech: "HealthTech", "EdTech", "FinTech", "AgriTech").
+- Las sub-verticales huérfanas deben vincularse a la vertical más apropiada.
+
+PRIORIDADES:
+- HIGH: todos los valores huérfanos con empresas, fusiones de duplicados
+- MEDIUM: compartir verticales entre categorías, renombramientos de consistencia
+- LOW: eliminar términos vacíos, reorganizaciones menores
+
+${customPrompt ? `\nINSTRUCCIONES ADICIONALES DEL USUARIO:\n${customPrompt}` : ""}
+
+Responde ÚNICAMENTE llamando la función suggest_taxonomy_changes. DEBES incluir una sugerencia para CADA valor huérfano listado arriba.`;
 
     console.log(`Calling OpenAI ${model} (reasoning: ${reasoningEffort}, web: ${webSearchEnabled}) for taxonomy organization...`);
+    console.log(`Orphan verticals: ${orphanVerticals.length}, Orphan sub-verticals: ${orphanSubVerticals.length}`);
 
     const tools: any[] = [];
     if (webSearchEnabled) {
@@ -103,13 +128,13 @@ Responde ÚNICAMENTE llamando la función suggest_taxonomy_changes.`;
     tools.push({
       type: "function",
       name: "suggest_taxonomy_changes",
-      description: "Return structured taxonomy reorganization suggestions",
+      description: "Return structured taxonomy reorganization suggestions. MUST include a suggestion for every orphan value.",
       parameters: {
         type: "object",
         properties: {
           summary: {
             type: "string",
-            description: "Brief overall assessment of the taxonomy health (2-3 sentences)",
+            description: "Brief overall assessment of the taxonomy health (2-3 sentences). Include count of orphans processed.",
           },
           suggestions: {
             type: "array",
@@ -177,6 +202,8 @@ Responde ÚNICAMENTE llamando la función suggest_taxonomy_changes.`;
 
     console.log("Taxonomy organize result:", {
       suggestionsCount: result.suggestions?.length || 0,
+      orphanVerticalsInput: orphanVerticals.length,
+      orphanSubVerticalsInput: orphanSubVerticals.length,
     });
 
     return new Response(JSON.stringify(result), {
