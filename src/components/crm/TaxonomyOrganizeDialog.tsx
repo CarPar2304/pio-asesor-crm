@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useTaxonomy } from '@/contexts/TaxonomyContext';
 import { useCRM } from '@/contexts/CRMContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,10 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
-import { GooeyLoader } from '@/components/ui/gooey-loader';
 import {
   Sparkles, Merge, Pencil, Trash2, ArrowRightLeft, Link2, Share2,
-  CheckCircle2, AlertTriangle, Info, Loader2
+  CheckCircle2, AlertTriangle, Info, Loader2, Clock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
