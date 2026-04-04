@@ -818,9 +818,9 @@ export default function CompanyForm({ open, onClose, company }: Props) {
             <Separator />
 
             <Section title="Identificación">
-              <Field label="Nombre comercial" aiModified={aiModifiedFields.has('tradeName')} isLoading={companyFitLoading}><Input className="h-9 text-sm" value={form.tradeName} onChange={e => setForm(f => ({ ...f, tradeName: e.target.value }))} /></Field>
-              <Field label="Razón Social" aiModified={aiModifiedFields.has('legalName')} isLoading={companyFitLoading}><Input className="h-9 text-sm" value={form.legalName} onChange={e => setForm(f => ({ ...f, legalName: e.target.value }))} /></Field>
-              <Field label="NIT" aiModified={aiModifiedFields.has('nit')} isLoading={companyFitLoading}><Input className="h-9 text-sm" value={form.nit} onChange={e => setForm(f => ({ ...f, nit: e.target.value }))} /></Field>
+              <Field label="Nombre comercial" aiModified={aiModifiedFields.has('tradeName')}><Input className="h-9 text-sm" value={form.tradeName} onChange={e => setForm(f => ({ ...f, tradeName: e.target.value }))} /></Field>
+              <Field label="Razón Social" aiModified={aiModifiedFields.has('legalName')}><Input className="h-9 text-sm" value={form.legalName} onChange={e => setForm(f => ({ ...f, legalName: e.target.value }))} /></Field>
+              <Field label="NIT" aiModified={aiModifiedFields.has('nit')}><Input className="h-9 text-sm" value={form.nit} onChange={e => setForm(f => ({ ...f, nit: e.target.value }))} /></Field>
             </Section>
 
             <Separator />
