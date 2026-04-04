@@ -50,36 +50,42 @@ async function lookupRUES(
   nit: string,
   tradeName: string,
   legalName: string
-): Promise<{ data: any[] | null; query: string }> {
+): Promise<{ data: any[] | null; query: string; attempts: string[] }> {
+  const attempts: string[] = [];
+
   // Attempt 1: by NIT as-is
   if (nit) {
+    attempts.push(`nit=${nit}`);
     const r1 = await queryRUES({ nit });
-    if (r1.length > 0) return { data: r1, query: `nit=${nit}` };
+    if (r1.length > 0) return { data: r1, query: `nit=${nit}`, attempts };
 
     // Attempt 2: NIT without last digit (verification digit)
     if (nit.length > 1) {
       const nitShort = nit.replace(/[-\s]/g, "").slice(0, -1);
+      attempts.push(`nit=${nitShort} (sin dígito)`);
       const r2 = await queryRUES({ nit: nitShort });
       if (r2.length > 0)
-        return { data: r2, query: `nit=${nitShort} (sin dígito)` };
+        return { data: r2, query: `nit=${nitShort} (sin dígito)`, attempts };
     }
   }
 
   // Attempt 3: by razon_social with tradeName
   if (tradeName) {
+    attempts.push(`razon_social=${tradeName.toUpperCase()}`);
     const r3 = await queryRUES({ razon_social: tradeName.toUpperCase() });
     if (r3.length > 0)
-      return { data: r3, query: `razon_social=${tradeName}` };
+      return { data: r3, query: `razon_social=${tradeName}`, attempts };
   }
 
   // Attempt 4: by razon_social with legalName
   if (legalName && legalName !== tradeName) {
+    attempts.push(`razon_social=${legalName.toUpperCase()}`);
     const r4 = await queryRUES({ razon_social: legalName.toUpperCase() });
     if (r4.length > 0)
-      return { data: r4, query: `razon_social=${legalName}` };
+      return { data: r4, query: `razon_social=${legalName}`, attempts };
   }
 
-  return { data: null, query: "no results" };
+  return { data: null, query: "no results", attempts };
 }
 
 serve(async (req) => {
@@ -112,7 +118,14 @@ serve(async (req) => {
     } = body;
 
     // Step 1: RUES lookup
+    console.log("Starting RUES lookup for:", { nit, tradeName, legalName });
     const ruesResult = await lookupRUES(nit, tradeName, legalName);
+    console.log("RUES result:", {
+      found: !!ruesResult.data,
+      query: ruesResult.query,
+      attempts: ruesResult.attempts,
+      recordCount: ruesResult.data?.length || 0,
+    });
 
     // Step 2: Build the prompt
     const taxonomyText = `
@@ -127,7 +140,7 @@ ${taxonomy.subVerticals.map((s) => `- ${s.vertical} → ${s.name}`).join("\n")}
 
     const ruesText = ruesResult.data
       ? `DATOS RUES ENCONTRADOS (query: ${ruesResult.query}):\n${JSON.stringify(ruesResult.data.slice(0, 3), null, 2)}`
-      : "No se encontraron datos en RUES.";
+      : `No se encontraron datos en RUES. Intentos realizados: ${ruesResult.attempts.join(", ")}`;
 
     const contactsText = contacts
       .map((c) => `- ${c.name} (id: ${c.id}, género actual: ${c.gender || "sin definir"})`)
@@ -156,14 +169,16 @@ ${taxonomyText}
 
 TU TAREA:
 
-1. Busca la empresa en internet usando su sitio web (${website}) y nombre comercial (${tradeName}). Analiza el sitio web a fondo.
+1. Busca la empresa en internet usando su sitio web (${website}) y nombre comercial (${tradeName}). Analiza el sitio web a fondo. Lee su contenido, servicios, productos, equipo, y cualquier información relevante.
 
-2. CLASIFICACIÓN - Determina si la empresa es:
+2. CLASIFICACIÓN - Determina si la empresa es. PIENSA PASO A PASO y justifica tu razonamiento:
    a) Startup - Base tecnológica clara + potencial de escalabilidad/replicabilidad. Señales: SaaS, plataforma digital, marketplace tecnológico, app con lógica repetible, software con suscripción, automatización/IA como núcleo. NO importa si no ha levantado capital.
-   b) EBT (Empresa de Base Tecnológica) - Base tecnológica real PERO sin producto startup claramente escalable. Modelo depende de proyectos a medida, integración, consultoría, manufactura especializada, outsourcing. NUNCA uses "SaaS" como vertical para esta categoría.
-   c) Disruptiva - No es startup ni EBT, pero tiene propuesta moderna, digital, innovadora. Servicios, marcas, agencias, e-commerce sin tech propia como core.
+   b) EBT (Empresa de Base Tecnológica) - Base tecnológica real PERO sin producto startup claramente escalable. Modelo depende de proyectos a medida, integración, consultoría técnica, manufactura especializada, outsourcing, dispositivos hardware, IoT sin plataforma SaaS clara. NUNCA uses "SaaS" como vertical para esta categoría. Ejemplos: empresa que desarrolla dispositivos médicos, empresa de consultoría en IA/datos, empresa de hardware IoT, empresa de biotecnología sin plataforma digital escalable.
+   c) Disruptiva - No es startup ni EBT, pero tiene propuesta moderna, digital, innovadora. Servicios, marcas, agencias, e-commerce sin tech propia como core. SOLO clasifica como Disruptiva si NO hay evidencia clara de base tecnológica propia.
    
    ORDEN OBLIGATORIO de análisis: ¿Es Startup? → ¿Es EBT? → ¿Es Disruptiva?
+   
+   REGLA CLAVE: Si la empresa tiene tecnología propia (hardware, software, dispositivos, algoritmos, patentes) pero NO es un producto digital escalable tipo SaaS/marketplace/plataforma, entonces ES EBT, NO Disruptiva.
 
    IMPORTANTE: Solo puedes usar las categorías que existen en la taxonomía: ${taxonomy.categories.join(", ")}. Escoge la más cercana.
 
@@ -187,15 +202,21 @@ REGLAS:
 - Si la evidencia es débil, indica confianza media o baja.
 - La vertical debe ser lo más genérica posible.
 - La sub-vertical más específica.
+- PIENSA CUIDADOSAMENTE antes de clasificar. Analiza la evidencia del sitio web.
 
 Responde ÚNICAMENTE llamando la función analyze_company con los resultados.`;
 
     const client = new OpenAI({ apiKey: OPENAI_API_KEY });
 
+    console.log("Calling OpenAI gpt-5.4 with reasoning effort: high...");
+
     const response = await client.responses.create({
-      model: "gpt-4.1",
+      model: "gpt-5.4",
+      reasoning: {
+        effort: "high",
+      },
       tools: [
-        { type: "web_search" },
+        { type: "web_search" as any },
         {
           type: "function",
           name: "analyze_company",
@@ -258,7 +279,7 @@ Responde ÚNICAMENTE llamando la función analyze_company con los resultados.`;
               reasoning: {
                 type: "string",
                 description:
-                  "Brief explanation of classification (max 5 lines)",
+                  "Brief explanation of classification reasoning (max 5 lines). Explain WHY you chose this category over others.",
               },
               isNewVertical: {
                 type: "boolean",
@@ -292,6 +313,8 @@ Responde ÚNICAMENTE llamando la función analyze_company con los resultados.`;
       input: prompt,
     });
 
+    console.log("OpenAI response received, output items:", response.output.length);
+
     // Extract function call result
     let result: any = null;
     for (const item of response.output) {
@@ -306,8 +329,8 @@ Responde ÚNICAMENTE llamando la función analyze_company con los resultados.`;
     }
 
     if (!result) {
-      // Fallback: try to get text output
       const textOutput = response.output_text;
+      console.error("No structured response. Raw output:", textOutput);
       return new Response(
         JSON.stringify({
           error: "No structured response from AI",
@@ -320,8 +343,20 @@ Responde ÚNICAMENTE llamando la función analyze_company con los resultados.`;
       );
     }
 
-    // Add RUES data to response
+    // Add RUES data and status to response
     result.ruesData = ruesResult.data?.[0] || null;
+    result.ruesFound = !!ruesResult.data;
+    result.ruesAttempts = ruesResult.attempts;
+
+    console.log("Company Fit result:", {
+      category: result.category,
+      vertical: result.vertical,
+      subVertical: result.subVertical,
+      confidence: result.confidence,
+      ruesFound: result.ruesFound,
+      isNewVertical: result.isNewVertical,
+      isNewSubVertical: result.isNewSubVertical,
+    });
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
