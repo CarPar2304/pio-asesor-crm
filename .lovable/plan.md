@@ -1,96 +1,96 @@
 
 
-## Company Fit — Plan de implementación
+# Plan: Settings multi-feature, generador de definiciones, fixes de animaciones y timeout
 
-### Resumen
+## Resumen
 
-Feature de IA dentro del formulario de edición que analiza una empresa usando OpenAI (modelo `gpt-5.4` con `web_search`), consulta RUES, y devuelve clasificación + datos para revisión manual antes de guardar.
+Hay 6 problemas a resolver: (1) Settings solo muestra Company Fit, necesita selector de features, (2) falta subfeature para generar definiciones con IA, (3) taxonomy-organize se queda cargando (timeout), (4) animaciones de carga poco convincentes, (5) RUES muestra skeleton en todos los campos cuando solo debería mostrar indicador ligero, (6) falta configuración de campos RUES en settings.
 
-### Requisito previo: API Key de OpenAI
+---
 
-Necesito que me proporciones tu API key de OpenAI. La almacenaré como secret de Supabase (`OPENAI_API_KEY`) para que solo la edge function tenga acceso.
+## Cambios planificados
 
-### Arquitectura
+### 1. Settings con selector de features (`ProfilePage.tsx`)
 
-```text
-CompanyForm.tsx ── POST ──> Edge Function (company-fit)
-                                │
-                                ├─ OpenAI Responses API (gpt-5.4 + web_search)
-                                ├─ RUES API (datos.gov.co)
-                                │
-                  <── JSON ─────┘
-```
+Reemplazar el tab "Settings" que solo renderiza `<CompanyFitSettings />` por un sistema con sidebar/selector que permita elegir entre features:
+- **Company Fit** (existente)
+- **Taxonomía** (nuevo - configuración de la IA de organizar taxonomía)
 
-### Archivos a crear/modificar
+Se usara un estado `activeFeature` con un listado lateral de features disponibles. Cada feature renderiza su componente de settings correspondiente.
 
-**1. Secret: `OPENAI_API_KEY`**
-- Se te pedirá el token vía la herramienta de secrets.
+### 2. Taxonomy Settings (`src/components/admin/TaxonomySettings.tsx`)
 
-**2. Edge Function: `supabase/functions/company-fit/index.ts`**
+Nuevo componente con:
+- **Modelo y parámetros**: selector de modelo OpenAI, esfuerzo de razonamiento, toggle web_search (igual que Company Fit pero guardado en `feature_settings` con key `taxonomy_organize`)
+- **Prompt base**: editable, con variables `{taxonomyTree}`, `{definitions}`, etc.
+- **Generador de definiciones con IA**: botón "Generar definiciones" que envía las verticales y sub-verticales actuales a una nueva Edge Function y muestra un preview para aprobación
+- **Logs**: últimas ejecuciones de organización (si se implementa logging)
+- **Edge Functions**: link a `taxonomy-organize`
 
-Lógica:
-- Recibe datos de la empresa + taxonomía actual (categorías, verticales, sub-verticales)
-- **Paso 1**: Consulta RUES (datos.gov.co) con NIT (con y sin dígito de verificación) y por razón social. Hasta 4 intentos con variaciones.
-- **Paso 2**: Llama a OpenAI Responses API usando `web_search` tool:
-  ```typescript
-  import OpenAI from "npm:openai";
-  const client = new OpenAI({ apiKey: Deno.env.get("OPENAI_API_KEY") });
-  const response = await client.responses.create({
-    model: "gpt-5.4",
-    tools: [{ type: "web_search" }],
-    input: promptCompleto,
-  });
-  ```
-- El prompt incluye: las reglas de clasificación completas (Startup / EBT / Tecnología No Startup / Disruptiva), la taxonomía existente, datos actuales de la empresa, e instrucciones para inferir género de contactos, buscar logo URL, y determinar estado.
-- **Tool calling** para structured output con los campos: `category`, `vertical`, `subVertical`, `description`, `logoUrl`, `legalName`, `nit`, `tradeName`, `contacts` (con género), `companyStatus`, `confidence`, `reasoning`, `isNewVertical`, `isNewSubVertical`.
+### 3. Subfeature: Generar definiciones con IA
 
-Respuesta JSON:
-```typescript
-{
-  category: string;
-  vertical: string;
-  subVertical: string;
-  description: string;
-  logoUrl: string | null;
-  legalName: string | null;
-  nit: string | null;
-  tradeName: string | null;
-  contacts: Array<{ id: string; gender: 'male' | 'female' }>;
-  companyStatus: 'active' | 'inactive' | 'unknown';
-  confidence: 'high' | 'medium' | 'low';
-  reasoning: string;
-  isNewVertical: boolean;
-  isNewSubVertical: boolean;
-  ruesData: object | null;
-}
-```
+**Nueva Edge Function `taxonomy-definitions`**:
+- Recibe la lista de categorías, verticales y sub-verticales
+- Usa OpenAI para generar definiciones claras para cada término
+- Retorna un objeto `{ definitions: string }` con las definiciones formateadas
 
-**3. Modificar: `src/components/crm/CompanyForm.tsx`**
+**UI en TaxonomySettings**: 
+- Botón "Generar definiciones con IA"
+- Muestra preview en textarea
+- Botón "Aprobar y guardar" que guarda en `feature_settings` key `taxonomy_definitions`
 
-- Botón "Company Fit" con icono Sparkles en el header del diálogo (solo en modo edición o cuando hay website).
-- Estado `companyFitLoading` para controlar animaciones.
-- Al hacer clic:
-  - Skeleton loaders en campos: categoría, vertical, sub-vertical, descripción, logo, razón social, NIT, género de contactos.
-  - Barra de progreso animada con color primario y texto que cambia: "Analizando sitio web..." → "Consultando RUES..." → "Clasificando empresa..."
-  - Llamar al edge function con datos actuales + taxonomía del contexto.
-- Al recibir respuesta:
-  - Poblar campos del formulario temporalmente (sin guardar).
-  - Badge sutil "IA" en campos modificados.
-  - Soporte para cargar logo desde URL (fetch blob → upload a storage).
-- Manejo de errores: toast con mensaje, campos vuelven a estado original.
+### 4. Fix timeout de taxonomy-organize
 
-**4. Actualizar: `supabase/config.toml`**
+El Edge Function `taxonomy-organize` usa `client.responses.create()` con reasoning `high` lo cual puede tardar >60s y hacer timeout. Soluciones:
+- Leer el modelo y reasoning_effort desde `feature_settings` key `taxonomy_organize` (actualmente hardcoded a `gpt-5.4` y `high`)
+- Agregar timeout handling en el cliente con AbortController o un timeout más largo
+- En el frontend, usar `setTimeout` más generoso y mostrar mensaje de "puede tardar hasta 2 minutos"
+- Considerar usar un modelo más rápido por defecto (gpt-4.1-mini)
 
-Agregar configuración de la edge function `company-fit`.
+### 5. Animaciones mejoradas
 
-### Resumen de cambios
+**Company Fit - modo RUES**:
+- Eliminar los skeleton loaders para RUES. Solo mostrar un spinner inline pequeño junto al botón o en el header
+- Usar un estado separado `ruesLoading` vs `variablesLoading` en lugar del genérico `companyFitLoading`
+- RUES es rápido, no necesita skeleton ni GooeyLoader
 
-| Archivo | Acción |
-|---|---|
-| Secret `OPENAI_API_KEY` | Agregar vía herramienta de secrets |
-| `supabase/functions/company-fit/index.ts` | Crear |
-| `supabase/config.toml` | Agregar función |
-| `src/components/crm/CompanyForm.tsx` | Agregar botón, skeletons, lógica de carga, URL logo |
+**Company Fit - modo Variables**:
+- Mantener skeleton solo en los campos que se van a modificar: categoría, vertical, sub-vertical, descripción, logo
+- NO mostrar skeleton en: nombre comercial, razón social, NIT, ciudad, contactos, métricas
+- Mejorar el GooeyLoader con texto de etapas más descriptivo
 
-No se requieren migraciones de base de datos.
+**Taxonomy Organize**:
+- Reemplazar el GooeyLoader estático por una animación con pasos progresivos más claros
+- Agregar un indicador de tiempo transcurrido
+- Mostrar mensaje "El modelo está razonando, esto puede tardar hasta 2 minutos" para modelos con reasoning alto
+
+### 6. Configuración RUES en Settings
+
+En `CompanyFitSettings.tsx`, dentro de la sección RUES, agregar:
+- **Campos de búsqueda RUES**: configurar qué campos se envían (`nit`, `razon_social`, `nombre_comercial`) y en qué orden de prioridad
+- **Campos de respuesta**: configurar qué campos extraer de RUES (`razon_social` → `legalName`, `nit` → `nit`, `cod_ciiu` → `economicActivity`)
+- Guardar en el config de `company_fit` como `rues_search_fields` y `rues_response_mapping`
+
+---
+
+## Archivos a modificar
+
+| Archivo | Cambio |
+|---------|--------|
+| `src/pages/ProfilePage.tsx` | Selector de features en Settings tab |
+| `src/components/admin/CompanyFitSettings.tsx` | Agregar config de campos RUES |
+| `src/components/admin/TaxonomySettings.tsx` | **Nuevo** - Settings de taxonomía + generador de definiciones |
+| `supabase/functions/taxonomy-definitions/index.ts` | **Nuevo** - Edge Function para generar definiciones |
+| `supabase/functions/taxonomy-organize/index.ts` | Leer config dinámica (modelo, reasoning) |
+| `src/components/crm/CompanyForm.tsx` | Separar estados RUES vs Variables, fix skeletons |
+| `src/components/crm/TaxonomyOrganizeDialog.tsx` | Mejorar animación de carga, timer visible |
+
+## Orden de implementación
+
+1. Settings multi-feature + TaxonomySettings
+2. Edge Function taxonomy-definitions + UI de generación
+3. Fix timeout taxonomy-organize (config dinámica)
+4. Fix animaciones Company Fit (RUES vs Variables)
+5. Mejorar animación taxonomy organize
+6. Config campos RUES en CompanyFitSettings
 
