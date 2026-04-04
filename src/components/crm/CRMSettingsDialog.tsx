@@ -1,11 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTaxonomy, TaxonomyVertical, TaxonomySubVertical } from '@/contexts/TaxonomyContext';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { useCRM } from '@/contexts/CRMContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -15,10 +17,12 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   Plus, Trash2, Pencil, Check, X, ChevronRight, AlertTriangle, GitBranch,
-  ArrowRight, Merge, Tag, Layers, FolderTree, ChevronDown, MoreHorizontal, ArrowRightLeft, Link2
+  ArrowRight, Merge, Tag, Layers, FolderTree, ChevronDown, MoreHorizontal, ArrowRightLeft, Link2,
+  Sparkles, Save, BookOpen
 } from 'lucide-react';
 import { showSuccess, showError } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+import TaxonomyOrganizeDialog from './TaxonomyOrganizeDialog';
 
 interface Props {
   open: boolean;
@@ -80,6 +84,51 @@ function TaxonomyTab() {
   const [linkingSubVertical, setLinkingSubVertical] = useState(false);
   const [sharingVerticalId, setSharingVerticalId] = useState<string | null>(null);
   const [sharingSubVerticalId, setSharingSubVerticalId] = useState<string | null>(null);
+
+  // Definitions state
+  const [definitions, setDefinitions] = useState('');
+  const [definitionsOpen, setDefinitionsOpen] = useState(false);
+  const [savingDefinitions, setSavingDefinitions] = useState(false);
+  const [organizeOpen, setOrganizeOpen] = useState(false);
+
+  // Load definitions from feature_settings
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase
+        .from('feature_settings')
+        .select('config')
+        .eq('feature_key', 'taxonomy_definitions')
+        .single();
+      if (data) {
+        const cfg = data.config as any;
+        setDefinitions(cfg?.definitions || '');
+      }
+    };
+    load();
+  }, []);
+
+  const handleSaveDefinitions = async () => {
+    setSavingDefinitions(true);
+    // Upsert into feature_settings
+    const { data: existing } = await supabase
+      .from('feature_settings')
+      .select('id')
+      .eq('feature_key', 'taxonomy_definitions')
+      .single();
+
+    if (existing) {
+      await supabase
+        .from('feature_settings')
+        .update({ config: { definitions } as any, updated_at: new Date().toISOString() } as any)
+        .eq('id', existing.id);
+    } else {
+      await supabase
+        .from('feature_settings')
+        .insert({ feature_key: 'taxonomy_definitions', config: { definitions } as any } as any);
+    }
+    setSavingDefinitions(false);
+    showSuccess('Definiciones guardadas');
+  };
 
   const companiesUsingCategory = (cat: string) => companies.filter(c => c.category === cat).length;
   const companiesUsingVertical = (name: string) => companies.filter(c => c.vertical === name).length;
@@ -265,15 +314,61 @@ function TaxonomyTab() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
+      {/* Header with Organizar button */}
       <div className="rounded-lg border border-border p-3 space-y-1">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-          <FolderTree className="h-3.5 w-3.5" /> Taxonomía de clasificación
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <FolderTree className="h-3.5 w-3.5" /> Taxonomía de clasificación
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => setOrganizeOpen(true)}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Organizar
+          </Button>
+        </div>
         <p className="text-xs text-muted-foreground">
           Selecciona una categoría para ver sus ramas. Puedes mover, vincular o desvincular elementos entre ramas.
         </p>
       </div>
+
+      {/* Definitions section */}
+      <Collapsible open={definitionsOpen} onOpenChange={setDefinitionsOpen}>
+        <CollapsibleTrigger asChild>
+          <Button variant="outline" size="sm" className="w-full gap-2 text-xs">
+            <BookOpen className="h-3.5 w-3.5" />
+            Definiciones de clasificación
+            <ChevronDown className={cn("h-3 w-3 ml-auto transition-transform", definitionsOpen && "rotate-180")} />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="animate-fade-in">
+          <div className="rounded-lg border border-border p-3 mt-2 space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Define qué significa cada categoría, vertical y sub-vertical. Estas definiciones se usan como contexto para la IA al organizar la taxonomía.
+            </p>
+            <Textarea
+              className="min-h-[120px] text-xs font-mono leading-relaxed"
+              value={definitions}
+              onChange={e => setDefinitions(e.target.value)}
+              placeholder={`Ejemplo:\n\nCATEGORÍAS:\n- Startup: Empresa con base tecnológica clara y modelo escalable/replicable.\n- EBT: Empresa de Base Tecnológica con tech propia pero modelo no escalable tipo startup.\n- Disruptiva: Propuesta innovadora sin tecnología propia como núcleo.\n\nVERTICALES:\n- HealthTech: Tecnología aplicada a salud.\n- FinTech: Tecnología aplicada a finanzas.\n...\n\nSUB-VERTICALES:\n- Telemedicina: Atención médica remota.\n- Pagos digitales: Procesamiento de pagos electrónicos.`}
+            />
+            <Button size="sm" onClick={handleSaveDefinitions} disabled={savingDefinitions} className="gap-1.5 text-xs">
+              <Save className="h-3 w-3" />
+              {savingDefinitions ? 'Guardando...' : 'Guardar definiciones'}
+            </Button>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
+      {/* Organize Dialog */}
+      <TaxonomyOrganizeDialog
+        open={organizeOpen}
+        onClose={() => setOrganizeOpen(false)}
+        definitions={definitions}
+      />
 
       {/* Merge dialog inline (orphan) */}
       {mergeTarget && (
