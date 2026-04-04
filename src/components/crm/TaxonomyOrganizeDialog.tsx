@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useTaxonomy } from '@/contexts/TaxonomyContext';
 import { useCRM } from '@/contexts/CRMContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,10 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
-import { GooeyLoader } from '@/components/ui/gooey-loader';
 import {
   Sparkles, Merge, Pencil, Trash2, ArrowRightLeft, Link2, Share2,
-  CheckCircle2, AlertTriangle, Info, Loader2
+  CheckCircle2, AlertTriangle, Info, Loader2, Clock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -70,6 +69,66 @@ const TYPE_LABELS: Record<string, string> = {
   vertical: 'Vertical',
   sub_vertical: 'Sub-vertical',
 };
+
+function TaxonomyLoadingAnimation({ stage }: { stage: string }) {
+  const [elapsed, setElapsed] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval>>();
+
+  useEffect(() => {
+    setElapsed(0);
+    intervalRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
+    return () => clearInterval(intervalRef.current);
+  }, []);
+
+  const formatTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return m > 0 ? `${m}:${sec.toString().padStart(2, '0')}` : `${sec}s`;
+  };
+
+  const steps = [
+    { label: 'Construyendo árbol taxonómico', done: elapsed >= 2 },
+    { label: 'Enviando a la IA', done: elapsed >= 4 },
+    { label: 'Analizando relaciones', done: elapsed >= 10 },
+    { label: 'Generando sugerencias', done: elapsed >= 18 },
+  ];
+
+  return (
+    <div className="flex flex-col items-center justify-center py-12 gap-6">
+      <div className="relative">
+        <div className="h-16 w-16 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+        <Sparkles className="h-6 w-6 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+      </div>
+
+      <div className="text-center space-y-1">
+        <p className="text-sm font-medium text-primary animate-pulse">{stage}</p>
+        <div className="flex items-center gap-1.5 justify-center text-muted-foreground">
+          <Clock className="h-3 w-3" />
+          <p className="text-xs">{formatTime(elapsed)}</p>
+        </div>
+      </div>
+
+      <div className="space-y-2 w-64">
+        {steps.map((step, i) => (
+          <div key={i} className="flex items-center gap-2">
+            {step.done ? (
+              <CheckCircle2 className="h-3.5 w-3.5 text-primary shrink-0" />
+            ) : (
+              <div className="h-3.5 w-3.5 rounded-full border-2 border-muted-foreground/30 shrink-0" />
+            )}
+            <span className={cn("text-xs", step.done ? "text-foreground" : "text-muted-foreground")}>{step.label}</span>
+          </div>
+        ))}
+      </div>
+
+      {elapsed > 20 && (
+        <p className="text-[10px] text-muted-foreground max-w-xs text-center">
+          El modelo está razonando en profundidad. Esto puede tardar hasta 2 minutos con modelos avanzados.
+        </p>
+      )}
+    </div>
+  );
+}
 
 export default function TaxonomyOrganizeDialog({ open, onClose, definitions }: Props) {
   const taxonomy = useTaxonomy();
@@ -357,13 +416,7 @@ export default function TaxonomyOrganizeDialog({ open, onClose, definitions }: P
         <Separator />
 
         <div className="flex-1 min-h-0 overflow-hidden">
-          {loading && (
-            <div className="flex flex-col items-center justify-center py-16 gap-3">
-              <GooeyLoader className="h-16" />
-              <p className="text-sm text-primary font-medium animate-pulse">{stage}</p>
-              <p className="text-xs text-muted-foreground">Esto puede tomar unos segundos...</p>
-            </div>
-          )}
+          {loading && <TaxonomyLoadingAnimation stage={stage} />}
 
           {!loading && !result && (
             <div className="flex flex-col items-center justify-center py-16 gap-4">

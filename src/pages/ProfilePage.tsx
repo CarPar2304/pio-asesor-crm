@@ -10,8 +10,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Camera, Plus, X, Save, User, Settings2, Shield } from 'lucide-react';
+import { Camera, Plus, X, Save, User, Settings2, Shield, Sparkles, FolderTree } from 'lucide-react';
 import CompanyFitSettings from '@/components/admin/CompanyFitSettings';
+import TaxonomySettings from '@/components/admin/TaxonomySettings';
+import { cn } from '@/lib/utils';
+
+const FEATURES = [
+  { id: 'company_fit', label: 'Company Fit', icon: Sparkles, description: 'Clasificación y enriquecimiento con IA' },
+  { id: 'taxonomy', label: 'Taxonomía', icon: FolderTree, description: 'Organización de taxonomía con IA' },
+] as const;
+
+type FeatureId = typeof FEATURES[number]['id'];
 
 export default function ProfilePage() {
   const { profile, segments, updateProfile, addSegment, removeSegment, isAdmin } = useProfile();
@@ -23,6 +32,7 @@ export default function ProfilePage() {
   const [segment, setSegment] = useState('');
   const [newSegment, setNewSegment] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [activeFeature, setActiveFeature] = useState<FeatureId>('company_fit');
 
   useEffect(() => {
     if (profile) {
@@ -141,8 +151,44 @@ export default function ProfilePage() {
     </div>
   );
 
+  const settingsContent = (
+    <div className="flex gap-6">
+      {/* Feature selector sidebar */}
+      <div className="w-48 shrink-0 space-y-1">
+        {FEATURES.map(feature => {
+          const Icon = feature.icon;
+          const isActive = activeFeature === feature.id;
+          return (
+            <button
+              key={feature.id}
+              onClick={() => setActiveFeature(feature.id)}
+              className={cn(
+                "w-full text-left rounded-lg px-3 py-2.5 transition-colors",
+                isActive
+                  ? "bg-primary/10 text-primary"
+                  : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className="text-sm font-medium">{feature.label}</span>
+              </div>
+              <p className="text-[10px] mt-0.5 ml-6 opacity-70">{feature.description}</p>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Feature settings content */}
+      <div className="flex-1 min-w-0">
+        {activeFeature === 'company_fit' && <CompanyFitSettings />}
+        {activeFeature === 'taxonomy' && <TaxonomySettings />}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="container max-w-2xl py-8 space-y-6">
+    <div className="container max-w-4xl py-8 space-y-6">
       <div>
         <h1 className="text-xl font-bold">Mi perfil</h1>
         <p className="text-sm text-muted-foreground">Actualiza tu información personal</p>
@@ -156,7 +202,7 @@ export default function ProfilePage() {
           </TabsList>
           <TabsContent value="profile">{profileContent}</TabsContent>
           <TabsContent value="settings">
-            <CompanyFitSettings />
+            {settingsContent}
           </TabsContent>
         </Tabs>
       ) : (

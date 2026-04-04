@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Plus, Trash2, Upload, X, ChevronsUpDown, Check, Settings2, Pencil, Sparkles, Search, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, Upload, X, ChevronsUpDown, Check, Settings2, Pencil, Sparkles, Search, ChevronDown, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -362,20 +362,23 @@ export default function CompanyForm({ open, onClose, company }: Props) {
   const [uploading, setUploading] = useState(false);
   const [fieldValues, setFieldValues] = useState<Record<string, CustomFieldValue>>({});
 
-  // Company Fit AI state
-  const [companyFitLoading, setCompanyFitLoading] = useState(false);
+  // Company Fit AI state - separate loading for RUES vs Variables
+  const [ruesLoading, setRuesLoading] = useState(false);
+  const [variablesLoading, setVariablesLoading] = useState(false);
   const [companyFitStage, setCompanyFitStage] = useState('');
   const [aiModifiedFields, setAiModifiedFields] = useState<Set<string>>(new Set());
 
-  const handleCompanyFit = async (mode: 'rues' | 'variables') => {
-    setCompanyFitLoading(true);
-    setAiModifiedFields(new Set());
+  // Convenience getter
+  const companyFitLoading = ruesLoading || variablesLoading;
 
+  const handleCompanyFit = async (mode: 'rues' | 'variables') => {
     if (mode === 'rues') {
-      setCompanyFitStage('Consultando RUES...');
+      setRuesLoading(true);
     } else {
+      setVariablesLoading(true);
       setCompanyFitStage('Analizando sitio web...');
     }
+    setAiModifiedFields(new Set());
 
     try {
       const taxonomyData = {
@@ -530,7 +533,8 @@ export default function CompanyForm({ open, onClose, company }: Props) {
       showError('Error en Company Fit', err.message || 'No se pudo analizar la empresa');
     } finally {
       setTimeout(() => {
-        setCompanyFitLoading(false);
+        setRuesLoading(false);
+        setVariablesLoading(false);
         setCompanyFitStage('');
       }, 1000);
     }
@@ -769,10 +773,16 @@ export default function CompanyForm({ open, onClose, company }: Props) {
       <DialogContent className="max-w-3xl p-0 gap-0 max-h-[90vh] overflow-hidden">
         <DialogHeader className="border-b border-border px-6 py-4">
           <DialogTitle>{isEdit ? 'Editar empresa' : 'Nueva empresa'}</DialogTitle>
-          {companyFitLoading && (
+          {variablesLoading && (
             <div className="mt-3 flex flex-col items-center gap-2">
               <GooeyLoader className="h-12" />
               <p className="text-xs text-primary font-medium animate-pulse">{companyFitStage}</p>
+            </div>
+          )}
+          {ruesLoading && (
+            <div className="mt-2 flex items-center gap-2 justify-center">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              <p className="text-xs text-primary font-medium">Consultando RUES...</p>
             </div>
           )}
         </DialogHeader>
@@ -780,7 +790,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
           <div className="space-y-6 pb-6">
             {/* Logo Upload */}
             <Section title="Logo">
-              {companyFitLoading && !logoPreview ? (
+              {variablesLoading && !logoPreview ? (
                 <Skeleton className="h-16 w-16 rounded-lg" />
               ) : (
               <div className="flex items-center gap-4">
@@ -808,26 +818,26 @@ export default function CompanyForm({ open, onClose, company }: Props) {
             <Separator />
 
             <Section title="Identificación">
-              <Field label="Nombre comercial" aiModified={aiModifiedFields.has('tradeName')} isLoading={companyFitLoading}><Input className="h-9 text-sm" value={form.tradeName} onChange={e => setForm(f => ({ ...f, tradeName: e.target.value }))} /></Field>
-              <Field label="Razón Social" aiModified={aiModifiedFields.has('legalName')} isLoading={companyFitLoading}><Input className="h-9 text-sm" value={form.legalName} onChange={e => setForm(f => ({ ...f, legalName: e.target.value }))} /></Field>
-              <Field label="NIT" aiModified={aiModifiedFields.has('nit')} isLoading={companyFitLoading}><Input className="h-9 text-sm" value={form.nit} onChange={e => setForm(f => ({ ...f, nit: e.target.value }))} /></Field>
+              <Field label="Nombre comercial" aiModified={aiModifiedFields.has('tradeName')}><Input className="h-9 text-sm" value={form.tradeName} onChange={e => setForm(f => ({ ...f, tradeName: e.target.value }))} /></Field>
+              <Field label="Razón Social" aiModified={aiModifiedFields.has('legalName')}><Input className="h-9 text-sm" value={form.legalName} onChange={e => setForm(f => ({ ...f, legalName: e.target.value }))} /></Field>
+              <Field label="NIT" aiModified={aiModifiedFields.has('nit')}><Input className="h-9 text-sm" value={form.nit} onChange={e => setForm(f => ({ ...f, nit: e.target.value }))} /></Field>
             </Section>
 
             <Separator />
 
             <Section title="Segmentación">
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Categoría" aiModified={aiModifiedFields.has('category')} isLoading={companyFitLoading}>
+                <Field label="Categoría" aiModified={aiModifiedFields.has('category')} isLoading={variablesLoading}>
                   <CreatableCombobox value={form.category} onChange={v => setForm(f => ({ ...f, category: v }))} options={allCategories} placeholder="Seleccionar categoría..." />
                 </Field>
-                <Field label="Vertical" aiModified={aiModifiedFields.has('vertical')} isLoading={companyFitLoading}>
+                <Field label="Vertical" aiModified={aiModifiedFields.has('vertical')} isLoading={variablesLoading}>
                   <CreatableCombobox value={form.vertical} onChange={v => setForm(f => ({ ...f, vertical: v, subVertical: '' }))} options={allVerticals}
                     placeholder="Seleccionar vertical..." allowEmpty
                     onCreate={async (name) => { await taxonomy.addVertical(name); }} />
                 </Field>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Sub-vertical" aiModified={aiModifiedFields.has('subVertical')} isLoading={companyFitLoading}>
+                <Field label="Sub-vertical" aiModified={aiModifiedFields.has('subVertical')} isLoading={variablesLoading}>
                   <CreatableCombobox value={form.subVertical} onChange={v => setForm(f => ({ ...f, subVertical: v }))} options={subVerticalOptions} placeholder="Seleccionar sub-vertical..."
                     allowEmpty
                     onCreate={async (name) => {
@@ -855,7 +865,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
             <Separator />
 
             <Section title="Descripción">
-              {companyFitLoading ? (
+              {variablesLoading ? (
                 <div className="space-y-2">
                   <Skeleton className="h-4 w-full" />
                   <Skeleton className="h-4 w-3/4" />
