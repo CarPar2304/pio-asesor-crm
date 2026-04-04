@@ -369,11 +369,9 @@ export default function CompanyForm({ open, onClose, company }: Props) {
   const handleCompanyFit = async () => {
     setCompanyFitLoading(true);
     setAiModifiedFields(new Set());
-    setCompanyFitProgress(10);
     setCompanyFitStage('Analizando sitio web...');
 
     try {
-      // Build taxonomy data to send
       const taxonomyData = {
         categories: taxonomy.allCategories,
         verticals: taxonomy.verticals.map(v => {
@@ -387,15 +385,11 @@ export default function CompanyForm({ open, onClose, company }: Props) {
         }),
       };
 
-      setCompanyFitProgress(30);
       setCompanyFitStage('Consultando RUES...');
 
-      const progressInterval = setInterval(() => {
-        setCompanyFitProgress(prev => Math.min(prev + 5, 85));
-      }, 2000);
-
-      setTimeout(() => setCompanyFitStage('Clasificando empresa...'), 4000);
-      setTimeout(() => setCompanyFitStage('Generando resultados...'), 8000);
+      const stageTimer1 = setTimeout(() => setCompanyFitStage('Clasificando empresa...'), 6000);
+      const stageTimer2 = setTimeout(() => setCompanyFitStage('Razonando clasificación...'), 12000);
+      const stageTimer3 = setTimeout(() => setCompanyFitStage('Generando resultados...'), 18000);
 
       const { data: result, error } = await supabase.functions.invoke('company-fit', {
         body: {
@@ -413,12 +407,13 @@ export default function CompanyForm({ open, onClose, company }: Props) {
         },
       });
 
-      clearInterval(progressInterval);
+      clearTimeout(stageTimer1);
+      clearTimeout(stageTimer2);
+      clearTimeout(stageTimer3);
 
       if (error) throw new Error(error.message || 'Error al analizar');
       if (result?.error) throw new Error(result.error);
 
-      setCompanyFitProgress(100);
       setCompanyFitStage('¡Listo!');
 
       // Apply results to form
@@ -484,17 +479,41 @@ export default function CompanyForm({ open, onClose, company }: Props) {
         } catch { /* logo fetch failed, skip */ }
       }
 
+      // Save new verticals/sub-verticals to taxonomy
+      if (result.isNewVertical && result.vertical) {
+        try {
+          const newVert = await taxonomy.addVertical(result.vertical);
+          if (newVert && result.category) {
+            await taxonomy.linkCategoryVertical(result.category, newVert.id);
+          }
+          showInfo('Nueva vertical creada', `"${result.vertical}" se agregó a la taxonomía`);
+        } catch { /* vertical already exists or error */ }
+      }
+      if (result.isNewSubVertical && result.subVertical) {
+        try {
+          const newSub = await taxonomy.addSubVertical(result.subVertical);
+          if (newSub && result.vertical) {
+            const vert = taxonomy.verticals.find(v => v.name === result.vertical);
+            if (vert) {
+              await taxonomy.linkVerticalSubVertical(vert.id, newSub.id);
+            }
+          }
+          showInfo('Nueva sub-vertical creada', `"${result.subVertical}" se agregó a la taxonomía`);
+        } catch { /* sub-vertical already exists or error */ }
+      }
+
       setAiModifiedFields(modified);
 
+      // Build result message
       const confidenceLabel = result.confidence === 'high' ? 'alta' : result.confidence === 'medium' ? 'media' : 'baja';
-      showSuccess('Company Fit completado', `Confianza ${confidenceLabel}. ${result.reasoning?.slice(0, 100) || ''}`);
+      const ruesMsg = result.ruesFound ? '✅ RUES encontrado' : '⚠️ Sin datos en RUES';
+      showSuccess('Company Fit completado', `${ruesMsg} · Confianza ${confidenceLabel}. ${result.reasoning?.slice(0, 80) || ''}`);
     } catch (err: any) {
       console.error('Company Fit error:', err);
       showError('Error en Company Fit', err.message || 'No se pudo analizar la empresa');
     } finally {
       setTimeout(() => {
         setCompanyFitLoading(false);
-        setCompanyFitProgress(0);
         setCompanyFitStage('');
       }, 1000);
     }
