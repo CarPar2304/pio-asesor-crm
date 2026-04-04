@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
@@ -329,26 +330,68 @@ export default function CompanyFitSettings() {
 
         <Separator />
 
-        {/* Base Prompt */}
+      {/* Base Prompt */}
         <Collapsible open={basePromptOpen} onOpenChange={setBasePromptOpen}>
           <CollapsibleTrigger className="flex items-center gap-2 w-full text-left">
             {basePromptOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             <span className="text-sm font-semibold">Prompt base del sistema</span>
             <Badge variant="outline" className="text-[10px] ml-auto">editable</Badge>
           </CollapsibleTrigger>
-          <CollapsibleContent className="mt-3">
+          <CollapsibleContent className="mt-3 space-y-3">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2">Variables disponibles <span className="text-[10px]">(clic para insertar en el prompt)</span></p>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { key: 'tradeName', label: 'Nombre comercial' },
+                  { key: 'legalName', label: 'Razón social' },
+                  { key: 'nit', label: 'NIT' },
+                  { key: 'category', label: 'Categoría' },
+                  { key: 'vertical', label: 'Vertical' },
+                  { key: 'subVertical', label: 'Sub-vertical' },
+                  { key: 'description', label: 'Descripción' },
+                  { key: 'city', label: 'Ciudad' },
+                  { key: 'website', label: 'Sitio web' },
+                  { key: 'ruesText', label: 'Datos RUES' },
+                  { key: 'contactsText', label: 'Contactos' },
+                  { key: 'taxonomyText', label: 'Taxonomía' },
+                  { key: 'categoriesList', label: 'Lista categorías' },
+                  { key: 'salesText', label: 'Ventas por año' },
+                  { key: 'exportsUSD', label: 'Exportaciones USD' },
+                ].map(v => {
+                  const isUsed = config.base_prompt.includes(`{${v.key}}`);
+                  return (
+                    <button
+                      key={v.key}
+                      type="button"
+                      onClick={() => {
+                        const varStr = `{${v.key}}`;
+                        if (!config.base_prompt.includes(varStr)) {
+                          setConfig(c => ({ ...c, base_prompt: c.base_prompt + `\n${varStr}` }));
+                        }
+                      }}
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-mono transition-colors cursor-pointer",
+                        isUsed
+                          ? "border-primary/30 bg-primary/10 text-primary"
+                          : "border-border bg-muted/50 text-muted-foreground hover:border-primary/30 hover:text-primary"
+                      )}
+                    >
+                      <span>{`{${v.key}}`}</span>
+                      <span className="text-[9px] font-sans opacity-70">{v.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <Textarea
               className="min-h-[300px] text-xs font-mono leading-relaxed"
               value={config.base_prompt}
               onChange={e => setConfig(c => ({ ...c, base_prompt: e.target.value }))}
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              Variables disponibles: {'{tradeName}'}, {'{legalName}'}, {'{nit}'}, {'{category}'}, {'{vertical}'}, {'{subVertical}'}, {'{description}'}, {'{city}'}, {'{website}'}, {'{ruesText}'}, {'{contactsText}'}, {'{taxonomyText}'}, {'{categoriesList}'}
-            </p>
             <Button
               variant="ghost"
               size="sm"
-              className="mt-2 text-xs"
+              className="text-xs"
               onClick={() => setConfig(c => ({ ...c, base_prompt: SYSTEM_BASE_PROMPT }))}
             >
               Restaurar prompt por defecto
