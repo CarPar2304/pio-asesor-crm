@@ -5,11 +5,11 @@ import { showSuccess } from '@/lib/toast';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { FilterState, DEFAULT_FILTERS } from '@/types/crm';
 import { calculateGrowth } from '@/lib/calculations';
-// exportExcel removed - now using ExportDialog
 import CompanyCard from '@/components/crm/CompanyCard';
 import { CompanyGridSkeleton, CompanyTableSkeleton } from '@/components/crm/CompanySkeleton';
 import CompanyTable from '@/components/crm/CompanyTable';
 import CRMFilters from '@/components/crm/CRMFilters';
+import CRMPagination from '@/components/crm/CRMPagination';
 import CompanyForm from '@/components/crm/CompanyForm';
 import BulkUploadDialog from '@/components/crm/BulkUploadDialog';
 import BulkUpdateDialog from '@/components/crm/BulkUpdateDialog';
@@ -19,13 +19,31 @@ import CRMSettingsDialog from '@/components/crm/CRMSettingsDialog';
 import { ExpandableTabs } from '@/components/ui/expandable-tabs';
 import { LayoutGrid, List, FileSpreadsheet, Plus, Download, RefreshCw, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+
+const DASHBOARD_TABS = [
+  { title: 'Cuadrícula', icon: LayoutGrid },
+  { title: 'Tabla', icon: List },
+  { type: 'separator' as const },
+  { title: 'Carga masiva', icon: FileSpreadsheet },
+  { title: 'Actualizar masivo', icon: RefreshCw },
+  { title: 'Nueva empresa', icon: Plus },
+  { title: 'Exportar', icon: Download },
+  { title: 'Ajustes', icon: Settings2 },
+];
 
 export default function Index() {
   const navigate = useNavigate();
   const { companies, loading, deleteCompany } = useCRM();
   const { fields } = useCustomFields();
   const [view, setView] = useState<'grid' | 'table'>('grid');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('crm-pageSize');
+      if (saved) return Math.min(Number(saved), 100);
+    } catch {}
+    return 25;
+  });
   const [filters, setFilters] = useState<FilterState>(() => {
     try {
       const saved = sessionStorage.getItem('crm-filters');
@@ -34,11 +52,6 @@ export default function Index() {
     return DEFAULT_FILTERS;
   });
 
-  // Persist filters to sessionStorage
-  const updateFilters = (f: FilterState) => {
-    setFilters(f);
-    try { sessionStorage.setItem('crm-filters', JSON.stringify(f)); } catch {}
-  };
   const [formOpen, setFormOpen] = useState(false);
   const [quickAction, setQuickAction] = useState<{ type: 'action' | 'task' | 'milestone'; companyId: string } | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
@@ -46,16 +59,18 @@ export default function Index() {
   const [exportOpen, setExportOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const dashboardTabs = [
-    { title: 'Cuadrícula', icon: LayoutGrid },
-    { title: 'Tabla', icon: List },
-    { type: 'separator' as const },
-    { title: 'Carga masiva', icon: FileSpreadsheet },
-    { title: 'Actualizar masivo', icon: RefreshCw },
-    { title: 'Nueva empresa', icon: Plus },
-    { title: 'Exportar', icon: Download },
-    { title: 'Ajustes', icon: Settings2 },
-  ];
+  // Persist filters to sessionStorage
+  const updateFilters = useCallback((f: FilterState) => {
+    setFilters(f);
+    setPage(1); // Reset page on filter change
+    try { sessionStorage.setItem('crm-filters', JSON.stringify(f)); } catch {}
+  }, []);
+
+  const updatePageSize = useCallback((size: number) => {
+    setPageSize(size);
+    setPage(1);
+    try { sessionStorage.setItem('crm-pageSize', String(size)); } catch {}
+  }, []);
 
   const filtered = useMemo(() => {
     const result = companies.filter(c => {
@@ -114,6 +129,14 @@ export default function Index() {
     return result;
   }, [companies, filters, fields]);
 
+  // Paginate
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const paginatedItems = useMemo(() => {
+    const start = (safePage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, safePage, pageSize]);
+
   const handleDashboardTab = useCallback((index: number | null) => {
     if (index === null) return;
     if (index === 0) setView('grid');
@@ -125,6 +148,18 @@ export default function Index() {
     else if (index === 7) setSettingsOpen(true);
   }, []);
 
+  const handleOpenProfile = useCallback((id: string) => navigate(`/empresa/${id}`), [navigate]);
+
+  const handleQuickAction = useCallback((type: 'action' | 'task' | 'milestone', companyId: string) => {
+    setQuickAction({ type, companyId });
+  }, []);
+
+  const handleDelete = useCallback(async (id: string) => {
+    const name = companies.find(c => c.id === id)?.tradeName;
+    await deleteCompany(id);
+    showSuccess('Empresa eliminada', `"${name}" fue eliminada`);
+  }, [companies, deleteCompany]);
+
   return (
     <div className="container py-6">
       <div className="mb-6 flex items-center justify-between">
@@ -133,7 +168,7 @@ export default function Index() {
           <p className="text-sm text-muted-foreground">{filtered.length} de {companies.length} empresas</p>
         </div>
         <div className="flex items-center gap-2">
-          <ExpandableTabs tabs={dashboardTabs} onChange={handleDashboardTab} />
+          <ExpandableTabs tabs={DASHBOARD_TABS} onChange={handleDashboardTab} />
         </div>
       </div>
 
@@ -151,18 +186,28 @@ export default function Index() {
           </div>
         ) : view === 'grid' ? (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filtered.map(c => (
+            {paginatedItems.map(c => (
               <CompanyCard
                 key={c.id}
                 company={c}
-                onOpenProfile={id => navigate(`/empresa/${id}`)}
-                onQuickAction={(type, companyId) => setQuickAction({ type, companyId })}
-                onDelete={async (id) => { const name = companies.find(c => c.id === id)?.tradeName; await deleteCompany(id); showSuccess('Empresa eliminada', `"${name}" fue eliminada`); }}
+                onOpenProfile={handleOpenProfile}
+                onQuickAction={handleQuickAction}
+                onDelete={handleDelete}
               />
             ))}
           </div>
         ) : (
-          <CompanyTable companies={filtered} onOpenProfile={id => navigate(`/empresa/${id}`)} activeYear={filters.activeYear} onDelete={async (id) => { const name = companies.find(c => c.id === id)?.tradeName; await deleteCompany(id); showSuccess('Empresa eliminada', `"${name}" fue eliminada`); }} />
+          <CompanyTable companies={paginatedItems} onOpenProfile={handleOpenProfile} activeYear={filters.activeYear} onDelete={handleDelete} />
+        )}
+
+        {filtered.length > 0 && (
+          <CRMPagination
+            total={filtered.length}
+            page={safePage}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            onPageSizeChange={updatePageSize}
+          />
         )}
       </div>
 
