@@ -151,9 +151,12 @@ serve(async (req) => {
 
     const body: CompanyInput = await req.json();
     const {
-      tradeName, legalName, nit, website, contacts, taxonomy,
+      mode, tradeName, legalName, nit, website, contacts, taxonomy,
       category, vertical, subVertical, description, city, companyId,
     } = body;
+
+    const isRuesMode = mode === 'rues';
+    const isVariablesMode = mode === 'variables';
 
     // Step 1: RUES lookup (if enabled)
     let ruesResult = { data: null as any[] | null, query: "disabled", attempts: [] as string[] };
