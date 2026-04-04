@@ -36,7 +36,13 @@ export default function Index() {
   const { companies, loading, deleteCompany } = useCRM();
   const { fields } = useCustomFields();
   const [view, setView] = useState<'grid' | 'table'>('grid');
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('crm-page');
+      if (saved) return Number(saved);
+    } catch {}
+    return 1;
+  });
   const [pageSize, setPageSize] = useState(() => {
     try {
       const saved = sessionStorage.getItem('crm-pageSize');
