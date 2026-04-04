@@ -16,8 +16,8 @@ import { Plus, Trash2, Upload, X, ChevronsUpDown, Check, Settings2, Pencil, Spar
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { GooeyLoader } from '@/components/ui/gooey-loader';
 
 interface Props {
   open: boolean;
@@ -363,18 +363,15 @@ export default function CompanyForm({ open, onClose, company }: Props) {
 
   // Company Fit AI state
   const [companyFitLoading, setCompanyFitLoading] = useState(false);
-  const [companyFitProgress, setCompanyFitProgress] = useState(0);
   const [companyFitStage, setCompanyFitStage] = useState('');
   const [aiModifiedFields, setAiModifiedFields] = useState<Set<string>>(new Set());
 
   const handleCompanyFit = async () => {
     setCompanyFitLoading(true);
     setAiModifiedFields(new Set());
-    setCompanyFitProgress(10);
     setCompanyFitStage('Analizando sitio web...');
 
     try {
-      // Build taxonomy data to send
       const taxonomyData = {
         categories: taxonomy.allCategories,
         verticals: taxonomy.verticals.map(v => {
@@ -388,15 +385,11 @@ export default function CompanyForm({ open, onClose, company }: Props) {
         }),
       };
 
-      setCompanyFitProgress(30);
       setCompanyFitStage('Consultando RUES...');
 
-      const progressInterval = setInterval(() => {
-        setCompanyFitProgress(prev => Math.min(prev + 5, 85));
-      }, 2000);
-
-      setTimeout(() => setCompanyFitStage('Clasificando empresa...'), 4000);
-      setTimeout(() => setCompanyFitStage('Generando resultados...'), 8000);
+      const stageTimer1 = setTimeout(() => setCompanyFitStage('Clasificando empresa...'), 6000);
+      const stageTimer2 = setTimeout(() => setCompanyFitStage('Razonando clasificación...'), 12000);
+      const stageTimer3 = setTimeout(() => setCompanyFitStage('Generando resultados...'), 18000);
 
       const { data: result, error } = await supabase.functions.invoke('company-fit', {
         body: {
@@ -414,12 +407,13 @@ export default function CompanyForm({ open, onClose, company }: Props) {
         },
       });
 
-      clearInterval(progressInterval);
+      clearTimeout(stageTimer1);
+      clearTimeout(stageTimer2);
+      clearTimeout(stageTimer3);
 
       if (error) throw new Error(error.message || 'Error al analizar');
       if (result?.error) throw new Error(result.error);
 
-      setCompanyFitProgress(100);
       setCompanyFitStage('¡Listo!');
 
       // Apply results to form
@@ -485,17 +479,41 @@ export default function CompanyForm({ open, onClose, company }: Props) {
         } catch { /* logo fetch failed, skip */ }
       }
 
+      // Save new verticals/sub-verticals to taxonomy
+      if (result.isNewVertical && result.vertical) {
+        try {
+          const newVert = await taxonomy.addVertical(result.vertical);
+          if (newVert && result.category) {
+            await taxonomy.linkCategoryVertical(result.category, newVert.id);
+          }
+          showInfo('Nueva vertical creada', `"${result.vertical}" se agregó a la taxonomía`);
+        } catch { /* vertical already exists or error */ }
+      }
+      if (result.isNewSubVertical && result.subVertical) {
+        try {
+          const newSub = await taxonomy.addSubVertical(result.subVertical);
+          if (newSub && result.vertical) {
+            const vert = taxonomy.verticals.find(v => v.name === result.vertical);
+            if (vert) {
+              await taxonomy.linkVerticalSubVertical(vert.id, newSub.id);
+            }
+          }
+          showInfo('Nueva sub-vertical creada', `"${result.subVertical}" se agregó a la taxonomía`);
+        } catch { /* sub-vertical already exists or error */ }
+      }
+
       setAiModifiedFields(modified);
 
+      // Build result message
       const confidenceLabel = result.confidence === 'high' ? 'alta' : result.confidence === 'medium' ? 'media' : 'baja';
-      showSuccess('Company Fit completado', `Confianza ${confidenceLabel}. ${result.reasoning?.slice(0, 100) || ''}`);
+      const ruesMsg = result.ruesFound ? '✅ RUES encontrado' : '⚠️ Sin datos en RUES';
+      showSuccess('Company Fit completado', `${ruesMsg} · Confianza ${confidenceLabel}. ${result.reasoning?.slice(0, 80) || ''}`);
     } catch (err: any) {
       console.error('Company Fit error:', err);
       showError('Error en Company Fit', err.message || 'No se pudo analizar la empresa');
     } finally {
       setTimeout(() => {
         setCompanyFitLoading(false);
-        setCompanyFitProgress(0);
         setCompanyFitStage('');
       }, 1000);
     }
@@ -733,32 +751,10 @@ export default function CompanyForm({ open, onClose, company }: Props) {
     <Dialog open={open} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-3xl p-0 gap-0 max-h-[90vh] overflow-hidden">
         <DialogHeader className="border-b border-border px-6 py-4">
-          <div className="flex items-center justify-between">
-            <DialogTitle>{isEdit ? 'Editar empresa' : 'Nueva empresa'}</DialogTitle>
-            {(isEdit || form.website) && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5 text-xs"
-                onClick={handleCompanyFit}
-                disabled={companyFitLoading || !form.tradeName.trim()}
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                Company Fit
-              </Button>
-            )}
-          </div>
+          <DialogTitle>{isEdit ? 'Editar empresa' : 'Nueva empresa'}</DialogTitle>
           {companyFitLoading && (
-            <div className="mt-3 space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Progress value={companyFitProgress} className="h-2" />
-                  <div className="absolute inset-0 h-2 rounded-full overflow-hidden">
-                    <div className="h-full w-full bg-gradient-to-r from-primary/20 via-primary/60 to-primary/20 animate-pulse" />
-                  </div>
-                </div>
-                <span className="text-xs text-muted-foreground whitespace-nowrap">{companyFitProgress}%</span>
-              </div>
+            <div className="mt-3 flex flex-col items-center gap-2">
+              <GooeyLoader className="h-12" />
               <p className="text-xs text-primary font-medium animate-pulse">{companyFitStage}</p>
             </div>
           )}
@@ -990,11 +986,25 @@ export default function CompanyForm({ open, onClose, company }: Props) {
             </Section>
           </div>
         </ScrollArea>
-        <div className="flex justify-end gap-2 border-t border-border px-6 py-3">
-          <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
-          <Button size="sm" onClick={handleSave} disabled={!form.tradeName.trim() || uploading}>
-            {isEdit ? 'Guardar cambios' : 'Crear empresa'}
-          </Button>
+        <div className="flex items-center border-t border-border px-6 py-3">
+          {(isEdit || form.website) && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs mr-auto"
+              onClick={handleCompanyFit}
+              disabled={companyFitLoading || !form.tradeName.trim()}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Company Fit
+            </Button>
+          )}
+          <div className="flex gap-2 ml-auto">
+            <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
+            <Button size="sm" onClick={handleSave} disabled={!form.tradeName.trim() || uploading}>
+              {isEdit ? 'Guardar cambios' : 'Crear empresa'}
+            </Button>
+          </div>
         </div>
       </DialogContent>
 
