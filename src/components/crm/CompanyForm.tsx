@@ -790,7 +790,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
           <div className="space-y-6 pb-6">
             {/* Logo Upload */}
             <Section title="Logo">
-              {companyFitLoading && !logoPreview ? (
+              {variablesLoading && !logoPreview ? (
                 <Skeleton className="h-16 w-16 rounded-lg" />
               ) : (
               <div className="flex items-center gap-4">
