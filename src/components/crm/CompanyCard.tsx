@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Company } from '@/types/crm';
 import { calculateGrowth, formatPercentage, getLastYearSales, formatCOP } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
@@ -16,19 +16,26 @@ interface Props {
   onDelete?: (id: string) => void;
 }
 
-export default function CompanyCard({ company, onOpenProfile, onQuickAction, onDelete }: Props) {
+const QUICK_TABS = [
+  { title: 'Acción', icon: Phone },
+  { title: 'Tarea', icon: CheckSquare },
+  { title: 'Hito', icon: Flag },
+];
+
+const TrendIcon = memo(({ val }: { val: number | null }) => {
+  if (val === null) return <Minus className="h-3 w-3 text-muted-foreground" />;
+  if (val > 0) return <TrendingUp className="h-3 w-3 text-success" />;
+  return <TrendingDown className="h-3 w-3 text-destructive" />;
+});
+TrendIcon.displayName = 'TrendIcon';
+
+function CompanyCard({ company, onOpenProfile, onQuickAction, onDelete }: Props) {
   const [pipelineOpen, setPipelineOpen] = useState(false);
   const { avgYoY, lastYoY } = calculateGrowth(company.salesByYear);
   const lastSales = getLastYearSales(company.salesByYear);
   const pendingTasks = company.tasks.filter(t => t.status === 'pending').length;
   const overdueTasks = company.tasks.filter(t => t.status === 'pending' && new Date(t.dueDate) < new Date()).length;
   const primaryContact = company.contacts.find(c => c.isPrimary);
-
-  const getTrendIcon = (val: number | null) => {
-    if (val === null) return <Minus className="h-3 w-3 text-muted-foreground" />;
-    if (val > 0) return <TrendingUp className="h-3 w-3 text-success" />;
-    return <TrendingDown className="h-3 w-3 text-destructive" />;
-  };
 
   return (
     <Card
@@ -40,7 +47,7 @@ export default function CompanyCard({ company, onOpenProfile, onQuickAction, onD
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-3">
               {company.logo ? (
-                <img src={company.logo} alt={company.tradeName} className="h-12 w-12 shrink-0 rounded-lg border border-border/40 object-contain bg-white p-1" />
+                <img src={company.logo} alt={company.tradeName} className="h-12 w-12 shrink-0 rounded-lg border border-border/40 object-contain bg-white p-1" loading="lazy" />
               ) : (
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-lg font-bold text-primary">
                   {company.tradeName.charAt(0).toUpperCase()}
@@ -71,7 +78,7 @@ export default function CompanyCard({ company, onOpenProfile, onQuickAction, onD
                 {formatPercentage(avgYoY)}
               </p>
             </div>
-            {getTrendIcon(avgYoY)}
+            <TrendIcon val={avgYoY} />
           </div>
           <div className="flex items-center gap-1.5 rounded-md border border-border/40 bg-muted/30 px-2 py-1.5">
             <div className="flex-1 min-w-0">
@@ -80,7 +87,7 @@ export default function CompanyCard({ company, onOpenProfile, onQuickAction, onD
                 {formatPercentage(lastYoY)}
               </p>
             </div>
-            {getTrendIcon(lastYoY)}
+            <TrendIcon val={lastYoY} />
           </div>
         </div>
 
@@ -116,11 +123,7 @@ export default function CompanyCard({ company, onOpenProfile, onQuickAction, onD
           </Button>
           <div className="flex items-center gap-1">
             <ExpandableTabs
-              tabs={[
-                { title: 'Acción', icon: Phone },
-                { title: 'Tarea', icon: CheckSquare },
-                { title: 'Hito', icon: Flag },
-              ]}
+              tabs={QUICK_TABS}
               className="border-none shadow-none p-0.5 bg-transparent"
               onChange={(index) => {
                 if (index === null) return;
@@ -140,7 +143,11 @@ export default function CompanyCard({ company, onOpenProfile, onQuickAction, onD
         </div>
       </CardFooter>
 
-      <AddToPipelineDialog open={pipelineOpen} onClose={() => setPipelineOpen(false)} companyId={company.id} companyName={company.tradeName} />
+      {pipelineOpen && (
+        <AddToPipelineDialog open={pipelineOpen} onClose={() => setPipelineOpen(false)} companyId={company.id} companyName={company.tradeName} />
+      )}
     </Card>
   );
 }
+
+export default memo(CompanyCard);
