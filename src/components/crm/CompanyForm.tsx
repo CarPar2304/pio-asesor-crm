@@ -767,10 +767,14 @@ export default function CompanyForm({ open, onClose, company }: Props) {
           <div className="space-y-6 pb-6">
             {/* Logo Upload */}
             <Section title="Logo">
+              {companyFitLoading && !logoPreview ? (
+                <Skeleton className="h-16 w-16 rounded-lg" />
+              ) : (
               <div className="flex items-center gap-4">
                 {logoPreview ? (
                   <div className="relative">
-                    <img src={logoPreview} alt="Logo" className="h-16 w-16 rounded-lg border border-border object-cover" />
+                    <img src={logoPreview} alt="Logo" className={cn("h-16 w-16 rounded-lg border border-border object-cover", aiModifiedFields.has('logo') && "ring-2 ring-primary/30")} />
+                    {aiModifiedFields.has('logo') && <Badge variant="outline" className="absolute -top-1 -right-1 h-4 px-1 text-[9px] border-primary/40 text-primary">IA</Badge>}
                     <button type="button" onClick={removeLogo} className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground">
                       <X className="h-3 w-3" />
                     </button>
@@ -785,14 +789,15 @@ export default function CompanyForm({ open, onClose, company }: Props) {
                   {uploading ? 'Subiendo...' : logoPreview ? 'Logo cargado' : 'Clic para subir o pega una imagen (Ctrl+V)'}
                 </div>
               </div>
+              )}
             </Section>
 
             <Separator />
 
             <Section title="Identificación">
-              <Field label="Nombre comercial"><Input className="h-9 text-sm" value={form.tradeName} onChange={e => setForm(f => ({ ...f, tradeName: e.target.value }))} /></Field>
-              <Field label="Razón Social"><Input className="h-9 text-sm" value={form.legalName} onChange={e => setForm(f => ({ ...f, legalName: e.target.value }))} /></Field>
-              <Field label="NIT"><Input className="h-9 text-sm" value={form.nit} onChange={e => setForm(f => ({ ...f, nit: e.target.value }))} /></Field>
+              <Field label="Nombre comercial" aiModified={aiModifiedFields.has('tradeName')} isLoading={companyFitLoading}><Input className="h-9 text-sm" value={form.tradeName} onChange={e => setForm(f => ({ ...f, tradeName: e.target.value }))} /></Field>
+              <Field label="Razón Social" aiModified={aiModifiedFields.has('legalName')} isLoading={companyFitLoading}><Input className="h-9 text-sm" value={form.legalName} onChange={e => setForm(f => ({ ...f, legalName: e.target.value }))} /></Field>
+              <Field label="NIT" aiModified={aiModifiedFields.has('nit')} isLoading={companyFitLoading}><Input className="h-9 text-sm" value={form.nit} onChange={e => setForm(f => ({ ...f, nit: e.target.value }))} /></Field>
             </Section>
 
             <Separator />
