@@ -174,7 +174,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ProfileContext.Provider value={{
-      profile, allProfiles, segments, notifications, unreadCount, loading,
+      profile, allProfiles, segments, notifications, unreadCount, loading, isAdmin,
       updateProfile, addSegment, removeSegment,
       markNotificationRead, markAllRead,
       refreshNotifications: fetchNotifications,
