@@ -9,6 +9,7 @@ const corsHeaders = {
 };
 
 interface CompanyInput {
+  mode?: 'rues' | 'variables'; // "rues" = RUES only, "variables" = AI only, undefined = both (legacy)
   tradeName: string;
   legalName: string;
   nit: string;
@@ -150,13 +151,16 @@ serve(async (req) => {
 
     const body: CompanyInput = await req.json();
     const {
-      tradeName, legalName, nit, website, contacts, taxonomy,
+      mode, tradeName, legalName, nit, website, contacts, taxonomy,
       category, vertical, subVertical, description, city, companyId,
     } = body;
 
-    // Step 1: RUES lookup (if enabled)
+    const isRuesMode = mode === 'rues';
+    const isVariablesMode = mode === 'variables';
+
+    // Step 1: RUES lookup (if not variables-only mode)
     let ruesResult = { data: null as any[] | null, query: "disabled", attempts: [] as string[] };
-    if (ruesEnabled) {
+    if (!isVariablesMode && ruesEnabled) {
       console.log("Starting RUES lookup for:", { nit, tradeName, legalName });
       ruesResult = await lookupRUES(ruesApiUrl, nit, tradeName, legalName);
       console.log("RUES result:", {
@@ -165,8 +169,69 @@ serve(async (req) => {
         attempts: ruesResult.attempts,
         recordCount: ruesResult.data?.length || 0,
       });
+    } else if (isVariablesMode) {
+      console.log("RUES lookup skipped (variables-only mode)");
     } else {
       console.log("RUES lookup disabled by admin config");
+    }
+
+    // If RUES-only mode, return immediately with RUES data
+    if (isRuesMode) {
+      const durationMs = Date.now() - startTime;
+      const ruesRecord = ruesResult.data?.[0] || null;
+      
+      // Extract fields from RUES record
+      let extractedNit = nit;
+      let extractedLegalName = legalName;
+      let extractedTradeName = tradeName;
+      let economicActivity = '';
+      
+      if (ruesRecord) {
+        // NIT: strip verification digit
+        if (ruesRecord.nit) {
+          extractedNit = String(ruesRecord.nit).replace(/-\d$/, '');
+        } else if (ruesRecord.numero_identificacion) {
+          extractedNit = String(ruesRecord.numero_identificacion).replace(/-\d$/, '');
+        }
+        if (ruesRecord.razon_social) {
+          extractedLegalName = ruesRecord.razon_social;
+        }
+        if (ruesRecord.cod_ciiu_act_econ_pri) {
+          economicActivity = ruesRecord.cod_ciiu_act_econ_pri;
+        }
+      }
+
+      const result = {
+        legalName: extractedLegalName,
+        nit: extractedNit,
+        tradeName: extractedTradeName,
+        economicActivity,
+        ruesFound: !!ruesResult.data,
+        ruesAttempts: ruesResult.attempts,
+        ruesData: ruesRecord,
+      };
+
+      // Log
+      await supabaseAdmin.from("company_fit_logs").insert({
+        company_id: companyId || null,
+        company_name: tradeName,
+        request_payload: { mode: 'rues', tradeName, legalName, nit },
+        response_payload: result,
+        rues_data: ruesRecord,
+        rues_found: !!ruesResult.data,
+        rues_attempts: ruesResult.attempts,
+        model: 'rues-only',
+        reasoning_effort: 'n/a',
+        duration_ms: durationMs,
+        error: null,
+        created_by: userId,
+      });
+
+      console.log("RUES-only result:", result);
+
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Step 2: Build the prompt

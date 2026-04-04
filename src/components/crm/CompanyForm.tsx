@@ -12,7 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Plus, Trash2, Upload, X, ChevronsUpDown, Check, Settings2, Pencil, Sparkles } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Plus, Trash2, Upload, X, ChevronsUpDown, Check, Settings2, Pencil, Sparkles, Search, ChevronDown } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -366,10 +367,15 @@ export default function CompanyForm({ open, onClose, company }: Props) {
   const [companyFitStage, setCompanyFitStage] = useState('');
   const [aiModifiedFields, setAiModifiedFields] = useState<Set<string>>(new Set());
 
-  const handleCompanyFit = async () => {
+  const handleCompanyFit = async (mode: 'rues' | 'variables') => {
     setCompanyFitLoading(true);
     setAiModifiedFields(new Set());
-    setCompanyFitStage('Analizando sitio web...');
+
+    if (mode === 'rues') {
+      setCompanyFitStage('Consultando RUES...');
+    } else {
+      setCompanyFitStage('Analizando sitio web...');
+    }
 
     try {
       const taxonomyData = {
@@ -385,14 +391,16 @@ export default function CompanyForm({ open, onClose, company }: Props) {
         }),
       };
 
-      setCompanyFitStage('Consultando RUES...');
-
-      const stageTimer1 = setTimeout(() => setCompanyFitStage('Clasificando empresa...'), 6000);
-      const stageTimer2 = setTimeout(() => setCompanyFitStage('Razonando clasificación...'), 12000);
-      const stageTimer3 = setTimeout(() => setCompanyFitStage('Generando resultados...'), 18000);
+      let stageTimer1: any, stageTimer2: any, stageTimer3: any;
+      if (mode === 'variables') {
+        stageTimer1 = setTimeout(() => setCompanyFitStage('Clasificando empresa...'), 6000);
+        stageTimer2 = setTimeout(() => setCompanyFitStage('Razonando clasificación...'), 12000);
+        stageTimer3 = setTimeout(() => setCompanyFitStage('Generando resultados...'), 18000);
+      }
 
       const { data: result, error } = await supabase.functions.invoke('company-fit', {
         body: {
+          mode,
           tradeName: form.tradeName,
           legalName: form.legalName,
           nit: form.nit,
@@ -407,107 +415,116 @@ export default function CompanyForm({ open, onClose, company }: Props) {
         },
       });
 
-      clearTimeout(stageTimer1);
-      clearTimeout(stageTimer2);
-      clearTimeout(stageTimer3);
+      if (mode === 'variables') {
+        clearTimeout(stageTimer1);
+        clearTimeout(stageTimer2);
+        clearTimeout(stageTimer3);
+      }
 
       if (error) throw new Error(error.message || 'Error al analizar');
       if (result?.error) throw new Error(result.error);
 
       setCompanyFitStage('¡Listo!');
 
-      // Apply results to form
       const modified = new Set<string>();
 
-      if (result.category && result.category !== form.category) {
-        setForm(f => ({ ...f, category: result.category }));
-        modified.add('category');
-      }
-      if (result.vertical && result.vertical !== form.vertical) {
-        setForm(f => ({ ...f, vertical: result.vertical }));
-        modified.add('vertical');
-      }
-      if (result.subVertical && result.subVertical !== form.subVertical) {
-        setForm(f => ({ ...f, subVertical: result.subVertical }));
-        modified.add('subVertical');
-      }
-      if (result.description && result.description !== form.description) {
-        setForm(f => ({ ...f, description: result.description }));
-        modified.add('description');
-      }
-      if (result.legalName && result.legalName !== form.legalName) {
-        setForm(f => ({ ...f, legalName: result.legalName }));
-        modified.add('legalName');
-      }
-      if (result.nit && result.nit !== form.nit) {
-        setForm(f => ({ ...f, nit: result.nit }));
-        modified.add('nit');
-      }
-      if (result.tradeName && result.tradeName !== form.tradeName) {
-        setForm(f => ({ ...f, tradeName: result.tradeName }));
-        modified.add('tradeName');
-      }
+      if (mode === 'rues') {
+        // RUES mode: only apply legal identity fields
+        if (result.legalName && result.legalName !== form.legalName) {
+          setForm(f => ({ ...f, legalName: result.legalName }));
+          modified.add('legalName');
+        }
+        if (result.nit && result.nit !== form.nit) {
+          setForm(f => ({ ...f, nit: result.nit }));
+          modified.add('nit');
+        }
+        if (result.tradeName && result.tradeName !== form.tradeName) {
+          setForm(f => ({ ...f, tradeName: result.tradeName }));
+          modified.add('tradeName');
+        }
+        if (result.economicActivity) {
+          modified.add('economicActivity');
+        }
+        const ruesMsg = result.ruesFound ? '✅ RUES encontrado' : '⚠️ Sin datos en RUES';
+        showSuccess('RUES completado', ruesMsg);
+      } else {
+        // Variables mode: apply AI analysis fields
+        if (result.category && result.category !== form.category) {
+          setForm(f => ({ ...f, category: result.category }));
+          modified.add('category');
+        }
+        if (result.vertical && result.vertical !== form.vertical) {
+          setForm(f => ({ ...f, vertical: result.vertical }));
+          modified.add('vertical');
+        }
+        if (result.subVertical && result.subVertical !== form.subVertical) {
+          setForm(f => ({ ...f, subVertical: result.subVertical }));
+          modified.add('subVertical');
+        }
+        if (result.description && result.description !== form.description) {
+          setForm(f => ({ ...f, description: result.description }));
+          modified.add('description');
+        }
 
-      // Update contact genders
-      if (result.contacts?.length > 0) {
-        setContacts(prev => prev.map(c => {
-          const aiContact = result.contacts.find((ac: any) => ac.id === c.id);
-          if (aiContact && aiContact.gender !== c.gender) {
-            modified.add(`contact-${c.id}`);
-            return { ...c, gender: aiContact.gender as ContactGender };
-          }
-          return c;
-        }));
-      }
-
-      // Handle logo URL
-      if (result.logoUrl && !logoUrl) {
-        try {
-          const logoRes = await fetch(result.logoUrl);
-          if (logoRes.ok) {
-            const blob = await logoRes.blob();
-            const ext = blob.type.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
-            const fileName = `${crypto.randomUUID()}.${ext}`;
-            const { error: uploadErr } = await supabase.storage.from('company-logos').upload(fileName, blob, { upsert: true });
-            if (!uploadErr) {
-              const { data: urlData } = supabase.storage.from('company-logos').getPublicUrl(fileName);
-              setLogoUrl(urlData.publicUrl);
-              setLogoPreview(urlData.publicUrl);
-              modified.add('logo');
+        // Update contact genders
+        if (result.contacts?.length > 0) {
+          setContacts(prev => prev.map(c => {
+            const aiContact = result.contacts.find((ac: any) => ac.id === c.id);
+            if (aiContact && aiContact.gender !== c.gender) {
+              modified.add(`contact-${c.id}`);
+              return { ...c, gender: aiContact.gender as ContactGender };
             }
-          }
-        } catch { /* logo fetch failed, skip */ }
-      }
+            return c;
+          }));
+        }
 
-      // Save new verticals/sub-verticals to taxonomy
-      if (result.isNewVertical && result.vertical) {
-        try {
-          const newVert = await taxonomy.addVertical(result.vertical);
-          if (newVert && result.category) {
-            await taxonomy.linkCategoryVertical(result.category, newVert.id);
-          }
-          showInfo('Nueva vertical creada', `"${result.vertical}" se agregó a la taxonomía`);
-        } catch { /* vertical already exists or error */ }
-      }
-      if (result.isNewSubVertical && result.subVertical) {
-        try {
-          const newSub = await taxonomy.addSubVertical(result.subVertical);
-          if (newSub && result.vertical) {
-            const vert = taxonomy.verticals.find(v => v.name === result.vertical);
-            if (vert) {
-              await taxonomy.linkVerticalSubVertical(vert.id, newSub.id);
+        // Handle logo URL
+        if (result.logoUrl && !logoUrl) {
+          try {
+            const logoRes = await fetch(result.logoUrl);
+            if (logoRes.ok) {
+              const blob = await logoRes.blob();
+              const ext = blob.type.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
+              const fileName = `${crypto.randomUUID()}.${ext}`;
+              const { error: uploadErr } = await supabase.storage.from('company-logos').upload(fileName, blob, { upsert: true });
+              if (!uploadErr) {
+                const { data: urlData } = supabase.storage.from('company-logos').getPublicUrl(fileName);
+                setLogoUrl(urlData.publicUrl);
+                setLogoPreview(urlData.publicUrl);
+                modified.add('logo');
+              }
             }
-          }
-          showInfo('Nueva sub-vertical creada', `"${result.subVertical}" se agregó a la taxonomía`);
-        } catch { /* sub-vertical already exists or error */ }
+          } catch { /* logo fetch failed, skip */ }
+        }
+
+        // Save new verticals/sub-verticals to taxonomy
+        if (result.isNewVertical && result.vertical) {
+          try {
+            const newVert = await taxonomy.addVertical(result.vertical);
+            if (newVert && result.category) {
+              await taxonomy.linkCategoryVertical(result.category, newVert.id);
+            }
+            showInfo('Nueva vertical creada', `"${result.vertical}" se agregó a la taxonomía`);
+          } catch { /* vertical already exists or error */ }
+        }
+        if (result.isNewSubVertical && result.subVertical) {
+          try {
+            const newSub = await taxonomy.addSubVertical(result.subVertical);
+            if (newSub && result.vertical) {
+              const vert = taxonomy.verticals.find(v => v.name === result.vertical);
+              if (vert) {
+                await taxonomy.linkVerticalSubVertical(vert.id, newSub.id);
+              }
+            }
+            showInfo('Nueva sub-vertical creada', `"${result.subVertical}" se agregó a la taxonomía`);
+          } catch { /* sub-vertical already exists or error */ }
+        }
+
+        const confidenceLabel = result.confidence === 'high' ? 'alta' : result.confidence === 'medium' ? 'media' : 'baja';
+        showSuccess('Company Fit completado', `Confianza ${confidenceLabel}. ${result.reasoning?.slice(0, 80) || ''}`);
       }
 
       setAiModifiedFields(modified);
-
-      // Build result message
-      const confidenceLabel = result.confidence === 'high' ? 'alta' : result.confidence === 'medium' ? 'media' : 'baja';
-      const ruesMsg = result.ruesFound ? '✅ RUES encontrado' : '⚠️ Sin datos en RUES';
-      showSuccess('Company Fit completado', `${ruesMsg} · Confianza ${confidenceLabel}. ${result.reasoning?.slice(0, 80) || ''}`);
     } catch (err: any) {
       console.error('Company Fit error:', err);
       showError('Error en Company Fit', err.message || 'No se pudo analizar la empresa');
@@ -987,17 +1004,31 @@ export default function CompanyForm({ open, onClose, company }: Props) {
           </div>
         </ScrollArea>
         <div className="flex items-center border-t border-border px-6 py-3">
-          {(isEdit || form.website) && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 text-xs mr-auto"
-              onClick={handleCompanyFit}
-              disabled={companyFitLoading || !form.tradeName.trim()}
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Company Fit
-            </Button>
+          {(isEdit || form.website || form.tradeName.trim()) && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-xs mr-auto"
+                  disabled={companyFitLoading || !form.tradeName.trim()}
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Company Fit
+                  <ChevronDown className="h-3 w-3 ml-0.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={() => handleCompanyFit('rues')} className="gap-2 text-xs">
+                  <Search className="h-3.5 w-3.5" />
+                  RUES (Razón social y NIT)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleCompanyFit('variables')} disabled={!form.website} className="gap-2 text-xs">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Variables (Clasificación IA)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
           <div className="flex gap-2 ml-auto">
             <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
