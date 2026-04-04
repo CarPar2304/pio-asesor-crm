@@ -832,9 +832,8 @@ export default function CompanyForm({ open, onClose, company }: Props) {
         <DialogHeader className="border-b border-border px-6 py-4">
           <DialogTitle>{isEdit ? 'Editar empresa' : 'Nueva empresa'}</DialogTitle>
           {variablesLoading && (
-            <div className="mt-3 flex flex-col items-center gap-2">
-              <GooeyLoader className="h-12" />
-              <p className="text-xs text-primary font-medium animate-pulse">{companyFitStage}</p>
+            <div className="mt-2">
+              <CompanyFitLoadingAnimation stage={companyFitStage} />
             </div>
           )}
           {ruesLoading && (
