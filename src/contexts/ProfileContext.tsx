@@ -55,6 +55,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [segments, setSegments] = useState<Segment[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const fetchProfiles = useCallback(async () => {
     if (!session) return;
