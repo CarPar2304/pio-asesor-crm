@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Company, Contact, ContactGender, CustomFieldValue, CustomSection, CustomField, VERTICALS, CITIES, CATEGORIES, GENDER_LABELS, FIELD_TYPE_LABELS, CustomFieldType } from '@/types/crm';
 import { useTaxonomy } from '@/contexts/TaxonomyContext';
 import { useCRM } from '@/contexts/CRMContext';
-import { showSuccess } from '@/lib/toast';
+import { showSuccess, showError, showInfo } from '@/lib/toast';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -12,9 +12,12 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Plus, Trash2, Upload, X, ChevronsUpDown, Check, Settings2, Pencil } from 'lucide-react';
+import { Plus, Trash2, Upload, X, ChevronsUpDown, Check, Settings2, Pencil, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 
 interface Props {
   open: boolean;
@@ -49,10 +52,13 @@ const Section = ({ title, children, onAddField, onDelete }: { title: string; chi
   </div>
 );
 
-const Field = ({ label, children, onDelete, onEdit }: { label: string; children: React.ReactNode; onDelete?: () => void; onEdit?: () => void }) => (
-  <div>
+const Field = ({ label, children, onDelete, onEdit, aiModified, isLoading }: { label: string; children: React.ReactNode; onDelete?: () => void; onEdit?: () => void; aiModified?: boolean; isLoading?: boolean }) => (
+  <div className="relative">
     <div className="mb-1 flex items-center justify-between">
-      <label className="block text-xs font-medium text-muted-foreground">{label}</label>
+      <div className="flex items-center gap-1.5">
+        <label className="block text-xs font-medium text-muted-foreground">{label}</label>
+        {aiModified && <Badge variant="outline" className="h-4 px-1 text-[9px] font-medium border-primary/40 text-primary">IA</Badge>}
+      </div>
       <div className="flex gap-0.5">
         {onEdit && (
           <Button variant="ghost" size="icon" className="h-4 w-4 text-muted-foreground hover:text-foreground" onClick={onEdit}>
@@ -66,7 +72,7 @@ const Field = ({ label, children, onDelete, onEdit }: { label: string; children:
         )}
       </div>
     </div>
-    {children}
+    {isLoading ? <Skeleton className="h-9 w-full" /> : children}
   </div>
 );
 
@@ -355,6 +361,146 @@ export default function CompanyForm({ open, onClose, company }: Props) {
   const [uploading, setUploading] = useState(false);
   const [fieldValues, setFieldValues] = useState<Record<string, CustomFieldValue>>({});
 
+  // Company Fit AI state
+  const [companyFitLoading, setCompanyFitLoading] = useState(false);
+  const [companyFitProgress, setCompanyFitProgress] = useState(0);
+  const [companyFitStage, setCompanyFitStage] = useState('');
+  const [aiModifiedFields, setAiModifiedFields] = useState<Set<string>>(new Set());
+
+  const handleCompanyFit = async () => {
+    setCompanyFitLoading(true);
+    setAiModifiedFields(new Set());
+    setCompanyFitProgress(10);
+    setCompanyFitStage('Analizando sitio web...');
+
+    try {
+      // Build taxonomy data to send
+      const taxonomyData = {
+        categories: taxonomy.allCategories,
+        verticals: taxonomy.verticals.map(v => {
+          const catLinks = taxonomy.categoryVerticalLinks.filter(l => l.vertical_id === v.id);
+          return { name: v.name, category: catLinks.map(l => l.category).join(', ') };
+        }),
+        subVerticals: taxonomy.subVerticals.map(sv => {
+          const vertLinks = taxonomy.verticalSubVerticalLinks.filter(l => l.sub_vertical_id === sv.id);
+          const vertNames = vertLinks.map(l => taxonomy.verticals.find(v => v.id === l.vertical_id)?.name || '').filter(Boolean);
+          return { name: sv.name, vertical: vertNames.join(', ') };
+        }),
+      };
+
+      setCompanyFitProgress(30);
+      setCompanyFitStage('Consultando RUES...');
+
+      const progressInterval = setInterval(() => {
+        setCompanyFitProgress(prev => Math.min(prev + 5, 85));
+      }, 2000);
+
+      setTimeout(() => setCompanyFitStage('Clasificando empresa...'), 4000);
+      setTimeout(() => setCompanyFitStage('Generando resultados...'), 8000);
+
+      const { data: result, error } = await supabase.functions.invoke('company-fit', {
+        body: {
+          tradeName: form.tradeName,
+          legalName: form.legalName,
+          nit: form.nit,
+          category: form.category,
+          vertical: form.vertical,
+          subVertical: form.subVertical,
+          description: form.description,
+          website: form.website,
+          city: form.city === 'Otra' ? form.customCity : form.city,
+          contacts: contacts.map(c => ({ id: c.id, name: c.name, gender: c.gender })),
+          taxonomy: taxonomyData,
+        },
+      });
+
+      clearInterval(progressInterval);
+
+      if (error) throw new Error(error.message || 'Error al analizar');
+      if (result?.error) throw new Error(result.error);
+
+      setCompanyFitProgress(100);
+      setCompanyFitStage('¡Listo!');
+
+      // Apply results to form
+      const modified = new Set<string>();
+
+      if (result.category && result.category !== form.category) {
+        setForm(f => ({ ...f, category: result.category }));
+        modified.add('category');
+      }
+      if (result.vertical && result.vertical !== form.vertical) {
+        setForm(f => ({ ...f, vertical: result.vertical }));
+        modified.add('vertical');
+      }
+      if (result.subVertical && result.subVertical !== form.subVertical) {
+        setForm(f => ({ ...f, subVertical: result.subVertical }));
+        modified.add('subVertical');
+      }
+      if (result.description && result.description !== form.description) {
+        setForm(f => ({ ...f, description: result.description }));
+        modified.add('description');
+      }
+      if (result.legalName && result.legalName !== form.legalName) {
+        setForm(f => ({ ...f, legalName: result.legalName }));
+        modified.add('legalName');
+      }
+      if (result.nit && result.nit !== form.nit) {
+        setForm(f => ({ ...f, nit: result.nit }));
+        modified.add('nit');
+      }
+      if (result.tradeName && result.tradeName !== form.tradeName) {
+        setForm(f => ({ ...f, tradeName: result.tradeName }));
+        modified.add('tradeName');
+      }
+
+      // Update contact genders
+      if (result.contacts?.length > 0) {
+        setContacts(prev => prev.map(c => {
+          const aiContact = result.contacts.find((ac: any) => ac.id === c.id);
+          if (aiContact && aiContact.gender !== c.gender) {
+            modified.add(`contact-${c.id}`);
+            return { ...c, gender: aiContact.gender as ContactGender };
+          }
+          return c;
+        }));
+      }
+
+      // Handle logo URL
+      if (result.logoUrl && !logoUrl) {
+        try {
+          const logoRes = await fetch(result.logoUrl);
+          if (logoRes.ok) {
+            const blob = await logoRes.blob();
+            const ext = blob.type.split('/')[1]?.replace('jpeg', 'jpg') || 'png';
+            const fileName = `${crypto.randomUUID()}.${ext}`;
+            const { error: uploadErr } = await supabase.storage.from('company-logos').upload(fileName, blob, { upsert: true });
+            if (!uploadErr) {
+              const { data: urlData } = supabase.storage.from('company-logos').getPublicUrl(fileName);
+              setLogoUrl(urlData.publicUrl);
+              setLogoPreview(urlData.publicUrl);
+              modified.add('logo');
+            }
+          }
+        } catch { /* logo fetch failed, skip */ }
+      }
+
+      setAiModifiedFields(modified);
+
+      const confidenceLabel = result.confidence === 'high' ? 'alta' : result.confidence === 'medium' ? 'media' : 'baja';
+      showSuccess('Company Fit completado', `Confianza ${confidenceLabel}. ${result.reasoning?.slice(0, 100) || ''}`);
+    } catch (err: any) {
+      console.error('Company Fit error:', err);
+      showError('Error en Company Fit', err.message || 'No se pudo analizar la empresa');
+    } finally {
+      setTimeout(() => {
+        setCompanyFitLoading(false);
+        setCompanyFitProgress(0);
+        setCompanyFitStage('');
+      }, 1000);
+    }
+  };
+
   // Dialogs
   const [addFieldOpen, setAddFieldOpen] = useState(false);
   const [addSectionOpen, setAddSectionOpen] = useState(false);
@@ -587,16 +733,48 @@ export default function CompanyForm({ open, onClose, company }: Props) {
     <Dialog open={open} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-3xl p-0 gap-0 max-h-[90vh] overflow-hidden">
         <DialogHeader className="border-b border-border px-6 py-4">
-          <DialogTitle>{isEdit ? 'Editar empresa' : 'Nueva empresa'}</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>{isEdit ? 'Editar empresa' : 'Nueva empresa'}</DialogTitle>
+            {(isEdit || form.website) && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5 text-xs"
+                onClick={handleCompanyFit}
+                disabled={companyFitLoading || !form.tradeName.trim()}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Company Fit
+              </Button>
+            )}
+          </div>
+          {companyFitLoading && (
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Progress value={companyFitProgress} className="h-2" />
+                  <div className="absolute inset-0 h-2 rounded-full overflow-hidden">
+                    <div className="h-full w-full bg-gradient-to-r from-primary/20 via-primary/60 to-primary/20 animate-pulse" />
+                  </div>
+                </div>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">{companyFitProgress}%</span>
+              </div>
+              <p className="text-xs text-primary font-medium animate-pulse">{companyFitStage}</p>
+            </div>
+          )}
         </DialogHeader>
         <ScrollArea className="max-h-[calc(90vh-130px)] px-6 py-4">
           <div className="space-y-6 pb-6">
             {/* Logo Upload */}
             <Section title="Logo">
+              {companyFitLoading && !logoPreview ? (
+                <Skeleton className="h-16 w-16 rounded-lg" />
+              ) : (
               <div className="flex items-center gap-4">
                 {logoPreview ? (
                   <div className="relative">
-                    <img src={logoPreview} alt="Logo" className="h-16 w-16 rounded-lg border border-border object-cover" />
+                    <img src={logoPreview} alt="Logo" className={cn("h-16 w-16 rounded-lg border border-border object-cover", aiModifiedFields.has('logo') && "ring-2 ring-primary/30")} />
+                    {aiModifiedFields.has('logo') && <Badge variant="outline" className="absolute -top-1 -right-1 h-4 px-1 text-[9px] border-primary/40 text-primary">IA</Badge>}
                     <button type="button" onClick={removeLogo} className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground">
                       <X className="h-3 w-3" />
                     </button>
@@ -611,31 +789,32 @@ export default function CompanyForm({ open, onClose, company }: Props) {
                   {uploading ? 'Subiendo...' : logoPreview ? 'Logo cargado' : 'Clic para subir o pega una imagen (Ctrl+V)'}
                 </div>
               </div>
+              )}
             </Section>
 
             <Separator />
 
             <Section title="Identificación">
-              <Field label="Nombre comercial"><Input className="h-9 text-sm" value={form.tradeName} onChange={e => setForm(f => ({ ...f, tradeName: e.target.value }))} /></Field>
-              <Field label="Razón Social"><Input className="h-9 text-sm" value={form.legalName} onChange={e => setForm(f => ({ ...f, legalName: e.target.value }))} /></Field>
-              <Field label="NIT"><Input className="h-9 text-sm" value={form.nit} onChange={e => setForm(f => ({ ...f, nit: e.target.value }))} /></Field>
+              <Field label="Nombre comercial" aiModified={aiModifiedFields.has('tradeName')} isLoading={companyFitLoading}><Input className="h-9 text-sm" value={form.tradeName} onChange={e => setForm(f => ({ ...f, tradeName: e.target.value }))} /></Field>
+              <Field label="Razón Social" aiModified={aiModifiedFields.has('legalName')} isLoading={companyFitLoading}><Input className="h-9 text-sm" value={form.legalName} onChange={e => setForm(f => ({ ...f, legalName: e.target.value }))} /></Field>
+              <Field label="NIT" aiModified={aiModifiedFields.has('nit')} isLoading={companyFitLoading}><Input className="h-9 text-sm" value={form.nit} onChange={e => setForm(f => ({ ...f, nit: e.target.value }))} /></Field>
             </Section>
 
             <Separator />
 
             <Section title="Segmentación">
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Categoría">
+                <Field label="Categoría" aiModified={aiModifiedFields.has('category')} isLoading={companyFitLoading}>
                   <CreatableCombobox value={form.category} onChange={v => setForm(f => ({ ...f, category: v }))} options={allCategories} placeholder="Seleccionar categoría..." />
                 </Field>
-                <Field label="Vertical">
+                <Field label="Vertical" aiModified={aiModifiedFields.has('vertical')} isLoading={companyFitLoading}>
                   <CreatableCombobox value={form.vertical} onChange={v => setForm(f => ({ ...f, vertical: v, subVertical: '' }))} options={allVerticals}
                     placeholder="Seleccionar vertical..." allowEmpty
                     onCreate={async (name) => { await taxonomy.addVertical(name); }} />
                 </Field>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <Field label="Sub-vertical">
+                <Field label="Sub-vertical" aiModified={aiModifiedFields.has('subVertical')} isLoading={companyFitLoading}>
                   <CreatableCombobox value={form.subVertical} onChange={v => setForm(f => ({ ...f, subVertical: v }))} options={subVerticalOptions} placeholder="Seleccionar sub-vertical..."
                     allowEmpty
                     onCreate={async (name) => {
@@ -663,7 +842,18 @@ export default function CompanyForm({ open, onClose, company }: Props) {
             <Separator />
 
             <Section title="Descripción">
-              <Textarea className="text-sm" rows={3} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Describe brevemente la empresa..." />
+              {companyFitLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
+              ) : (
+                <div className="relative">
+                  {aiModifiedFields.has('description') && <Badge variant="outline" className="absolute -top-1 right-0 h-4 px-1 text-[9px] border-primary/40 text-primary z-10">IA</Badge>}
+                  <Textarea className="text-sm" rows={3} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Describe brevemente la empresa..." />
+                </div>
+              )}
             </Section>
 
             <Separator />
@@ -699,10 +889,13 @@ export default function CompanyForm({ open, onClose, company }: Props) {
                     <Input className="h-8 text-sm" placeholder="Celular" value={c.phone} onChange={e => updateContact(c.id, 'phone', e.target.value)} />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <Select value={c.gender || ''} onValueChange={v => updateContact(c.id, 'gender', v)}>
-                      <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Género" /></SelectTrigger>
-                      <SelectContent>{Object.entries(GENDER_LABELS).map(([k, label]) => <SelectItem key={k} value={k}>{label}</SelectItem>)}</SelectContent>
-                    </Select>
+                    <div className="relative">
+                      {aiModifiedFields.has(`contact-${c.id}`) && <Badge variant="outline" className="absolute -top-1 right-0 h-4 px-1 text-[9px] border-primary/40 text-primary z-10">IA</Badge>}
+                      <Select value={c.gender || ''} onValueChange={v => updateContact(c.id, 'gender', v)}>
+                        <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Género" /></SelectTrigger>
+                        <SelectContent>{Object.entries(GENDER_LABELS).map(([k, label]) => <SelectItem key={k} value={k}>{label}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
                     <Input className="h-8 text-sm" placeholder="Notas" value={c.notes} onChange={e => updateContact(c.id, 'notes', e.target.value)} />
                   </div>
                 </div>
