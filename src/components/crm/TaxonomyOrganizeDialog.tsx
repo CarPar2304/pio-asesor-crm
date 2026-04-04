@@ -40,6 +40,19 @@ interface OrganizeResult {
   suggestions: Suggestion[];
 }
 
+interface TaxonomyPayloadDiagnostics {
+  categories: number;
+  managedVerticals: number;
+  managedSubVerticals: number;
+  categoryVerticalLinks: number;
+  verticalSubVerticalLinks: number;
+  sharedVerticals: number;
+  sharedSubVerticals: number;
+  orphanVerticals: number;
+  orphanSubVerticals: number;
+  definitionsIncluded: boolean;
+}
+
 const ACTION_ICONS: Record<string, React.ReactNode> = {
   merge: <Merge className="h-3.5 w-3.5" />,
   rename: <Pencil className="h-3.5 w-3.5" />,
@@ -136,6 +149,7 @@ export default function TaxonomyOrganizeDialog({ open, onClose, definitions }: P
   const [loading, setLoading] = useState(false);
   const [stage, setStage] = useState('');
   const [result, setResult] = useState<OrganizeResult | null>(null);
+  const [payloadDiagnostics, setPayloadDiagnostics] = useState<TaxonomyPayloadDiagnostics | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [applying, setApplying] = useState(false);
   const [appliedIds, setAppliedIds] = useState<Set<string>>(new Set());
@@ -169,15 +183,85 @@ export default function TaxonomyOrganizeDialog({ open, onClose, definitions }: P
     return tree;
   }, [taxonomy, companies]);
 
+  const buildStructuredContext = useCallback(() => {
+    const categorySummaries = taxonomy.allCategories.map(categoryName => {
+      const categoryConfig = taxonomy.getCategoryConfig(categoryName);
+      const categoryLinks = taxonomy.categoryVerticalLinks.filter(link => link.category === categoryName);
+
+      return {
+        name: categoryName,
+        level1_label: categoryConfig?.level1_label || 'Verticales',
+        level2_label: categoryConfig?.level2_label || 'Sub-verticales',
+        company_count: companies.filter(company => company.category === categoryName).length,
+        verticals: categoryLinks
+          .map(link => taxonomy.verticals.find(vertical => vertical.id === link.vertical_id))
+          .filter(Boolean)
+          .map(vertical => ({ id: vertical!.id, name: vertical!.name })),
+      };
+    });
+
+    const managedVerticals = taxonomy.verticals.map(vertical => {
+      const categories = taxonomy.categoryVerticalLinks
+        .filter(link => link.vertical_id === vertical.id)
+        .map(link => link.category);
+      const linkedSubVerticals = taxonomy.verticalSubVerticalLinks
+        .filter(link => link.vertical_id === vertical.id)
+        .map(link => taxonomy.subVerticals.find(subVertical => subVertical.id === link.sub_vertical_id))
+        .filter(Boolean)
+        .map(subVertical => ({ id: subVertical!.id, name: subVertical!.name }));
+
+      return {
+        id: vertical.id,
+        name: vertical.name,
+        categories,
+        company_count: companies.filter(company => company.vertical === vertical.name).length,
+        sub_verticals: linkedSubVerticals,
+      };
+    });
+
+    const managedSubVerticals = taxonomy.subVerticals.map(subVertical => {
+      const verticals = taxonomy.verticalSubVerticalLinks
+        .filter(link => link.sub_vertical_id === subVertical.id)
+        .map(link => taxonomy.verticals.find(vertical => vertical.id === link.vertical_id))
+        .filter(Boolean)
+        .map(vertical => ({ id: vertical!.id, name: vertical!.name }));
+
+      return {
+        id: subVertical.id,
+        name: subVertical.name,
+        verticals,
+        company_count: companies.filter(company => company.economicActivity === subVertical.name).length,
+      };
+    });
+
+    const diagnostics: TaxonomyPayloadDiagnostics = {
+      categories: categorySummaries.length,
+      managedVerticals: managedVerticals.length,
+      managedSubVerticals: managedSubVerticals.length,
+      categoryVerticalLinks: taxonomy.categoryVerticalLinks.length,
+      verticalSubVerticalLinks: taxonomy.verticalSubVerticalLinks.length,
+      sharedVerticals: managedVerticals.filter(vertical => vertical.categories.length > 1).length,
+      sharedSubVerticals: managedSubVerticals.filter(subVertical => subVertical.verticals.length > 1).length,
+      orphanVerticals: taxonomy.orphanVerticals.length,
+      orphanSubVerticals: taxonomy.orphanSubVerticals.length,
+      definitionsIncluded: Boolean(definitions.trim()),
+    };
+
+    return { categorySummaries, managedVerticals, managedSubVerticals, diagnostics };
+  }, [taxonomy, companies, definitions]);
+
   const handleAnalyze = async () => {
     setLoading(true);
     setResult(null);
+      setPayloadDiagnostics(null);
     setSelectedIds(new Set());
     setAppliedIds(new Set());
     setStage('Construyendo árbol taxonómico...');
 
     try {
       const taxonomyTree = buildTaxonomyTree();
+      const { categorySummaries, managedVerticals, managedSubVerticals, diagnostics } = buildStructuredContext();
+      setPayloadDiagnostics(diagnostics);
 
       const orphanVerticals = taxonomy.orphanVerticals.map(name => ({
         name,
@@ -201,9 +285,13 @@ export default function TaxonomyOrganizeDialog({ open, onClose, definitions }: P
         body: {
           taxonomyTree,
           definitions,
+          categories: categorySummaries,
+          managedVerticals,
+          managedSubVerticals,
           orphanVerticals,
           orphanSubVerticals,
           companyCounts,
+          diagnostics,
         },
       });
 
@@ -258,10 +346,18 @@ export default function TaxonomyOrganizeDialog({ open, onClose, definitions }: P
           if (!suggestion.new_name) break;
           if (suggestion.target_type === 'category') {
             await taxonomy.renameCategory(suggestion.target_name, suggestion.new_name);
-          } else if (suggestion.target_type === 'vertical' && suggestion.target_id) {
-            await taxonomy.renameVertical(suggestion.target_id, suggestion.new_name);
-          } else if (suggestion.target_type === 'sub_vertical' && suggestion.target_id) {
-            await taxonomy.renameSubVertical(suggestion.target_id, suggestion.new_name);
+          } else if (suggestion.target_type === 'vertical') {
+            if (suggestion.target_id) {
+              await taxonomy.renameVertical(suggestion.target_id, suggestion.new_name);
+            } else {
+              await taxonomy.renameOrphanVerticalName(suggestion.target_name, suggestion.new_name);
+            }
+          } else if (suggestion.target_type === 'sub_vertical') {
+            if (suggestion.target_id) {
+              await taxonomy.renameSubVertical(suggestion.target_id, suggestion.new_name);
+            } else {
+              await taxonomy.renameOrphanSubVerticalName(suggestion.target_name, suggestion.new_name);
+            }
           }
           break;
         }
@@ -273,18 +369,30 @@ export default function TaxonomyOrganizeDialog({ open, onClose, definitions }: P
               // Orphan merge
               await taxonomy.mergeVerticalName(suggestion.target_name, suggestion.destination_id);
             }
-          } else if (suggestion.target_type === 'sub_vertical' && suggestion.target_id && suggestion.destination_id) {
-            await taxonomy.mergeSubVertical(suggestion.target_id, suggestion.destination_id);
+          } else if (suggestion.target_type === 'sub_vertical') {
+            if (suggestion.target_id && suggestion.destination_id) {
+              await taxonomy.mergeSubVertical(suggestion.target_id, suggestion.destination_id);
+            } else if (!suggestion.target_id && suggestion.destination_id) {
+              await taxonomy.mergeSubVerticalName(suggestion.target_name, suggestion.destination_id);
+            }
           }
           break;
         }
         case 'delete': {
           if (suggestion.target_type === 'category') {
             await taxonomy.deleteCategory(suggestion.target_name);
-          } else if (suggestion.target_type === 'vertical' && suggestion.target_id) {
-            await taxonomy.deleteVertical(suggestion.target_id);
-          } else if (suggestion.target_type === 'sub_vertical' && suggestion.target_id) {
-            await taxonomy.deleteSubVertical(suggestion.target_id);
+          } else if (suggestion.target_type === 'vertical') {
+            if (suggestion.target_id) {
+              await taxonomy.deleteVertical(suggestion.target_id);
+            } else {
+              await taxonomy.clearOrphanVerticalName(suggestion.target_name);
+            }
+          } else if (suggestion.target_type === 'sub_vertical') {
+            if (suggestion.target_id) {
+              await taxonomy.deleteSubVertical(suggestion.target_id);
+            } else {
+              await taxonomy.clearOrphanSubVerticalName(suggestion.target_name);
+            }
           }
           break;
         }
@@ -294,6 +402,11 @@ export default function TaxonomyOrganizeDialog({ open, onClose, definitions }: P
             const currentCat = taxonomy.categoryVerticalLinks.find(l => l.vertical_id === suggestion.target_id);
             if (currentCat) {
               await taxonomy.moveVerticalToCategory(suggestion.target_id, currentCat.category, suggestion.destination_name);
+            }
+          } else if (suggestion.target_type === 'sub_vertical' && suggestion.target_id && suggestion.destination_id) {
+            const currentVertical = taxonomy.verticalSubVerticalLinks.find(link => link.sub_vertical_id === suggestion.target_id);
+            if (currentVertical) {
+              await taxonomy.moveSubVerticalToVertical(suggestion.target_id, currentVertical.vertical_id, suggestion.destination_id);
             }
           }
           break;
@@ -440,6 +553,22 @@ export default function TaxonomyOrganizeDialog({ open, onClose, definitions }: P
             <ScrollArea className="h-[calc(90vh-220px)] px-6 py-4">
               <div className="space-y-4 pb-4">
                 {/* Summary */}
+                {payloadDiagnostics && (
+                  <div className="rounded-lg border border-border bg-background p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Árbol validado enviado al agente</p>
+                    <div className="flex flex-wrap gap-1.5 text-[10px]">
+                      <Badge variant="outline">{payloadDiagnostics.categories} categorías</Badge>
+                      <Badge variant="outline">{payloadDiagnostics.managedVerticals} verticales</Badge>
+                      <Badge variant="outline">{payloadDiagnostics.managedSubVerticals} sub-verticales</Badge>
+                      <Badge variant="outline">{payloadDiagnostics.sharedVerticals} verticales compartidas</Badge>
+                      <Badge variant="outline">{payloadDiagnostics.sharedSubVerticals} sub-verticales compartidas</Badge>
+                      <Badge variant="outline">{payloadDiagnostics.orphanVerticals} huérfanas</Badge>
+                      <Badge variant="outline">{payloadDiagnostics.orphanSubVerticals} huérfanas sub</Badge>
+                      <Badge variant="outline">Defs {payloadDiagnostics.definitionsIncluded ? 'sí' : 'no'}</Badge>
+                    </div>
+                  </div>
+                )}
+
                 <div className="rounded-lg bg-muted/50 border border-border p-3">
                   <div className="flex items-start gap-2">
                     <Info className="h-4 w-4 text-primary mt-0.5 shrink-0" />
