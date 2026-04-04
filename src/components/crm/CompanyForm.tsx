@@ -362,20 +362,23 @@ export default function CompanyForm({ open, onClose, company }: Props) {
   const [uploading, setUploading] = useState(false);
   const [fieldValues, setFieldValues] = useState<Record<string, CustomFieldValue>>({});
 
-  // Company Fit AI state
-  const [companyFitLoading, setCompanyFitLoading] = useState(false);
+  // Company Fit AI state - separate loading for RUES vs Variables
+  const [ruesLoading, setRuesLoading] = useState(false);
+  const [variablesLoading, setVariablesLoading] = useState(false);
   const [companyFitStage, setCompanyFitStage] = useState('');
   const [aiModifiedFields, setAiModifiedFields] = useState<Set<string>>(new Set());
 
-  const handleCompanyFit = async (mode: 'rues' | 'variables') => {
-    setCompanyFitLoading(true);
-    setAiModifiedFields(new Set());
+  // Convenience getter
+  const companyFitLoading = ruesLoading || variablesLoading;
 
+  const handleCompanyFit = async (mode: 'rues' | 'variables') => {
     if (mode === 'rues') {
-      setCompanyFitStage('Consultando RUES...');
+      setRuesLoading(true);
     } else {
+      setVariablesLoading(true);
       setCompanyFitStage('Analizando sitio web...');
     }
+    setAiModifiedFields(new Set());
 
     try {
       const taxonomyData = {
