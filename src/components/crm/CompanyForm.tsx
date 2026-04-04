@@ -968,11 +968,25 @@ export default function CompanyForm({ open, onClose, company }: Props) {
             </Section>
           </div>
         </ScrollArea>
-        <div className="flex justify-end gap-2 border-t border-border px-6 py-3">
-          <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
-          <Button size="sm" onClick={handleSave} disabled={!form.tradeName.trim() || uploading}>
-            {isEdit ? 'Guardar cambios' : 'Crear empresa'}
-          </Button>
+        <div className="flex items-center border-t border-border px-6 py-3">
+          {(isEdit || form.website) && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-xs mr-auto"
+              onClick={handleCompanyFit}
+              disabled={companyFitLoading || !form.tradeName.trim()}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Company Fit
+            </Button>
+          )}
+          <div className="flex gap-2 ml-auto">
+            <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
+            <Button size="sm" onClick={handleSave} disabled={!form.tradeName.trim() || uploading}>
+              {isEdit ? 'Guardar cambios' : 'Crear empresa'}
+            </Button>
+          </div>
         </div>
       </DialogContent>
 
