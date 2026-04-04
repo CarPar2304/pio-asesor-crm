@@ -11,13 +11,32 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { Save, Sparkles, Globe, ChevronDown, ChevronRight, Code2, ExternalLink, Loader2, BookOpen, Wand2 } from 'lucide-react';
+import { Save, Sparkles, Globe, ChevronDown, ChevronRight, Code2, ExternalLink, Loader2, BookOpen, Wand2, RefreshCw } from 'lucide-react';
 
 interface TaxonomyOrganizeConfig {
   model: string;
   reasoning_effort: string;
   web_search_enabled: boolean;
   prompt: string;
+}
+
+interface TaxonomyRunLog {
+  id: string;
+  created_at: string;
+  model: string;
+  reasoning_effort: string;
+  suggestions_count: number;
+  orphan_verticals: number;
+  orphan_sub_verticals: number;
+  diagnostics?: {
+    categories?: number;
+    managedVerticals?: number;
+    managedSubVerticals?: number;
+    sharedVerticals?: number;
+    sharedSubVerticals?: number;
+    definitionsIncluded?: boolean;
+  };
+  summary: string;
 }
 
 const DEFAULT_CONFIG: TaxonomyOrganizeConfig = {
@@ -38,11 +57,24 @@ const EDGE_FUNCTIONS = [
   },
 ];
 
+const PROMPT_VARIABLES = [
+  { key: 'taxonomyTree', label: 'Árbol legible completo' },
+  { key: 'definitions', label: 'Definiciones de categorías y términos' },
+  { key: 'categories', label: 'Categorías estructuradas' },
+  { key: 'managedVerticals', label: 'Verticales gestionadas con relaciones' },
+  { key: 'managedSubVerticals', label: 'Sub-verticales gestionadas con relaciones' },
+  { key: 'orphanVerticals', label: 'Verticales sin gestionar' },
+  { key: 'orphanSubVerticals', label: 'Sub-verticales sin gestionar' },
+  { key: 'companyCounts', label: 'Conteos de empresas' },
+  { key: 'diagnostics', label: 'Diagnóstico del payload enviado' },
+];
+
 export default function TaxonomySettings() {
   const taxonomy = useTaxonomy();
   const { companies } = useCRM();
   const [config, setConfig] = useState<TaxonomyOrganizeConfig>(DEFAULT_CONFIG);
   const [settingsId, setSettingsId] = useState<string | null>(null);
+  const [runHistory, setRunHistory] = useState<TaxonomyRunLog[]>([]);
   const [saving, setSaving] = useState(false);
   const [promptOpen, setPromptOpen] = useState(false);
 
@@ -67,6 +99,9 @@ export default function TaxonomySettings() {
         ...dbConfig,
         web_search_enabled: dbConfig?.web_search_enabled !== false,
       });
+      setRunHistory(Array.isArray(dbConfig?.run_history) ? dbConfig.run_history : []);
+    } else {
+      setRunHistory([]);
     }
   }, []);
 
@@ -93,13 +128,13 @@ export default function TaxonomySettings() {
     if (settingsId) {
       const { error } = await supabase
         .from('feature_settings')
-        .update({ config: config as any, updated_at: new Date().toISOString() } as any)
+        .update({ config: { ...config, run_history: runHistory } as any, updated_at: new Date().toISOString() } as any)
         .eq('id', settingsId);
       if (error) { showError('Error', 'No tienes permisos de admin'); setSaving(false); return; }
     } else {
       const { error } = await supabase
         .from('feature_settings')
-        .insert({ feature_key: 'taxonomy_organize', config: config as any } as any);
+        .insert({ feature_key: 'taxonomy_organize', config: { ...config, run_history: runHistory } as any } as any);
       if (error) { showError('Error', 'No tienes permisos de admin'); setSaving(false); return; }
     }
     setSaving(false);
@@ -225,14 +260,41 @@ export default function TaxonomySettings() {
             <Badge variant="outline" className="text-[10px] ml-auto">opcional</Badge>
           </CollapsibleTrigger>
           <CollapsibleContent className="mt-3">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2">Variables disponibles <span className="text-[10px]">(clic para insertar)</span></p>
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {PROMPT_VARIABLES.map(variable => {
+                  const token = `{${variable.key}}`;
+                  const isUsed = config.prompt.includes(token);
+                  return (
+                    <button
+                      key={variable.key}
+                      type="button"
+                      onClick={() => {
+                        if (!config.prompt.includes(token)) {
+                          setConfig(current => ({
+                            ...current,
+                            prompt: current.prompt ? `${current.prompt}\n${token}` : token,
+                          }));
+                        }
+                      }}
+                      className={isUsed ? "inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-mono text-primary" : "inline-flex items-center gap-1 rounded-md border border-border bg-muted/50 px-2 py-0.5 text-[10px] font-mono text-muted-foreground hover:border-primary/30 hover:text-primary"}
+                    >
+                      <span>{token}</span>
+                      <span className="text-[9px] font-sans opacity-70">{variable.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
             <Textarea
               className="min-h-[120px] text-xs font-mono leading-relaxed"
               value={config.prompt}
               onChange={e => setConfig(c => ({ ...c, prompt: e.target.value }))}
-              placeholder="Instrucciones adicionales para la organización de taxonomía..."
+              placeholder="Instrucciones adicionales para la organización integral de taxonomía..."
             />
             <p className="text-xs text-muted-foreground mt-1">
-              Se agrega al prompt base del sistema. Variables: {'{taxonomyTree}'}, {'{definitions}'}, {'{orphanVerticals}'}, {'{orphanSubVerticals}'}, {'{companyCounts}'}
+              El agente recibe definiciones, árbol validado, relaciones estructuradas, huérfanos y conteos para analizar huérfanos, fusiones y compartidos de forma integral.
             </p>
           </CollapsibleContent>
         </Collapsible>
@@ -319,6 +381,53 @@ export default function TaxonomySettings() {
               <Save className="h-3 w-3" />
               {savingDefs ? 'Guardando...' : 'Guardar definiciones'}
             </Button>
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold">Logs del organizador</h2>
+            <p className="text-xs text-muted-foreground">Últimas ejecuciones guardadas desde la app con resumen y validación del payload.</p>
+          </div>
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs" onClick={fetchSettings}>
+            <RefreshCw className="h-3.5 w-3.5" /> Refrescar
+          </Button>
+        </div>
+
+        {runHistory.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border p-4 text-xs text-muted-foreground">
+            Aún no hay logs guardados del organizador.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {runHistory.map(log => (
+              <div key={log.id} className="rounded-lg border border-border p-4 space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary" className="text-[10px]">{log.model}</Badge>
+                  <Badge variant="outline" className="text-[10px]">reasoning {log.reasoning_effort}</Badge>
+                  <Badge variant="outline" className="text-[10px]">{log.suggestions_count} sugerencias</Badge>
+                  <Badge variant="outline" className="text-[10px]">{log.orphan_verticals} huérfanas</Badge>
+                  <Badge variant="outline" className="text-[10px]">{log.orphan_sub_verticals} sub-huérfanas</Badge>
+                  <span className="text-[10px] text-muted-foreground">{new Date(log.created_at).toLocaleString()}</span>
+                </div>
+                {log.diagnostics && (
+                  <div className="flex flex-wrap gap-1.5 text-[10px] text-muted-foreground">
+                    <span>{log.diagnostics.categories || 0} categorías</span>
+                    <span>·</span>
+                    <span>{log.diagnostics.managedVerticals || 0} verticales</span>
+                    <span>·</span>
+                    <span>{log.diagnostics.managedSubVerticals || 0} sub-verticales</span>
+                    <span>·</span>
+                    <span>{log.diagnostics.sharedVerticals || 0} compartidas</span>
+                    <span>·</span>
+                    <span>defs {log.diagnostics.definitionsIncluded ? 'sí' : 'no'}</span>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground leading-relaxed">{log.summary}</p>
+              </div>
+            ))}
           </div>
         )}
       </div>
