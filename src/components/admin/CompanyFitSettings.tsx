@@ -199,6 +199,13 @@ const DEFAULT_CONFIG: CompanyFitConfig = {
   web_search_enabled: true,
   rues_enabled: true,
   rues_api_url: 'https://www.datos.gov.co/resource/c82u-588k.json',
+  rues_search_fields: ['nit', 'razon_social', 'nombre_comercial'],
+  rues_response_mapping: [
+    { source: 'razon_social', target: 'legalName', label: 'Razón Social' },
+    { source: 'nit', target: 'nit', label: 'NIT' },
+    { source: 'numero_identificacion', target: 'nit', label: 'Número Identificación (fallback)' },
+    { source: 'cod_ciiu_act_econ_pri', target: 'economicActivity', label: 'Actividad Económica (CIIU)' },
+  ],
 };
 
 const EDGE_FUNCTIONS = [
