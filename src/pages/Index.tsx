@@ -68,8 +68,16 @@ export default function Index() {
   // Persist filters to sessionStorage
   const updateFilters = useCallback((f: FilterState) => {
     setFilters(f);
-    setPage(1); // Reset page on filter change
-    try { sessionStorage.setItem('crm-filters', JSON.stringify(f)); } catch {}
+    setPage(1);
+    try {
+      sessionStorage.setItem('crm-filters', JSON.stringify(f));
+      sessionStorage.setItem('crm-page', '1');
+    } catch {}
+  }, []);
+
+  const updatePage = useCallback((p: number) => {
+    setPage(p);
+    try { sessionStorage.setItem('crm-page', String(p)); } catch {}
   }, []);
 
   const updatePageSize = useCallback((size: number) => {
