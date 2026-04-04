@@ -361,6 +361,11 @@ Responde ÚNICAMENTE llamando la función analyze_company con los resultados.`;
       );
     }
 
+    // Strip verification digit from NIT if present (e.g. "901313597-7" → "901313597")
+    if (result.nit && typeof result.nit === 'string') {
+      result.nit = result.nit.replace(/-\d$/, '');
+    }
+
     // Add RUES data and status to response
     result.ruesData = ruesResult.data?.[0] || null;
     result.ruesFound = !!ruesResult.data;
