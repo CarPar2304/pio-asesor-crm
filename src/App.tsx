@@ -30,7 +30,7 @@ const App = () => (
           <TaxonomyProvider>
           <CustomFieldsProvider>
           <PortfolioProvider>
-          <Toaster position="bottom-right" options={{ fill: "#171717", roundness: 14, styles: { title: "!text-white", description: "!text-white/75" } }} />
+          <Toaster position="bottom-right" options={{ fill: "#171717", roundness: 14, duration: 3000, styles: { title: "!text-white", description: "!text-white/75" } }} />
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Login />} />

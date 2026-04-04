@@ -231,7 +231,7 @@ export default function Index() {
             total={filtered.length}
             page={safePage}
             pageSize={pageSize}
-            onPageChange={setPage}
+            onPageChange={updatePage}
             onPageSizeChange={updatePageSize}
           />
         )}
