@@ -533,7 +533,8 @@ export default function CompanyForm({ open, onClose, company }: Props) {
       showError('Error en Company Fit', err.message || 'No se pudo analizar la empresa');
     } finally {
       setTimeout(() => {
-        setCompanyFitLoading(false);
+        setRuesLoading(false);
+        setVariablesLoading(false);
         setCompanyFitStage('');
       }, 1000);
     }
