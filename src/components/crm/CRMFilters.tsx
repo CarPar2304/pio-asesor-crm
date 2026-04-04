@@ -154,7 +154,7 @@ export default function CRMFilters({ filters, onChange }: Props) {
   return (
     <div className="space-y-3">
       {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card/70 p-2 shadow-sm backdrop-blur-sm">
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-2 shadow-sm">
         {/* Search */}
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

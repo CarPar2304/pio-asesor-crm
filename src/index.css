@@ -129,6 +129,13 @@
   z-index: 99999 !important;
 }
 
+/* Scroll performance: promote cards to GPU layers and skip off-screen rendering */
+.grid > [class*="border"] {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 280px;
+  will-change: transform;
+}
+
 /* Sileo toast text colors on dark fill */
 [data-sileo-viewport] [data-sileo-title],
 [data-sileo-viewport] [data-sileo-description],
