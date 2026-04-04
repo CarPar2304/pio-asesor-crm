@@ -842,7 +842,18 @@ export default function CompanyForm({ open, onClose, company }: Props) {
             <Separator />
 
             <Section title="Descripción">
-              <Textarea className="text-sm" rows={3} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Describe brevemente la empresa..." />
+              {companyFitLoading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
+              ) : (
+                <div className="relative">
+                  {aiModifiedFields.has('description') && <Badge variant="outline" className="absolute -top-1 right-0 h-4 px-1 text-[9px] border-primary/40 text-primary z-10">IA</Badge>}
+                  <Textarea className="text-sm" rows={3} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Describe brevemente la empresa..." />
+                </div>
+              )}
             </Section>
 
             <Separator />
