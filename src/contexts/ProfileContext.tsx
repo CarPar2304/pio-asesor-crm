@@ -36,6 +36,7 @@ interface ProfileContextType {
   notifications: AppNotification[];
   unreadCount: number;
   loading: boolean;
+  isAdmin: boolean;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
   addSegment: (name: string) => Promise<void>;
   removeSegment: (id: string) => Promise<void>;
