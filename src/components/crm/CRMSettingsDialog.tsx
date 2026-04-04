@@ -314,15 +314,61 @@ function TaxonomyTab() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
+      {/* Header with Organizar button */}
       <div className="rounded-lg border border-border p-3 space-y-1">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-          <FolderTree className="h-3.5 w-3.5" /> Taxonomía de clasificación
-        </p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <FolderTree className="h-3.5 w-3.5" /> Taxonomía de clasificación
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-xs"
+            onClick={() => setOrganizeOpen(true)}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Organizar
+          </Button>
+        </div>
         <p className="text-xs text-muted-foreground">
           Selecciona una categoría para ver sus ramas. Puedes mover, vincular o desvincular elementos entre ramas.
         </p>
       </div>
+
+      {/* Definitions section */}
+      <Collapsible open={definitionsOpen} onOpenChange={setDefinitionsOpen}>
+        <CollapsibleTrigger asChild>
+          <Button variant="outline" size="sm" className="w-full gap-2 text-xs">
+            <BookOpen className="h-3.5 w-3.5" />
+            Definiciones de clasificación
+            <ChevronDown className={cn("h-3 w-3 ml-auto transition-transform", definitionsOpen && "rotate-180")} />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="animate-fade-in">
+          <div className="rounded-lg border border-border p-3 mt-2 space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Define qué significa cada categoría, vertical y sub-vertical. Estas definiciones se usan como contexto para la IA al organizar la taxonomía.
+            </p>
+            <Textarea
+              className="min-h-[120px] text-xs font-mono leading-relaxed"
+              value={definitions}
+              onChange={e => setDefinitions(e.target.value)}
+              placeholder={`Ejemplo:\n\nCATEGORÍAS:\n- Startup: Empresa con base tecnológica clara y modelo escalable/replicable.\n- EBT: Empresa de Base Tecnológica con tech propia pero modelo no escalable tipo startup.\n- Disruptiva: Propuesta innovadora sin tecnología propia como núcleo.\n\nVERTICALES:\n- HealthTech: Tecnología aplicada a salud.\n- FinTech: Tecnología aplicada a finanzas.\n...\n\nSUB-VERTICALES:\n- Telemedicina: Atención médica remota.\n- Pagos digitales: Procesamiento de pagos electrónicos.`}
+            />
+            <Button size="sm" onClick={handleSaveDefinitions} disabled={savingDefinitions} className="gap-1.5 text-xs">
+              <Save className="h-3 w-3" />
+              {savingDefinitions ? 'Guardando...' : 'Guardar definiciones'}
+            </Button>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
+      {/* Organize Dialog */}
+      <TaxonomyOrganizeDialog
+        open={organizeOpen}
+        onClose={() => setOrganizeOpen(false)}
+        definitions={definitions}
+      />
 
       {/* Merge dialog inline (orphan) */}
       {mergeTarget && (
