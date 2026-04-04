@@ -1,11 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTaxonomy, TaxonomyVertical, TaxonomySubVertical } from '@/contexts/TaxonomyContext';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { useCRM } from '@/contexts/CRMContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -15,10 +17,12 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import {
   Plus, Trash2, Pencil, Check, X, ChevronRight, AlertTriangle, GitBranch,
-  ArrowRight, Merge, Tag, Layers, FolderTree, ChevronDown, MoreHorizontal, ArrowRightLeft, Link2
+  ArrowRight, Merge, Tag, Layers, FolderTree, ChevronDown, MoreHorizontal, ArrowRightLeft, Link2,
+  Sparkles, Save, BookOpen
 } from 'lucide-react';
 import { showSuccess, showError } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+import TaxonomyOrganizeDialog from './TaxonomyOrganizeDialog';
 
 interface Props {
   open: boolean;
