@@ -889,10 +889,13 @@ export default function CompanyForm({ open, onClose, company }: Props) {
                     <Input className="h-8 text-sm" placeholder="Celular" value={c.phone} onChange={e => updateContact(c.id, 'phone', e.target.value)} />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <Select value={c.gender || ''} onValueChange={v => updateContact(c.id, 'gender', v)}>
-                      <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Género" /></SelectTrigger>
-                      <SelectContent>{Object.entries(GENDER_LABELS).map(([k, label]) => <SelectItem key={k} value={k}>{label}</SelectItem>)}</SelectContent>
-                    </Select>
+                    <div className="relative">
+                      {aiModifiedFields.has(`contact-${c.id}`) && <Badge variant="outline" className="absolute -top-1 right-0 h-4 px-1 text-[9px] border-primary/40 text-primary z-10">IA</Badge>}
+                      <Select value={c.gender || ''} onValueChange={v => updateContact(c.id, 'gender', v)}>
+                        <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Género" /></SelectTrigger>
+                        <SelectContent>{Object.entries(GENDER_LABELS).map(([k, label]) => <SelectItem key={k} value={k}>{label}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
                     <Input className="h-8 text-sm" placeholder="Notas" value={c.notes} onChange={e => updateContact(c.id, 'notes', e.target.value)} />
                   </div>
                 </div>
