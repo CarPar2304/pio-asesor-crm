@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.97.0";
 import OpenAI from "npm:openai@4.96.0";
 
 const corsHeaders = {
@@ -17,6 +18,7 @@ interface CompanyInput {
   description: string;
   website: string;
   city: string;
+  companyId?: string;
   contacts: Array<{ id: string; name: string; gender: string }>;
   taxonomy: {
     categories: string[];
@@ -26,8 +28,8 @@ interface CompanyInput {
 }
 
 // --- RUES lookup ---
-async function queryRUES(params: Record<string, string>): Promise<any[]> {
-  const url = new URL("https://www.datos.gov.co/resource/c82u-588k.json");
+async function queryRUES(baseUrl: string, params: Record<string, string>): Promise<any[]> {
+  const url = new URL(baseUrl);
   for (const [k, v] of Object.entries(params)) {
     url.searchParams.set(k, v);
   }
@@ -47,40 +49,37 @@ async function queryRUES(params: Record<string, string>): Promise<any[]> {
 }
 
 async function lookupRUES(
+  baseUrl: string,
   nit: string,
   tradeName: string,
   legalName: string
 ): Promise<{ data: any[] | null; query: string; attempts: string[] }> {
   const attempts: string[] = [];
 
-  // Attempt 1: by NIT as-is
   if (nit) {
     attempts.push(`nit=${nit}`);
-    const r1 = await queryRUES({ nit });
+    const r1 = await queryRUES(baseUrl, { nit });
     if (r1.length > 0) return { data: r1, query: `nit=${nit}`, attempts };
 
-    // Attempt 2: NIT without last digit (verification digit)
     if (nit.length > 1) {
       const nitShort = nit.replace(/[-\s]/g, "").slice(0, -1);
       attempts.push(`nit=${nitShort} (sin dígito)`);
-      const r2 = await queryRUES({ nit: nitShort });
+      const r2 = await queryRUES(baseUrl, { nit: nitShort });
       if (r2.length > 0)
         return { data: r2, query: `nit=${nitShort} (sin dígito)`, attempts };
     }
   }
 
-  // Attempt 3: by razon_social with tradeName
   if (tradeName) {
     attempts.push(`razon_social=${tradeName.toUpperCase()}`);
-    const r3 = await queryRUES({ razon_social: tradeName.toUpperCase() });
+    const r3 = await queryRUES(baseUrl, { razon_social: tradeName.toUpperCase() });
     if (r3.length > 0)
       return { data: r3, query: `razon_social=${tradeName}`, attempts };
   }
 
-  // Attempt 4: by razon_social with legalName
   if (legalName && legalName !== tradeName) {
     attempts.push(`razon_social=${legalName.toUpperCase()}`);
-    const r4 = await queryRUES({ razon_social: legalName.toUpperCase() });
+    const r4 = await queryRUES(baseUrl, { razon_social: legalName.toUpperCase() });
     if (r4.length > 0)
       return { data: r4, query: `razon_social=${legalName}`, attempts };
   }
@@ -93,6 +92,8 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const startTime = Date.now();
+
   try {
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     if (!OPENAI_API_KEY) {
@@ -102,30 +103,54 @@ serve(async (req) => {
       );
     }
 
+    // Create supabase admin client for logging
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get auth user from request
+    const authHeader = req.headers.get("Authorization");
+    let userId: string | null = null;
+    if (authHeader) {
+      const supabaseAnon = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!);
+      const { data: { user } } = await supabaseAnon.auth.getUser(authHeader.replace("Bearer ", ""));
+      userId = user?.id || null;
+    }
+
+    // Fetch feature settings from DB
+    const { data: settingsRow } = await supabaseAdmin
+      .from("feature_settings")
+      .select("config")
+      .eq("feature_key", "company_fit")
+      .single();
+
+    const settings = settingsRow?.config as any || {};
+    const model = settings.model || "gpt-5.4";
+    const reasoningEffort = settings.reasoning_effort || "high";
+    const customPrompt = settings.prompt || "";
+    const ruesEnabled = settings.rues_enabled !== false;
+    const ruesApiUrl = settings.rues_api_url || "https://www.datos.gov.co/resource/c82u-588k.json";
+
     const body: CompanyInput = await req.json();
     const {
-      tradeName,
-      legalName,
-      nit,
-      website,
-      contacts,
-      taxonomy,
-      category,
-      vertical,
-      subVertical,
-      description,
-      city,
+      tradeName, legalName, nit, website, contacts, taxonomy,
+      category, vertical, subVertical, description, city, companyId,
     } = body;
 
-    // Step 1: RUES lookup
-    console.log("Starting RUES lookup for:", { nit, tradeName, legalName });
-    const ruesResult = await lookupRUES(nit, tradeName, legalName);
-    console.log("RUES result:", {
-      found: !!ruesResult.data,
-      query: ruesResult.query,
-      attempts: ruesResult.attempts,
-      recordCount: ruesResult.data?.length || 0,
-    });
+    // Step 1: RUES lookup (if enabled)
+    let ruesResult = { data: null as any[] | null, query: "disabled", attempts: [] as string[] };
+    if (ruesEnabled) {
+      console.log("Starting RUES lookup for:", { nit, tradeName, legalName });
+      ruesResult = await lookupRUES(ruesApiUrl, nit, tradeName, legalName);
+      console.log("RUES result:", {
+        found: !!ruesResult.data,
+        query: ruesResult.query,
+        attempts: ruesResult.attempts,
+        recordCount: ruesResult.data?.length || 0,
+      });
+    } else {
+      console.log("RUES lookup disabled by admin config");
+    }
 
     // Step 2: Build the prompt
     const taxonomyText = `
@@ -140,13 +165,15 @@ ${taxonomy.subVerticals.map((s) => `- ${s.vertical} → ${s.name}`).join("\n")}
 
     const ruesText = ruesResult.data
       ? `DATOS RUES ENCONTRADOS (query: ${ruesResult.query}):\n${JSON.stringify(ruesResult.data.slice(0, 3), null, 2)}`
-      : `No se encontraron datos en RUES. Intentos realizados: ${ruesResult.attempts.join(", ")}`;
+      : ruesEnabled
+        ? `No se encontraron datos en RUES. Intentos realizados: ${ruesResult.attempts.join(", ")}`
+        : "Consulta RUES deshabilitada por configuración.";
 
     const contactsText = contacts
       .map((c) => `- ${c.name} (id: ${c.id}, género actual: ${c.gender || "sin definir"})`)
       .join("\n");
 
-    const prompt = `Actúa como analista de CRM para clasificar empresas con base en su sitio web oficial y datos públicos.
+    const basePrompt = `Actúa como analista de CRM para clasificar empresas con base en su sitio web oficial y datos públicos.
 
 DATOS ACTUALES DE LA EMPRESA:
 - Nombre comercial: ${tradeName}
@@ -206,14 +233,18 @@ REGLAS:
 
 Responde ÚNICAMENTE llamando la función analyze_company con los resultados.`;
 
+    const fullPrompt = customPrompt 
+      ? `${basePrompt}\n\nINSTRUCCIONES ADICIONALES DEL ADMINISTRADOR:\n${customPrompt}`
+      : basePrompt;
+
     const client = new OpenAI({ apiKey: OPENAI_API_KEY });
 
-    console.log("Calling OpenAI gpt-5.4 with reasoning effort: high...");
+    console.log(`Calling OpenAI ${model} with reasoning effort: ${reasoningEffort}...`);
 
     const response = await client.responses.create({
-      model: "gpt-5.4",
+      model,
       reasoning: {
-        effort: "high",
+        effort: reasoningEffort as any,
       },
       tools: [
         { type: "web_search" as any },
@@ -224,38 +255,14 @@ Responde ÚNICAMENTE llamando la función analyze_company con los resultados.`;
           parameters: {
             type: "object",
             properties: {
-              category: {
-                type: "string",
-                description: "Company category from available taxonomy",
-              },
-              vertical: {
-                type: "string",
-                description: "Vertical (existing or new suggested)",
-              },
-              subVertical: {
-                type: "string",
-                description: "Sub-vertical (existing or new suggested)",
-              },
-              description: {
-                type: "string",
-                description: "Short company description, 1-3 sentences",
-              },
-              logoUrl: {
-                type: ["string", "null"],
-                description: "Direct URL to company logo image, or null",
-              },
-              legalName: {
-                type: ["string", "null"],
-                description: "Validated legal name from RUES or web",
-              },
-              nit: {
-                type: ["string", "null"],
-                description: "Validated NIT from RUES or web",
-              },
-              tradeName: {
-                type: ["string", "null"],
-                description: "Validated trade/brand name",
-              },
+              category: { type: "string", description: "Company category from available taxonomy" },
+              vertical: { type: "string", description: "Vertical (existing or new suggested)" },
+              subVertical: { type: "string", description: "Sub-vertical (existing or new suggested)" },
+              description: { type: "string", description: "Short company description, 1-3 sentences" },
+              logoUrl: { type: ["string", "null"], description: "Direct URL to company logo image, or null" },
+              legalName: { type: ["string", "null"], description: "Validated legal name from RUES or web" },
+              nit: { type: ["string", "null"], description: "Validated NIT from RUES or web" },
+              tradeName: { type: ["string", "null"], description: "Validated trade/brand name" },
               contacts: {
                 type: "array",
                 items: {
@@ -268,49 +275,22 @@ Responde ÚNICAMENTE llamando la función analyze_company con los resultados.`;
                 },
                 description: "Contact genders inferred from names",
               },
-              companyStatus: {
-                type: "string",
-                enum: ["active", "inactive", "unknown"],
-              },
-              confidence: {
-                type: "string",
-                enum: ["high", "medium", "low"],
-              },
-              reasoning: {
-                type: "string",
-                description:
-                  "Brief explanation of classification reasoning (max 5 lines). Explain WHY you chose this category over others.",
-              },
-              isNewVertical: {
-                type: "boolean",
-                description: "Whether the suggested vertical is new",
-              },
-              isNewSubVertical: {
-                type: "boolean",
-                description: "Whether the suggested sub-vertical is new",
-              },
+              companyStatus: { type: "string", enum: ["active", "inactive", "unknown"] },
+              confidence: { type: "string", enum: ["high", "medium", "low"] },
+              reasoning: { type: "string", description: "Brief explanation of classification reasoning (max 5 lines). Explain WHY you chose this category over others." },
+              isNewVertical: { type: "boolean", description: "Whether the suggested vertical is new" },
+              isNewSubVertical: { type: "boolean", description: "Whether the suggested sub-vertical is new" },
             },
             required: [
-              "category",
-              "vertical",
-              "subVertical",
-              "description",
-              "logoUrl",
-              "legalName",
-              "nit",
-              "tradeName",
-              "contacts",
-              "companyStatus",
-              "confidence",
-              "reasoning",
-              "isNewVertical",
-              "isNewSubVertical",
+              "category", "vertical", "subVertical", "description", "logoUrl",
+              "legalName", "nit", "tradeName", "contacts", "companyStatus",
+              "confidence", "reasoning", "isNewVertical", "isNewSubVertical",
             ],
             additionalProperties: false,
           },
         },
       ],
-      input: prompt,
+      input: fullPrompt,
     });
 
     console.log("OpenAI response received, output items:", response.output.length);
@@ -328,18 +308,31 @@ Responde ÚNICAMENTE llamando la función analyze_company con los resultados.`;
       }
     }
 
+    const durationMs = Date.now() - startTime;
+
     if (!result) {
       const textOutput = response.output_text;
       console.error("No structured response. Raw output:", textOutput);
+
+      // Log error
+      await supabaseAdmin.from("company_fit_logs").insert({
+        company_id: companyId || null,
+        company_name: tradeName,
+        request_payload: { tradeName, legalName, nit, website, city, category, vertical },
+        response_payload: { raw: textOutput },
+        rues_data: ruesResult.data?.[0] || null,
+        rues_found: !!ruesResult.data,
+        rues_attempts: ruesResult.attempts,
+        model,
+        reasoning_effort: reasoningEffort,
+        duration_ms: durationMs,
+        error: "No structured response from AI",
+        created_by: userId,
+      });
+
       return new Response(
-        JSON.stringify({
-          error: "No structured response from AI",
-          raw: textOutput,
-        }),
-        {
-          status: 422,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        JSON.stringify({ error: "No structured response from AI", raw: textOutput }),
+        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
@@ -356,21 +349,49 @@ Responde ÚNICAMENTE llamando la función analyze_company con los resultados.`;
       ruesFound: result.ruesFound,
       isNewVertical: result.isNewVertical,
       isNewSubVertical: result.isNewSubVertical,
+      durationMs,
+    });
+
+    // Log success
+    await supabaseAdmin.from("company_fit_logs").insert({
+      company_id: companyId || null,
+      company_name: tradeName,
+      request_payload: { tradeName, legalName, nit, website, city, category, vertical },
+      response_payload: result,
+      rues_data: ruesResult.data?.[0] || null,
+      rues_found: !!ruesResult.data,
+      rues_attempts: ruesResult.attempts,
+      model,
+      reasoning_effort: reasoningEffort,
+      duration_ms: durationMs,
+      error: null,
+      created_by: userId,
     });
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
+    const durationMs = Date.now() - startTime;
     console.error("company-fit error:", error);
-    return new Response(
-      JSON.stringify({
+
+    // Try to log the error
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+      await supabaseAdmin.from("company_fit_logs").insert({
+        company_name: "unknown",
         error: error instanceof Error ? error.message : "Unknown error",
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+        duration_ms: durationMs,
+        model: "unknown",
+        reasoning_effort: "unknown",
+      });
+    } catch { /* ignore logging errors */ }
+
+    return new Response(
+      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

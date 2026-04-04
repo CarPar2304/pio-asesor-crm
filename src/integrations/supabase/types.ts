@@ -174,6 +174,57 @@ export type Database = {
           },
         ]
       }
+      company_fit_logs: {
+        Row: {
+          company_id: string | null
+          company_name: string
+          created_at: string
+          created_by: string | null
+          duration_ms: number | null
+          error: string | null
+          id: string
+          model: string
+          reasoning_effort: string
+          request_payload: Json
+          response_payload: Json | null
+          rues_attempts: string[]
+          rues_data: Json | null
+          rues_found: boolean
+        }
+        Insert: {
+          company_id?: string | null
+          company_name?: string
+          created_at?: string
+          created_by?: string | null
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          model?: string
+          reasoning_effort?: string
+          request_payload?: Json
+          response_payload?: Json | null
+          rues_attempts?: string[]
+          rues_data?: Json | null
+          rues_found?: boolean
+        }
+        Update: {
+          company_id?: string | null
+          company_name?: string
+          created_at?: string
+          created_by?: string | null
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          model?: string
+          reasoning_effort?: string
+          request_payload?: Json
+          response_payload?: Json | null
+          rues_attempts?: string[]
+          rues_data?: Json | null
+          rues_found?: boolean
+        }
+        Relationships: []
+      }
       company_tasks: {
         Row: {
           assigned_to: string | null
@@ -542,6 +593,33 @@ export type Database = {
           display_order?: number
           id?: string
           name?: string
+        }
+        Relationships: []
+      }
+      feature_settings: {
+        Row: {
+          config: Json
+          created_at: string
+          feature_key: string
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          feature_key: string
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          feature_key?: string
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }

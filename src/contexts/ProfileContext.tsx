@@ -36,6 +36,7 @@ interface ProfileContextType {
   notifications: AppNotification[];
   unreadCount: number;
   loading: boolean;
+  isAdmin: boolean;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
   addSegment: (name: string) => Promise<void>;
   removeSegment: (id: string) => Promise<void>;
@@ -54,6 +55,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [segments, setSegments] = useState<Segment[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const fetchProfiles = useCallback(async () => {
     if (!session) return;
@@ -102,17 +104,24 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     })));
   }, [session]);
 
+  const fetchAdminStatus = useCallback(async () => {
+    if (!session) { setIsAdmin(false); return; }
+    const { data } = await supabase.from('user_roles').select('role').eq('user_id', session.user.id);
+    setIsAdmin((data || []).some((r: any) => r.role === 'admin'));
+  }, [session]);
+
   useEffect(() => {
     if (!session) {
       setProfile(null);
       setAllProfiles([]);
       setSegments([]);
       setNotifications([]);
+      setIsAdmin(false);
       setLoading(false);
       return;
     }
-    Promise.all([fetchProfiles(), fetchSegments(), fetchNotifications()]).then(() => setLoading(false));
-  }, [session, fetchProfiles, fetchSegments, fetchNotifications]);
+    Promise.all([fetchProfiles(), fetchSegments(), fetchNotifications(), fetchAdminStatus()]).then(() => setLoading(false));
+  }, [session, fetchProfiles, fetchSegments, fetchNotifications, fetchAdminStatus]);
 
   // Real-time notifications
   useEffect(() => {
@@ -165,7 +174,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ProfileContext.Provider value={{
-      profile, allProfiles, segments, notifications, unreadCount, loading,
+      profile, allProfiles, segments, notifications, unreadCount, loading, isAdmin,
       updateProfile, addSegment, removeSegment,
       markNotificationRead, markAllRead,
       refreshNotifications: fetchNotifications,

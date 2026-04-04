@@ -9,10 +9,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Camera, Plus, X, Save, User } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Camera, Plus, X, Save, User, Settings2, Shield } from 'lucide-react';
+import CompanyFitSettings from '@/components/admin/CompanyFitSettings';
 
 export default function ProfilePage() {
-  const { profile, segments, updateProfile, addSegment, removeSegment } = useProfile();
+  const { profile, segments, updateProfile, addSegment, removeSegment, isAdmin } = useProfile();
   const { session } = useAuth();
 
   const [name, setName] = useState('');
@@ -59,13 +61,8 @@ export default function ProfilePage() {
 
   const initials = name ? name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : '?';
 
-  return (
-    <div className="container max-w-2xl py-8 space-y-8">
-      <div>
-        <h1 className="text-xl font-bold">Mi perfil</h1>
-        <p className="text-sm text-muted-foreground">Actualiza tu información personal</p>
-      </div>
-
+  const profileContent = (
+    <div className="space-y-8">
       <div className="rounded-xl border border-border bg-card p-6 space-y-6">
         {/* Avatar */}
         <div className="flex items-center gap-4">
@@ -80,7 +77,10 @@ export default function ProfilePage() {
             </label>
           </div>
           <div>
-            <p className="font-medium">{name || 'Sin nombre'}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-medium">{name || 'Sin nombre'}</p>
+              {isAdmin && <Badge variant="default" className="text-[10px] gap-1"><Shield className="h-3 w-3" />Admin</Badge>}
+            </div>
             <p className="text-sm text-muted-foreground">{session?.user.email}</p>
           </div>
         </div>
@@ -138,6 +138,30 @@ export default function ProfilePage() {
           </Button>
         </div>
       </div>
+    </div>
+  );
+
+  return (
+    <div className="container max-w-2xl py-8 space-y-6">
+      <div>
+        <h1 className="text-xl font-bold">Mi perfil</h1>
+        <p className="text-sm text-muted-foreground">Actualiza tu información personal</p>
+      </div>
+
+      {isAdmin ? (
+        <Tabs defaultValue="profile">
+          <TabsList>
+            <TabsTrigger value="profile" className="gap-1.5"><User className="h-3.5 w-3.5" />Perfil</TabsTrigger>
+            <TabsTrigger value="settings" className="gap-1.5"><Settings2 className="h-3.5 w-3.5" />Settings</TabsTrigger>
+          </TabsList>
+          <TabsContent value="profile">{profileContent}</TabsContent>
+          <TabsContent value="settings">
+            <CompanyFitSettings />
+          </TabsContent>
+        </Tabs>
+      ) : (
+        profileContent
+      )}
     </div>
   );
 }
