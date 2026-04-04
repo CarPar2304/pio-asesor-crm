@@ -188,7 +188,19 @@ export default function Index() {
 
       <CRMFilters filters={filters} onChange={updateFilters} />
 
-      <div className="mt-6">
+      {filtered.length > 0 && (
+        <div className="mt-4">
+          <CRMPagination
+            total={filtered.length}
+            page={safePage}
+            pageSize={pageSize}
+            onPageChange={updatePage}
+            onPageSizeChange={updatePageSize}
+          />
+        </div>
+      )}
+
+      <div className="mt-4">
         {loading ? (
           view === 'grid' ? <CompanyGridSkeleton /> : <CompanyTableSkeleton />
         ) : filtered.length === 0 ? (
