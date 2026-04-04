@@ -9,6 +9,7 @@ const corsHeaders = {
 };
 
 interface CompanyInput {
+  mode?: 'rues' | 'variables'; // "rues" = RUES only, "variables" = AI only, undefined = both (legacy)
   tradeName: string;
   legalName: string;
   nit: string;
