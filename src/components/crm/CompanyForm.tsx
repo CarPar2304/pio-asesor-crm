@@ -52,10 +52,13 @@ const Section = ({ title, children, onAddField, onDelete }: { title: string; chi
   </div>
 );
 
-const Field = ({ label, children, onDelete, onEdit }: { label: string; children: React.ReactNode; onDelete?: () => void; onEdit?: () => void }) => (
-  <div>
+const Field = ({ label, children, onDelete, onEdit, aiModified, isLoading }: { label: string; children: React.ReactNode; onDelete?: () => void; onEdit?: () => void; aiModified?: boolean; isLoading?: boolean }) => (
+  <div className="relative">
     <div className="mb-1 flex items-center justify-between">
-      <label className="block text-xs font-medium text-muted-foreground">{label}</label>
+      <div className="flex items-center gap-1.5">
+        <label className="block text-xs font-medium text-muted-foreground">{label}</label>
+        {aiModified && <Badge variant="outline" className="h-4 px-1 text-[9px] font-medium border-primary/40 text-primary">IA</Badge>}
+      </div>
       <div className="flex gap-0.5">
         {onEdit && (
           <Button variant="ghost" size="icon" className="h-4 w-4 text-muted-foreground hover:text-foreground" onClick={onEdit}>
@@ -69,7 +72,7 @@ const Field = ({ label, children, onDelete, onEdit }: { label: string; children:
         )}
       </div>
     </div>
-    {children}
+    {isLoading ? <Skeleton className="h-9 w-full" /> : children}
   </div>
 );
 
