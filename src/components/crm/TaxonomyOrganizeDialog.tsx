@@ -356,13 +356,7 @@ export default function TaxonomyOrganizeDialog({ open, onClose, definitions }: P
         <Separator />
 
         <div className="flex-1 min-h-0 overflow-hidden">
-          {loading && (
-            <div className="flex flex-col items-center justify-center py-16 gap-3">
-              <GooeyLoader className="h-16" />
-              <p className="text-sm text-primary font-medium animate-pulse">{stage}</p>
-              <p className="text-xs text-muted-foreground">Esto puede tomar unos segundos...</p>
-            </div>
-          )}
+          {loading && <TaxonomyLoadingAnimation stage={stage} />}
 
           {!loading && !result && (
             <div className="flex flex-col items-center justify-center py-16 gap-4">
