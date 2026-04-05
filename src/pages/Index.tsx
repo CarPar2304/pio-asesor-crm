@@ -17,13 +17,15 @@ import ExportDialog from '@/components/crm/ExportDialog';
 import QuickActionDialog from '@/components/crm/QuickActionDialog';
 import CRMSettingsDialog from '@/components/crm/CRMSettingsDialog';
 import { ExpandableTabs } from '@/components/ui/expandable-tabs';
-import { LayoutGrid, List, FileSpreadsheet, Plus, Download, RefreshCw, Settings2 } from 'lucide-react';
+import { LayoutGrid, List, FileSpreadsheet, Plus, Download, RefreshCw, Settings2, Radar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import CompanyRadarDialog from '@/components/crm/CompanyRadarDialog';
 
 const DASHBOARD_TABS = [
   { title: 'Cuadrícula', icon: LayoutGrid },
   { title: 'Tabla', icon: List },
   { type: 'separator' as const },
+  { title: 'Company Radar', icon: Radar },
   { title: 'Carga masiva', icon: FileSpreadsheet },
   { title: 'Actualizar masivo', icon: RefreshCw },
   { title: 'Nueva empresa', icon: Plus },
@@ -64,6 +66,7 @@ export default function Index() {
   const [bulkUpdateOpen, setBulkUpdateOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [radarOpen, setRadarOpen] = useState(false);
 
   // Persist filters to sessionStorage
   const updateFilters = useCallback((f: FilterState) => {
@@ -155,11 +158,12 @@ export default function Index() {
     if (index === null) return;
     if (index === 0) setView('grid');
     else if (index === 1) setView('table');
-    else if (index === 3) setBulkOpen(true);
-    else if (index === 4) setBulkUpdateOpen(true);
-    else if (index === 5) setFormOpen(true);
-    else if (index === 6) setExportOpen(true);
-    else if (index === 7) setSettingsOpen(true);
+    else if (index === 3) setRadarOpen(prev => !prev);
+    else if (index === 4) setBulkOpen(true);
+    else if (index === 5) setBulkUpdateOpen(true);
+    else if (index === 6) setFormOpen(true);
+    else if (index === 7) setExportOpen(true);
+    else if (index === 8) setSettingsOpen(true);
   }, []);
 
   const handleOpenProfile = useCallback((id: string) => navigate(`/empresa/${id}`), [navigate]);
@@ -185,6 +189,12 @@ export default function Index() {
           <ExpandableTabs tabs={DASHBOARD_TABS} onChange={handleDashboardTab} />
         </div>
       </div>
+      <CompanyRadarDialog
+        open={radarOpen}
+        onClose={() => setRadarOpen(false)}
+        onApplyFilters={updateFilters}
+        currentFilters={filters}
+      />
 
       <CRMFilters filters={filters} onChange={updateFilters} />
 
