@@ -189,6 +189,12 @@ export default function Index() {
           <ExpandableTabs tabs={DASHBOARD_TABS} onChange={handleDashboardTab} />
         </div>
       </div>
+      <CompanyRadarDialog
+        open={radarOpen}
+        onClose={() => setRadarOpen(false)}
+        onApplyFilters={updateFilters}
+        currentFilters={filters}
+      />
 
       <CRMFilters filters={filters} onChange={updateFilters} />
 
