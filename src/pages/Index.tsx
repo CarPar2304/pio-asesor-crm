@@ -158,11 +158,12 @@ export default function Index() {
     if (index === null) return;
     if (index === 0) setView('grid');
     else if (index === 1) setView('table');
-    else if (index === 3) setBulkOpen(true);
-    else if (index === 4) setBulkUpdateOpen(true);
-    else if (index === 5) setFormOpen(true);
-    else if (index === 6) setExportOpen(true);
-    else if (index === 7) setSettingsOpen(true);
+    else if (index === 3) setRadarOpen(prev => !prev);
+    else if (index === 4) setBulkOpen(true);
+    else if (index === 5) setBulkUpdateOpen(true);
+    else if (index === 6) setFormOpen(true);
+    else if (index === 7) setExportOpen(true);
+    else if (index === 8) setSettingsOpen(true);
   }, []);
 
   const handleOpenProfile = useCallback((id: string) => navigate(`/empresa/${id}`), [navigate]);
