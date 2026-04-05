@@ -10,14 +10,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Camera, Plus, X, Save, User, Settings2, Shield, Sparkles, FolderTree } from 'lucide-react';
+import { Camera, Plus, X, Save, User, Settings2, Shield, Sparkles, FolderTree, Radar } from 'lucide-react';
 import CompanyFitSettings from '@/components/admin/CompanyFitSettings';
 import TaxonomySettings from '@/components/admin/TaxonomySettings';
+import CompanyRadarSettings from '@/components/admin/CompanyRadarSettings';
 import { cn } from '@/lib/utils';
 
 const FEATURES = [
   { id: 'company_fit', label: 'Company Fit', icon: Sparkles, description: 'Clasificación y enriquecimiento con IA' },
   { id: 'taxonomy', label: 'Taxonomía', icon: FolderTree, description: 'Organización de taxonomía con IA' },
+  { id: 'company_radar', label: 'Company Radar', icon: Radar, description: 'Filtro inteligente con IA' },
 ] as const;
 
 type FeatureId = typeof FEATURES[number]['id'];
