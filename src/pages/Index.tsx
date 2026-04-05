@@ -66,6 +66,7 @@ export default function Index() {
   const [bulkUpdateOpen, setBulkUpdateOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [radarOpen, setRadarOpen] = useState(false);
 
   // Persist filters to sessionStorage
   const updateFilters = useCallback((f: FilterState) => {
