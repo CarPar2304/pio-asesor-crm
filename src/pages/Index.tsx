@@ -25,6 +25,7 @@ const DASHBOARD_TABS = [
   { title: 'Cuadrícula', icon: LayoutGrid },
   { title: 'Tabla', icon: List },
   { type: 'separator' as const },
+  { title: 'Company Radar', icon: Radar },
   { title: 'Carga masiva', icon: FileSpreadsheet },
   { title: 'Actualizar masivo', icon: RefreshCw },
   { title: 'Nueva empresa', icon: Plus },

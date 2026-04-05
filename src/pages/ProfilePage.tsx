@@ -185,6 +185,7 @@ export default function ProfilePage() {
       <div className="flex-1 min-w-0">
         {activeFeature === 'company_fit' && <CompanyFitSettings />}
         {activeFeature === 'taxonomy' && <TaxonomySettings />}
+        {activeFeature === 'company_radar' && <CompanyRadarSettings />}
       </div>
     </div>
   );
