@@ -160,6 +160,35 @@ export default function CompanyRadarDialog({ open, onClose, onApplyFilters, curr
                 {appliedFilters.search && (
                   <Badge variant="secondary" className="text-[10px]">Búsqueda: {appliedFilters.search}</Badge>
                 )}
+                {appliedFilters.salesMin && (
+                  <Badge variant="secondary" className="text-[10px]">Ventas ≥ {appliedFilters.salesMin}M</Badge>
+                )}
+                {appliedFilters.salesMax && (
+                  <Badge variant="secondary" className="text-[10px]">Ventas ≤ {appliedFilters.salesMax}M</Badge>
+                )}
+                {appliedFilters.avgYoYMin && (
+                  <Badge variant="secondary" className="text-[10px]">Crec. prom. ≥ {appliedFilters.avgYoYMin}%</Badge>
+                )}
+                {appliedFilters.avgYoYMax && (
+                  <Badge variant="secondary" className="text-[10px]">Crec. prom. ≤ {appliedFilters.avgYoYMax}%</Badge>
+                )}
+                {appliedFilters.lastYoYMin && (
+                  <Badge variant="secondary" className="text-[10px]">Crec. último año ≥ {appliedFilters.lastYoYMin}%</Badge>
+                )}
+                {appliedFilters.lastYoYMax && (
+                  <Badge variant="secondary" className="text-[10px]">Crec. último año ≤ {appliedFilters.lastYoYMax}%</Badge>
+                )}
+                {appliedFilters.nitFilter === 'has' && (
+                  <Badge variant="secondary" className="text-[10px]">Con NIT</Badge>
+                )}
+                {appliedFilters.nitFilter === 'no' && (
+                  <Badge variant="secondary" className="text-[10px]">Sin NIT</Badge>
+                )}
+                {appliedFilters.sortField && appliedFilters.sortField !== 'tradeName' && (
+                  <Badge variant="secondary" className="text-[10px]">
+                    Orden: {appliedFilters.sortField === 'salesByYear' ? 'Ventas' : appliedFilters.sortField === 'createdAt' ? 'Fecha' : appliedFilters.sortField} {appliedFilters.sortDirection === 'desc' ? '↓' : '↑'}
+                  </Badge>
+                )}
               </div>
             )}
           </div>
