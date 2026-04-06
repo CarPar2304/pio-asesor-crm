@@ -21,6 +21,7 @@ const FEATURES = [
   { id: 'company_fit', label: 'Company Fit', icon: Sparkles, description: 'Clasificación y enriquecimiento con IA' },
   { id: 'taxonomy', label: 'Taxonomía', icon: FolderTree, description: 'Organización de taxonomía con IA' },
   { id: 'company_radar', label: 'Company Radar', icon: Radar, description: 'Filtro inteligente con IA' },
+  { id: 'company_chat', label: 'Company Chat', icon: MessageCircle, description: 'Chat con base vectorial' },
 ] as const;
 
 type FeatureId = typeof FEATURES[number]['id'];
