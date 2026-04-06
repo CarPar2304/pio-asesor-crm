@@ -50,7 +50,7 @@ export default function CompanyRadarDialog({ open, onClose, onApplyFilters, curr
       setReasoning(filters.reasoning || null);
       setAppliedFilters(filters);
 
-      // Build new FilterState from AI response
+      // Build new FilterState from AI response, mapping ALL available filters
       const newFilters: FilterState = {
         ...DEFAULT_FILTERS,
         activeYear: currentFilters.activeYear,
@@ -59,6 +59,15 @@ export default function CompanyRadarDialog({ open, onClose, onApplyFilters, curr
         economicActivity: filters.economicActivity || [],
         city: filters.city || [],
         search: filters.search || '',
+        salesMin: filters.salesMin || '',
+        salesMax: filters.salesMax || '',
+        avgYoYMin: filters.avgYoYMin || '',
+        avgYoYMax: filters.avgYoYMax || '',
+        lastYoYMin: filters.lastYoYMin || '',
+        lastYoYMax: filters.lastYoYMax || '',
+        nitFilter: filters.nitFilter || '',
+        sortField: filters.sortField || DEFAULT_FILTERS.sortField,
+        sortDirection: filters.sortDirection || DEFAULT_FILTERS.sortDirection,
       };
 
       onApplyFilters(newFilters);

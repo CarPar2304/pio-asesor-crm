@@ -148,6 +148,28 @@ CIUDADES COMUNES
 Cali, Palmira, Yumbo, Jamundí, Buenaventura, Buga, Tuluá, Cartago
 
 ═══════════════════════════════════════
+FILTROS DISPONIBLES
+═══════════════════════════════════════
+
+Además de categoría, vertical, sub-vertical y ciudad, el CRM permite estos filtros financieros y de estado:
+
+- salesMin / salesMax: ventas mínimas/máximas en MILLONES de pesos colombianos (COP). Ej: si el usuario dice "empresas con ventas mayores a 10 mil millones", salesMin = "10000" (porque 10.000 millones ÷ 1.000.000 = 10000). Si dice "más de 500 millones", salesMin = "500".
+- avgYoYMin / avgYoYMax: crecimiento promedio interanual mínimo/máximo en porcentaje. Ej: "empresas que crecen más del 20%" → avgYoYMin = "20".
+- lastYoYMin / lastYoYMax: crecimiento del último año interanual mínimo/máximo en porcentaje.
+- nitFilter: filtrar por NIT. Valores posibles: "" (sin filtro), "has" (solo empresas CON NIT), "no" (solo empresas SIN NIT).
+- sortField: campo para ordenar. Valores: "tradeName", "city", "vertical", "salesByYear", "createdAt".
+- sortDirection: dirección del orden. Valores: "asc", "desc".
+
+Reglas para filtros financieros:
+- Los valores de ventas siempre son en MILLONES. 1.000 millones = 1000.
+- Si el usuario menciona rangos de ventas, usa salesMin y/o salesMax.
+- Si el usuario pide empresas "grandes" o "con altas ventas", usa salesMin con un valor razonable (ej: 1000 para >1.000M).
+- Si pide "startups pequeñas" o "empresas pequeñas", usa salesMax con un valor bajo (ej: 500 para <500M).
+- Si el usuario pide ordenar por ventas, tamaño, o ingresos, usa sortField="salesByYear".
+- Si pide "las más grandes primero" o "mayores ventas", usa sortDirection="desc".
+- Si pide "las más recientes", usa sortField="createdAt" y sortDirection="desc".
+
+═══════════════════════════════════════
 INSTRUCCIONES
 ═══════════════════════════════════════
 
@@ -168,6 +190,10 @@ El usuario te describirá en lenguaje natural qué tipo de empresas necesita enc
 7. Si la solicitud no puede mapearse a ningún filtro existente de la taxonomía, devuelve un JSON con arrays vacíos y explica en el campo "reasoning" por qué no se encontraron coincidencias.
 
 8. El campo "search" es para texto libre que se buscará en nombre comercial, razón social y NIT. Úsalo SOLO si el usuario menciona un nombre específico de empresa.
+
+9. Usa los filtros financieros (salesMin, salesMax, avgYoYMin, etc.) cuando el usuario mencione tamaño, ventas, ingresos, crecimiento, o cualquier criterio cuantitativo.
+
+10. Usa sortField y sortDirection cuando el usuario pida un orden específico o implícito (ej: "las más grandes", "ordenar por nombre", "más recientes").
 
 ${customPrompt ? `\n═══════════════════════════════════════\nINSTRUCCIONES ADICIONALES DEL ADMINISTRADOR\n═══════════════════════════════════════\n${customPrompt}\n` : ""}
 
@@ -211,6 +237,45 @@ Responde ÚNICAMENTE llamando la función apply_filters con los filtros apropiad
             search: {
               type: "string",
               description: "Texto de búsqueda libre para buscar por nombre comercial, razón social o NIT. Solo usar si el usuario menciona un nombre específico.",
+            },
+            salesMin: {
+              type: "string",
+              description: "Ventas mínimas en millones de COP. Dejar vacío si no aplica.",
+            },
+            salesMax: {
+              type: "string",
+              description: "Ventas máximas en millones de COP. Dejar vacío si no aplica.",
+            },
+            avgYoYMin: {
+              type: "string",
+              description: "Crecimiento promedio interanual mínimo en %. Dejar vacío si no aplica.",
+            },
+            avgYoYMax: {
+              type: "string",
+              description: "Crecimiento promedio interanual máximo en %. Dejar vacío si no aplica.",
+            },
+            lastYoYMin: {
+              type: "string",
+              description: "Crecimiento último año mínimo en %. Dejar vacío si no aplica.",
+            },
+            lastYoYMax: {
+              type: "string",
+              description: "Crecimiento último año máximo en %. Dejar vacío si no aplica.",
+            },
+            nitFilter: {
+              type: "string",
+              enum: ["", "has", "no"],
+              description: "Filtro de NIT: '' sin filtro, 'has' solo con NIT, 'no' solo sin NIT.",
+            },
+            sortField: {
+              type: "string",
+              enum: ["tradeName", "city", "vertical", "salesByYear", "createdAt"],
+              description: "Campo por el cual ordenar los resultados.",
+            },
+            sortDirection: {
+              type: "string",
+              enum: ["asc", "desc"],
+              description: "Dirección del orden: ascendente o descendente.",
             },
             reasoning: {
               type: "string",
