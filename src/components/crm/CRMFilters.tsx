@@ -129,8 +129,8 @@ export default function CRMFilters({ filters, onChange }: Props) {
     });
   }
   if (filters.nitFilter) activeChips.push({ label: 'NIT', value: filters.nitFilter === 'has' ? 'Con NIT' : 'Sin NIT', clear: () => update({ nitFilter: '' }) });
-  if (filters.salesMin) activeChips.push({ label: 'Ventas ≥', value: `${filters.salesMin}M`, clear: () => update({ salesMin: '' }) });
-  if (filters.salesMax) activeChips.push({ label: 'Ventas ≤', value: `${filters.salesMax}M`, clear: () => update({ salesMax: '' }) });
+  if (filters.salesMin) activeChips.push({ label: 'Ventas ≥', value: `${filters.salesMin}M (último dato)`, clear: () => update({ salesMin: '' }) });
+  if (filters.salesMax) activeChips.push({ label: 'Ventas ≤', value: `${filters.salesMax}M (último dato)`, clear: () => update({ salesMax: '' }) });
   if (filters.avgYoYMin) activeChips.push({ label: 'Avg YoY ≥', value: `${filters.avgYoYMin}%`, clear: () => update({ avgYoYMin: '' }) });
   if (filters.lastYoYMin) activeChips.push({ label: 'Último YoY ≥', value: `${filters.lastYoYMin}%`, clear: () => update({ lastYoYMin: '' }) });
 

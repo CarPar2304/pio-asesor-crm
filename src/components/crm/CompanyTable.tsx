@@ -1,10 +1,10 @@
-import { useState, useMemo, useCallback, memo } from 'react';
+import { memo } from 'react';
 import { Company } from '@/types/crm';
-import { calculateGrowth, formatCOP, formatPercentage } from '@/lib/calculations';
+import { calculateGrowth, getLastYearSales, formatCOP, formatPercentage } from '@/lib/calculations';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ChevronUp, ChevronDown, ExternalLink, Trash2 } from 'lucide-react';
+import { ExternalLink, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -14,69 +14,27 @@ interface Props {
   onDelete?: (id: string) => void;
 }
 
-type SortKey = 'tradeName' | 'category' | 'vertical' | 'city' | 'sales' | 'avgYoY' | 'lastYoY' | 'tasks';
-type SortDir = 'asc' | 'desc';
-
 function CompanyTable({ companies, onOpenProfile, activeYear, onDelete }: Props) {
-  const [sortKey, setSortKey] = useState<SortKey>('tradeName');
-  const [sortDir, setSortDir] = useState<SortDir>('asc');
-
-  const toggleSort = useCallback((key: SortKey) => {
-    setSortKey(prev => {
-      if (prev === key) {
-        setSortDir(d => d === 'asc' ? 'desc' : 'asc');
-        return prev;
-      }
-      setSortDir('asc');
-      return key;
-    });
-  }, []);
-
-  const sorted = useMemo(() => [...companies].sort((a, b) => {
-    const dir = sortDir === 'asc' ? 1 : -1;
-    switch (sortKey) {
-      case 'tradeName': return a.tradeName.localeCompare(b.tradeName) * dir;
-      case 'category': return a.category.localeCompare(b.category) * dir;
-      case 'vertical': return a.vertical.localeCompare(b.vertical) * dir;
-      case 'city': return a.city.localeCompare(b.city) * dir;
-      case 'sales': return ((a.salesByYear[activeYear] || 0) - (b.salesByYear[activeYear] || 0)) * dir;
-      case 'avgYoY': return ((calculateGrowth(a.salesByYear).avgYoY || 0) - (calculateGrowth(b.salesByYear).avgYoY || 0)) * dir;
-      case 'lastYoY': return ((calculateGrowth(a.salesByYear).lastYoY || 0) - (calculateGrowth(b.salesByYear).lastYoY || 0)) * dir;
-      case 'tasks': return (a.tasks.filter(t => t.status === 'pending').length - b.tasks.filter(t => t.status === 'pending').length) * dir;
-      default: return 0;
-    }
-  }), [companies, sortKey, sortDir, activeYear]);
-
-  const SortIcon = ({ col }: { col: SortKey }) => {
-    if (sortKey !== col) return null;
-    return sortDir === 'asc' ? <ChevronUp className="inline h-3 w-3" /> : <ChevronDown className="inline h-3 w-3" />;
-  };
-
-  const Th = ({ col, children }: { col: SortKey; children: React.ReactNode }) => (
-    <TableHead className="cursor-pointer select-none whitespace-nowrap text-xs" onClick={() => toggleSort(col)}>
-      {children} <SortIcon col={col} />
-    </TableHead>
-  );
-
   return (
     <div className="rounded-lg border border-border bg-card">
       <Table>
         <TableHeader>
           <TableRow>
-            <Th col="tradeName">Empresa</Th>
-            <Th col="category">Categoría</Th>
-            <Th col="vertical">Vertical</Th>
-            <Th col="city">Ciudad</Th>
-            <Th col="sales">Ventas {activeYear}</Th>
-            <Th col="avgYoY">Avg YoY</Th>
-            <Th col="lastYoY">Último YoY</Th>
-            <Th col="tasks">Tareas</Th>
+            <TableHead className="whitespace-nowrap text-xs">Empresa</TableHead>
+            <TableHead className="whitespace-nowrap text-xs">Categoría</TableHead>
+            <TableHead className="whitespace-nowrap text-xs">Vertical</TableHead>
+            <TableHead className="whitespace-nowrap text-xs">Ciudad</TableHead>
+            <TableHead className="whitespace-nowrap text-xs">Ventas (último dato)</TableHead>
+            <TableHead className="whitespace-nowrap text-xs">Avg YoY</TableHead>
+            <TableHead className="whitespace-nowrap text-xs">Último YoY</TableHead>
+            <TableHead className="whitespace-nowrap text-xs">Tareas</TableHead>
             <TableHead className="w-10" />
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sorted.map(c => {
+          {companies.map(c => {
             const { avgYoY, lastYoY } = calculateGrowth(c.salesByYear);
+            const lastSales = getLastYearSales(c.salesByYear);
             const pending = c.tasks.filter(t => t.status === 'pending').length;
             const overdue = c.tasks.filter(t => t.status === 'pending' && new Date(t.dueDate) < new Date()).length;
             return (
@@ -90,7 +48,11 @@ function CompanyTable({ companies, onOpenProfile, activeYear, onDelete }: Props)
                 <TableCell><Badge variant="outline" className="text-[11px]">{c.category}</Badge></TableCell>
                 <TableCell className="text-sm">{c.vertical}</TableCell>
                 <TableCell className="text-sm">{c.city}</TableCell>
-                <TableCell className="text-sm font-medium">{c.salesByYear[activeYear] ? formatCOP(c.salesByYear[activeYear]) : '—'}</TableCell>
+                <TableCell className="text-sm font-medium">
+                  {lastSales ? (
+                    <span>{formatCOP(lastSales.value)} <span className="text-[10px] text-muted-foreground">({lastSales.year})</span></span>
+                  ) : '—'}
+                </TableCell>
                 <TableCell className={cn('text-sm font-medium', avgYoY !== null ? (avgYoY > 0 ? 'text-success' : 'text-destructive') : 'text-muted-foreground')}>
                   {formatPercentage(avgYoY)}
                 </TableCell>
