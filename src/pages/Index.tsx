@@ -102,9 +102,10 @@ export default function Index() {
       if (filters.nitFilter === 'has' && (!c.nit || c.nit === '0')) return false;
       if (filters.nitFilter === 'no' && c.nit && c.nit !== '0') return false;
 
-      const yearSales = c.salesByYear[filters.activeYear];
-      if (filters.salesMin && (yearSales === undefined || yearSales < Number(filters.salesMin) * 1_000_000)) return false;
-      if (filters.salesMax && (yearSales === undefined || yearSales > Number(filters.salesMax) * 1_000_000)) return false;
+      // Sales filter uses latest year with data for each company
+      const latestSales = getLatestSalesValue(c.salesByYear);
+      if (filters.salesMin && (latestSales === null || latestSales < Number(filters.salesMin) * 1_000_000)) return false;
+      if (filters.salesMax && (latestSales === null || latestSales > Number(filters.salesMax) * 1_000_000)) return false;
 
       const { avgYoY, lastYoY } = calculateGrowth(c.salesByYear);
       if (filters.avgYoYMin && (avgYoY === null || avgYoY < Number(filters.avgYoYMin))) return false;
