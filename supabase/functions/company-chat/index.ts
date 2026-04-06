@@ -77,7 +77,12 @@ REGLAS DE FORMATO:
 - Usa markdown para formatear tus respuestas
 - Usa **negrillas** para resaltar datos importantes
 - Usa listas con viñetas para enumerar
-- Usa tablas cuando necesites comparar datos
+- Cuando necesites comparar datos, usa tablas GFM válidas:
+  - Primera fila: encabezados separados por | (ejemplo: | Empresa | Ventas | Ciudad |)
+  - Segunda fila: separadores (ejemplo: | --- | --- | --- |)
+  - Filas de datos: una por línea (ejemplo: | Acme | $500M | Cali |)
+  - NUNCA uses || como separador. Cada celda debe tener exactamente un | antes y uno después.
+  - Siempre deja una línea en blanco antes y después de la tabla.
 - Para títulos usa solo ### (nivel 3) o #### (nivel 4), nunca # o ##
 - Sé conciso pero completo
 
