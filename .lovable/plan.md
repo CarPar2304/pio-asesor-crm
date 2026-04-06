@@ -1,96 +1,130 @@
 
 
-# Plan: Settings multi-feature, generador de definiciones, fixes de animaciones y timeout
+## Plan: Feature "Chat" con Base de Datos Vectorial
 
-## Resumen
+### Resumen
 
-Hay 6 problemas a resolver: (1) Settings solo muestra Company Fit, necesita selector de features, (2) falta subfeature para generar definiciones con IA, (3) taxonomy-organize se queda cargando (timeout), (4) animaciones de carga poco convincentes, (5) RUES muestra skeleton en todos los campos cuando solo debería mostrar indicador ligero, (6) falta configuración de campos RUES en settings.
-
----
-
-## Cambios planificados
-
-### 1. Settings con selector de features (`ProfilePage.tsx`)
-
-Reemplazar el tab "Settings" que solo renderiza `<CompanyFitSettings />` por un sistema con sidebar/selector que permita elegir entre features:
-- **Company Fit** (existente)
-- **Taxonomía** (nuevo - configuración de la IA de organizar taxonomía)
-
-Se usara un estado `activeFeature` con un listado lateral de features disponibles. Cada feature renderiza su componente de settings correspondiente.
-
-### 2. Taxonomy Settings (`src/components/admin/TaxonomySettings.tsx`)
-
-Nuevo componente con:
-- **Modelo y parámetros**: selector de modelo OpenAI, esfuerzo de razonamiento, toggle web_search (igual que Company Fit pero guardado en `feature_settings` con key `taxonomy_organize`)
-- **Prompt base**: editable, con variables `{taxonomyTree}`, `{definitions}`, etc.
-- **Generador de definiciones con IA**: botón "Generar definiciones" que envía las verticales y sub-verticales actuales a una nueva Edge Function y muestra un preview para aprobación
-- **Logs**: últimas ejecuciones de organización (si se implementa logging)
-- **Edge Functions**: link a `taxonomy-organize`
-
-### 3. Subfeature: Generar definiciones con IA
-
-**Nueva Edge Function `taxonomy-definitions`**:
-- Recibe la lista de categorías, verticales y sub-verticales
-- Usa OpenAI para generar definiciones claras para cada término
-- Retorna un objeto `{ definitions: string }` con las definiciones formateadas
-
-**UI en TaxonomySettings**: 
-- Botón "Generar definiciones con IA"
-- Muestra preview en textarea
-- Botón "Aprobar y guardar" que guarda en `feature_settings` key `taxonomy_definitions`
-
-### 4. Fix timeout de taxonomy-organize
-
-El Edge Function `taxonomy-organize` usa `client.responses.create()` con reasoning `high` lo cual puede tardar >60s y hacer timeout. Soluciones:
-- Leer el modelo y reasoning_effort desde `feature_settings` key `taxonomy_organize` (actualmente hardcoded a `gpt-5.4` y `high`)
-- Agregar timeout handling en el cliente con AbortController o un timeout más largo
-- En el frontend, usar `setTimeout` más generoso y mostrar mensaje de "puede tardar hasta 2 minutos"
-- Considerar usar un modelo más rápido por defecto (gpt-4.1-mini)
-
-### 5. Animaciones mejoradas
-
-**Company Fit - modo RUES**:
-- Eliminar los skeleton loaders para RUES. Solo mostrar un spinner inline pequeño junto al botón o en el header
-- Usar un estado separado `ruesLoading` vs `variablesLoading` en lugar del genérico `companyFitLoading`
-- RUES es rápido, no necesita skeleton ni GooeyLoader
-
-**Company Fit - modo Variables**:
-- Mantener skeleton solo en los campos que se van a modificar: categoría, vertical, sub-vertical, descripción, logo
-- NO mostrar skeleton en: nombre comercial, razón social, NIT, ciudad, contactos, métricas
-- Mejorar el GooeyLoader con texto de etapas más descriptivo
-
-**Taxonomy Organize**:
-- Reemplazar el GooeyLoader estático por una animación con pasos progresivos más claros
-- Agregar un indicador de tiempo transcurrido
-- Mostrar mensaje "El modelo está razonando, esto puede tardar hasta 2 minutos" para modelos con reasoning alto
-
-### 6. Configuración RUES en Settings
-
-En `CompanyFitSettings.tsx`, dentro de la sección RUES, agregar:
-- **Campos de búsqueda RUES**: configurar qué campos se envían (`nit`, `razon_social`, `nombre_comercial`) y en qué orden de prioridad
-- **Campos de respuesta**: configurar qué campos extraer de RUES (`razon_social` → `legalName`, `nit` → `nit`, `cod_ciiu` → `economicActivity`)
-- Guardar en el config de `company_fit` como `rues_search_fields` y `rues_response_mapping`
+Crear un chat tipo burbuja flotante que permita consultar sobre las empresas del CRM usando búsqueda semántica con pgvector. Incluye: tabla de embeddings, Edge Function para vectorizar empresas, Edge Function para el chat con RAG, componente de burbuja flotante, y panel de administración para gestionar la vectorización.
 
 ---
 
-## Archivos a modificar
+### Arquitectura
 
-| Archivo | Cambio |
-|---------|--------|
-| `src/pages/ProfilePage.tsx` | Selector de features en Settings tab |
-| `src/components/admin/CompanyFitSettings.tsx` | Agregar config de campos RUES |
-| `src/components/admin/TaxonomySettings.tsx` | **Nuevo** - Settings de taxonomía + generador de definiciones |
-| `supabase/functions/taxonomy-definitions/index.ts` | **Nuevo** - Edge Function para generar definiciones |
-| `supabase/functions/taxonomy-organize/index.ts` | Leer config dinámica (modelo, reasoning) |
-| `src/components/crm/CompanyForm.tsx` | Separar estados RUES vs Variables, fix skeletons |
-| `src/components/crm/TaxonomyOrganizeDialog.tsx` | Mejorar animación de carga, timer visible |
+```text
+┌──────────────┐    ┌─────────────────────┐    ┌──────────────────┐
+│  Chat Bubble │───▶│  EF: company-chat   │───▶│  OpenAI (chat)   │
+│  (Frontend)  │    │  1. Embed query     │    │  gpt-4.1-mini    │
+│  Markdown    │    │  2. RPC search      │    └──────────────────┘
+│  rendering   │    │  3. Build prompt    │
+└──────────────┘    │  4. Stream response │
+                    └─────────┬───────────┘
+                              │
+                    ┌─────────▼───────────┐
+                    │  company_embeddings  │
+                    │  (pgvector table)    │
+                    └─────────────────────┘
 
-## Orden de implementación
+┌──────────────┐    ┌──────────────────────┐
+│  Admin Panel │───▶│  EF: vectorize-co.   │──▶ OpenAI Embeddings
+│  "Vectorizar"│    │  Batch embed all     │    text-embedding-3-small
+└──────────────┘    └──────────────────────┘
+```
 
-1. Settings multi-feature + TaxonomySettings
-2. Edge Function taxonomy-definitions + UI de generación
-3. Fix timeout taxonomy-organize (config dinámica)
-4. Fix animaciones Company Fit (RUES vs Variables)
-5. Mejorar animación taxonomy organize
-6. Config campos RUES en CompanyFitSettings
+---
+
+### 1. Migración de Base de Datos
+
+- Habilitar extensión `vector`: `create extension if not exists vector with schema extensions;`
+- Crear tabla `company_embeddings`:
+  - `id uuid PK`
+  - `company_id uuid NOT NULL UNIQUE` (referencia a companies)
+  - `content text NOT NULL` (texto plano usado para el embedding)
+  - `embedding extensions.vector(1536)` (dimensión de text-embedding-3-small)
+  - `updated_at timestamptz`
+  - `created_at timestamptz`
+- RLS: authenticated puede SELECT; solo service_role inserta/actualiza (via Edge Functions)
+- Crear función RPC `match_companies`:
+  ```sql
+  create or replace function match_companies(
+    query_embedding extensions.vector(1536),
+    match_threshold float default 0.5,
+    match_count int default 10
+  ) returns table (
+    id uuid, company_id uuid, content text, similarity float
+  )
+  ```
+  Usa `<=>` (cosine distance) para ordenar resultados.
+
+### 2. Edge Function: `vectorize-companies`
+
+- Recibe `POST` sin body (o con `{ companyIds?: string[] }` para parciales)
+- Consulta todas las empresas con sus contactos, acciones, propiedades custom, y campos custom
+- Para cada empresa, construye un texto enriquecido:
+  - Nombre comercial, razón social, NIT, categoría, vertical, sub-vertical, descripción, ciudad, sitio web, ventas por año, exportaciones
+  - Contactos principales
+  - Propiedades custom
+- Hace batch de embeddings con OpenAI `text-embedding-3-small` (puede enviar hasta ~100 textos por request)
+- Upsert en `company_embeddings` (insert on conflict update)
+- Retorna resumen: total procesadas, errores, duración
+
+### 3. Edge Function: `company-chat`
+
+- Recibe `{ messages: Array<{role, content}> }`
+- Extrae el último mensaje del usuario
+- Genera embedding de la query con `text-embedding-3-small`
+- Llama RPC `match_companies` para obtener las 8-10 empresas más relevantes
+- Construye system prompt con el contexto de empresas encontradas
+- Llama a OpenAI chat completions con streaming (modelo configurable desde `feature_settings` key `company_chat`)
+- Retorna SSE stream al cliente
+- Maneja errores 429/402
+
+### 4. Componente: `ChatBubble.tsx`
+
+- Burbuja flotante fija en esquina inferior derecha (botón circular con icono MessageCircle)
+- Al hacer clic, abre panel de chat con animación
+- Input de texto + botón enviar
+- Historial de mensajes con scroll
+- Mensajes del asistente renderizados con `react-markdown` (instalar dependencia)
+  - Configurar para que `h1` y `h2` no se rendericen (solo `h3` en adelante, usando `## ` y `### `)
+  - Soporte de **negrillas**, listas, tablas
+- Indicador de "escribiendo..." durante streaming
+- Se monta en `Layout.tsx` para estar disponible en todas las páginas
+
+### 5. Admin: `ChatSettings.tsx`
+
+- Nueva sección en Settings del perfil (junto a Company Fit, Taxonomía, Company Radar)
+- Configuración:
+  - Modelo del chat (gpt-4.1-mini, gpt-4.1, o4-mini)
+  - Modelo de embeddings (text-embedding-3-small, text-embedding-3-large)
+  - Reasoning effort
+  - Prompt base del sistema
+- Botón "Vectorizar empresas" con:
+  - Progress bar durante la vectorización
+  - Estadísticas: última vectorización, total empresas vectorizadas, fecha
+- Se guarda en `feature_settings` con key `company_chat`
+
+### 6. Archivos a Crear/Modificar
+
+**Crear:**
+- `supabase/migrations/XXXX_company_embeddings.sql` — tabla + extensión + RPC
+- `supabase/functions/vectorize-companies/index.ts` — Edge Function de vectorización
+- `supabase/functions/company-chat/index.ts` — Edge Function de chat con RAG
+- `src/components/chat/ChatBubble.tsx` — Componente burbuja flotante
+- `src/components/admin/ChatSettings.tsx` — Panel admin
+
+**Modificar:**
+- `src/components/Layout.tsx` — Agregar `<ChatBubble />` 
+- `src/pages/ProfilePage.tsx` — Agregar "Chat" al array FEATURES y renderizar `ChatSettings`
+
+**Instalar:**
+- `react-markdown` — Para renderizar markdown en mensajes
+
+---
+
+### Detalles Técnicos
+
+- **Embedding model**: `text-embedding-3-small` (1536 dimensiones), usando OPENAI_API_KEY ya configurado
+- **Batch processing**: Enviar embeddings en lotes de 50 empresas para evitar timeouts
+- **Chat streaming**: SSE token-by-token como los otros Edge Functions del proyecto
+- **Markdown config**: Componentes custom para `react-markdown` que mapean `h1`→`h3`, `h2`→`h4` para evitar títulos grandes; tablas con estilos Tailwind
 
