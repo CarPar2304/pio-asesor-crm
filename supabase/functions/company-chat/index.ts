@@ -94,13 +94,14 @@ CONTEXTO DE EMPRESAS RELEVANTES:
 ${contextBlock || "No se encontraron empresas relevantes para esta consulta. Sugiere al usuario que vectorice las empresas desde la configuración."}`;
 
     // Build request body
+    const isReasoningModel = /^o\d/.test(chatModel);
     const requestBody: any = {
       model: chatModel,
       messages: [{ role: "system", content: systemPrompt }, ...messages],
       stream: true,
     };
 
-    if (reasoningEffort && reasoningEffort !== "none") {
+    if (isReasoningModel && reasoningEffort && reasoningEffort !== "none") {
       requestBody.reasoning = { effort: reasoningEffort };
     }
 
