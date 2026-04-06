@@ -10,10 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Camera, Plus, X, Save, User, Settings2, Shield, Sparkles, FolderTree, Radar } from 'lucide-react';
+import { Camera, Plus, X, Save, User, Settings2, Shield, Sparkles, FolderTree, Radar, MessageCircle } from 'lucide-react';
 import CompanyFitSettings from '@/components/admin/CompanyFitSettings';
 import TaxonomySettings from '@/components/admin/TaxonomySettings';
 import CompanyRadarSettings from '@/components/admin/CompanyRadarSettings';
+import ChatSettings from '@/components/admin/ChatSettings';
 import { cn } from '@/lib/utils';
 
 const FEATURES = [
