@@ -1,130 +1,83 @@
 
+Objetivo
 
-## Plan: Feature "Chat" con Base de Datos Vectorial
+- Hacer que las respuestas del chat rendericen tablas reales mientras se van completando.
+- Corregir el filtro y orden por ventas para que usen una sola regla: el último año con dato registrado por empresa.
+- Dejar el orden/paginación consistentes entre grid, tabla y cambio de página.
 
-### Resumen
+Hallazgos
 
-Crear un chat tipo burbuja flotante que permita consultar sobre las empresas del CRM usando búsqueda semántica con pgvector. Incluye: tabla de embeddings, Edge Function para vectorizar empresas, Edge Function para el chat con RAG, componente de burbuja flotante, y panel de administración para gestionar la vectorización.
+- `ChatBubble.tsx` usa `react-markdown`, pero no `remark-gfm`; por eso los `|` se muestran como texto y no como tablas.
+- El prompt de `company-chat` pide “usar tablas”, pero no obliga a generar sintaxis Markdown GFM válida; por eso la IA está devolviendo pseudo-tablas con `||`.
+- Hoy hay 3 lógicas distintas para ventas:
+  - las cards usan `getLastYearSales()`,
+  - `Index.tsx` filtra y ordena con `filters.activeYear`,
+  - `CompanyTable.tsx` vuelve a ordenar localmente solo el subset ya paginado.
+  Esa inconsistencia explica el filtro `> 10M`, el orden raro con empresas sin ventas y los resultados distintos entre páginas/vistas.
 
----
+Plan
 
-### Arquitectura
+1. Arreglar el render de tablas del chat
+- Añadir `remark-gfm`.
+- En `src/components/chat/ChatBubble.tsx`, activar `remarkPlugins={[remarkGfm]}` sobre `ReactMarkdown`.
+- Mantener el re-render por chunk, para que el contenido se vuelva a parsear completo en cada actualización y la tabla aparezca apenas el bloque ya sea válido.
+- Si hace falta, normalizar saltos de línea del mensaje antes de renderizar para ayudar a que los bloques de tabla se cierren bien durante streaming.
 
-```text
-┌──────────────┐    ┌─────────────────────┐    ┌──────────────────┐
-│  Chat Bubble │───▶│  EF: company-chat   │───▶│  OpenAI (chat)   │
-│  (Frontend)  │    │  1. Embed query     │    │  gpt-4.1-mini    │
-│  Markdown    │    │  2. RPC search      │    └──────────────────┘
-│  rendering   │    │  3. Build prompt    │
-└──────────────┘    │  4. Stream response │
-                    └─────────┬───────────┘
-                              │
-                    ┌─────────▼───────────┐
-                    │  company_embeddings  │
-                    │  (pgvector table)    │
-                    └─────────────────────┘
+2. Forzar a la IA a emitir tablas válidas
+- Ajustar `supabase/functions/company-chat/index.ts` para pedir explícitamente tablas GFM reales:
+  - fila de encabezado,
+  - fila separadora `| --- | --- |`,
+  - una fila por línea,
+  - nunca usar `||` como pseudo-separador.
+- Con esto, el cliente no dependerá de “interpretar” formatos ambiguos.
 
-┌──────────────┐    ┌──────────────────────┐
-│  Admin Panel │───▶│  EF: vectorize-co.   │──▶ OpenAI Embeddings
-│  "Vectorizar"│    │  Batch embed all     │    text-embedding-3-small
-└──────────────┘    └──────────────────────┘
-```
+3. Unificar la lógica de ventas
+- Crear/fortalecer en `src/lib/calculations.ts` un helper único para “últimas ventas comparables” por empresa.
+- Esa función será la fuente de verdad para:
+  - filtro mínimo/máximo de ventas,
+  - orden por ventas,
+  - valor mostrado en tabla cuando se está comparando por ventas.
+- Empresas sin ventas quedarán siempre al final al ordenar por ventas, para evitar empates falsos con valor `0`.
 
----
+4. Corregir el bug de filtro y orden en el CRM
+- En `src/pages/Index.tsx`, reemplazar el uso de `c.salesByYear[filters.activeYear]` por el helper de “último año con dato”.
+- Hacer el sort global antes de paginar y usar exactamente esa misma lista para grid y tabla.
+- Mover la corrección de página fuera del render a un `useEffect`, para evitar estados intermedios raros cuando cambian filtros/páginas.
 
-### 1. Migración de Base de Datos
+5. Corregir la tabla del CRM para que no rompa el orden
+- Quitar el sort local de `src/components/crm/CompanyTable.tsx` sobre `paginatedItems`.
+- Conectar los headers de la tabla al mismo estado de orden global del padre, o volverla solo presentacional.
+- Así el orden será idéntico en grid, tabla y navegación por páginas.
 
-- Habilitar extensión `vector`: `create extension if not exists vector with schema extensions;`
-- Crear tabla `company_embeddings`:
-  - `id uuid PK`
-  - `company_id uuid NOT NULL UNIQUE` (referencia a companies)
-  - `content text NOT NULL` (texto plano usado para el embedding)
-  - `embedding extensions.vector(1536)` (dimensión de text-embedding-3-small)
-  - `updated_at timestamptz`
-  - `created_at timestamptz`
-- RLS: authenticated puede SELECT; solo service_role inserta/actualiza (via Edge Functions)
-- Crear función RPC `match_companies`:
-  ```sql
-  create or replace function match_companies(
-    query_embedding extensions.vector(1536),
-    match_threshold float default 0.5,
-    match_count int default 10
-  ) returns table (
-    id uuid, company_id uuid, content text, similarity float
-  )
-  ```
-  Usa `<=>` (cosine distance) para ordenar resultados.
+6. Ajustar la UI para que la regla quede clara
+- Cambiar labels/chips de ventas a algo como “Ventas (último dato)” para que no parezca que depende del año visible.
+- En la tabla, mostrar el año del dato junto al valor si cada empresa puede estar comparándose con años distintos.
+- Hacer que la lista de años del selector salga de los datos reales y no de un rango fijo `2020–2025`.
 
-### 2. Edge Function: `vectorize-companies`
+Archivos a tocar
 
-- Recibe `POST` sin body (o con `{ companyIds?: string[] }` para parciales)
-- Consulta todas las empresas con sus contactos, acciones, propiedades custom, y campos custom
-- Para cada empresa, construye un texto enriquecido:
-  - Nombre comercial, razón social, NIT, categoría, vertical, sub-vertical, descripción, ciudad, sitio web, ventas por año, exportaciones
-  - Contactos principales
-  - Propiedades custom
-- Hace batch de embeddings con OpenAI `text-embedding-3-small` (puede enviar hasta ~100 textos por request)
-- Upsert en `company_embeddings` (insert on conflict update)
-- Retorna resumen: total procesadas, errores, duración
+- `package.json`
+- `src/components/chat/ChatBubble.tsx`
+- `supabase/functions/company-chat/index.ts`
+- `src/lib/calculations.ts`
+- `src/pages/Index.tsx`
+- `src/components/crm/CompanyTable.tsx`
+- `src/components/crm/CRMFilters.tsx`
+- posiblemente `src/types/crm.ts` si conviene tipar mejor la métrica de ventas comparable
 
-### 3. Edge Function: `company-chat`
+Detalles técnicos
 
-- Recibe `{ messages: Array<{role, content}> }`
-- Extrae el último mensaje del usuario
-- Genera embedding de la query con `text-embedding-3-small`
-- Llama RPC `match_companies` para obtener las 8-10 empresas más relevantes
-- Construye system prompt con el contexto de empresas encontradas
-- Llama a OpenAI chat completions con streaming (modelo configurable desde `feature_settings` key `company_chat`)
-- Retorna SSE stream al cliente
-- Maneja errores 429/402
+- La causa principal del chat no es CSS: es parsing Markdown incompleto.
+- La causa principal del CRM no es solo paginación: es mezclar año activo, último año con dato y reordenar después de paginar.
+- La corrección correcta es centralizar:
+  - 1 helper para ventas,
+  - 1 orden global,
+  - 1 paginación al final.
 
-### 4. Componente: `ChatBubble.tsx`
+Validación
 
-- Burbuja flotante fija en esquina inferior derecha (botón circular con icono MessageCircle)
-- Al hacer clic, abre panel de chat con animación
-- Input de texto + botón enviar
-- Historial de mensajes con scroll
-- Mensajes del asistente renderizados con `react-markdown` (instalar dependencia)
-  - Configurar para que `h1` y `h2` no se rendericen (solo `h3` en adelante, usando `## ` y `### `)
-  - Soporte de **negrillas**, listas, tablas
-- Indicador de "escribiendo..." durante streaming
-- Se monta en `Layout.tsx` para estar disponible en todas las páginas
-
-### 5. Admin: `ChatSettings.tsx`
-
-- Nueva sección en Settings del perfil (junto a Company Fit, Taxonomía, Company Radar)
-- Configuración:
-  - Modelo del chat (gpt-4.1-mini, gpt-4.1, o4-mini)
-  - Modelo de embeddings (text-embedding-3-small, text-embedding-3-large)
-  - Reasoning effort
-  - Prompt base del sistema
-- Botón "Vectorizar empresas" con:
-  - Progress bar durante la vectorización
-  - Estadísticas: última vectorización, total empresas vectorizadas, fecha
-- Se guarda en `feature_settings` con key `company_chat`
-
-### 6. Archivos a Crear/Modificar
-
-**Crear:**
-- `supabase/migrations/XXXX_company_embeddings.sql` — tabla + extensión + RPC
-- `supabase/functions/vectorize-companies/index.ts` — Edge Function de vectorización
-- `supabase/functions/company-chat/index.ts` — Edge Function de chat con RAG
-- `src/components/chat/ChatBubble.tsx` — Componente burbuja flotante
-- `src/components/admin/ChatSettings.tsx` — Panel admin
-
-**Modificar:**
-- `src/components/Layout.tsx` — Agregar `<ChatBubble />` 
-- `src/pages/ProfilePage.tsx` — Agregar "Chat" al array FEATURES y renderizar `ChatSettings`
-
-**Instalar:**
-- `react-markdown` — Para renderizar markdown en mensajes
-
----
-
-### Detalles Técnicos
-
-- **Embedding model**: `text-embedding-3-small` (1536 dimensiones), usando OPENAI_API_KEY ya configurado
-- **Batch processing**: Enviar embeddings en lotes de 50 empresas para evitar timeouts
-- **Chat streaming**: SSE token-by-token como los otros Edge Functions del proyecto
-- **Markdown config**: Componentes custom para `react-markdown` que mapean `h1`→`h3`, `h2`→`h4` para evitar títulos grandes; tablas con estilos Tailwind
-
+- Chat: pedir una comparación que deba salir en tabla y verificar que durante el streaming se actualiza y termina renderizada como tabla real.
+- Grid: aplicar `Ventas ≥ 10M` y confirmar que entren empresas cuyo último dato válido sea 2024 o 2025.
+- Orden desc por ventas: confirmar que una empresa con ventas registradas quede por encima de una sin ventas, aunque esté en otra página originalmente.
+- Tabla CRM: comprobar que ordenar desde headers y desde el filtro global da el mismo resultado.
+- Paginación: navegar varias páginas y confirmar que el orden no cambia “por página” sino globalmente.
