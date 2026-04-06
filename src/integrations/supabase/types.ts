@@ -174,6 +174,41 @@ export type Database = {
           },
         ]
       }
+      company_embeddings: {
+        Row: {
+          company_id: string
+          content: string
+          created_at: string
+          embedding: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          content: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_embeddings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_fit_logs: {
         Row: {
           company_id: string | null
@@ -1083,6 +1118,19 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      match_companies: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          company_id: string
+          content: string
+          id: string
+          similarity: number
+        }[]
       }
     }
     Enums: {
