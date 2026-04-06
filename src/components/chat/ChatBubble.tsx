@@ -3,6 +3,7 @@ import { MessageCircle, X, Send, Loader2, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 type Msg = { role: 'user' | 'assistant'; content: string };
 
@@ -169,6 +170,7 @@ export default function ChatBubble() {
                   {msg.role === 'assistant' ? (
                     <div className="prose prose-sm dark:prose-invert max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_table]:text-xs [&_th]:px-2 [&_th]:py-1 [&_td]:px-2 [&_td]:py-1 [&_table]:border [&_th]:border [&_td]:border [&_table]:border-border">
                       <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
                         components={{
                           h1: ({ children }) => <h4 className="text-sm font-bold mt-3 mb-1">{children}</h4>,
                           h2: ({ children }) => <h4 className="text-sm font-bold mt-3 mb-1">{children}</h4>,

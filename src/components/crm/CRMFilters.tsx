@@ -129,8 +129,8 @@ export default function CRMFilters({ filters, onChange }: Props) {
     });
   }
   if (filters.nitFilter) activeChips.push({ label: 'NIT', value: filters.nitFilter === 'has' ? 'Con NIT' : 'Sin NIT', clear: () => update({ nitFilter: '' }) });
-  if (filters.salesMin) activeChips.push({ label: 'Ventas ≥', value: `${filters.salesMin}M`, clear: () => update({ salesMin: '' }) });
-  if (filters.salesMax) activeChips.push({ label: 'Ventas ≤', value: `${filters.salesMax}M`, clear: () => update({ salesMax: '' }) });
+  if (filters.salesMin) activeChips.push({ label: 'Ventas ≥', value: `${filters.salesMin}M (último dato)`, clear: () => update({ salesMin: '' }) });
+  if (filters.salesMax) activeChips.push({ label: 'Ventas ≤', value: `${filters.salesMax}M (último dato)`, clear: () => update({ salesMax: '' }) });
   if (filters.avgYoYMin) activeChips.push({ label: 'Avg YoY ≥', value: `${filters.avgYoYMin}%`, clear: () => update({ avgYoYMin: '' }) });
   if (filters.lastYoYMin) activeChips.push({ label: 'Último YoY ≥', value: `${filters.lastYoYMin}%`, clear: () => update({ lastYoYMin: '' }) });
 
@@ -148,7 +148,16 @@ export default function CRMFilters({ filters, onChange }: Props) {
     setViewName('');
   };
 
-  const years = Array.from({ length: 6 }, (_, i) => 2020 + i);
+  const years = useMemo(() => {
+    const yearSet = new Set<number>();
+    companies.forEach(c => {
+      Object.keys(c.salesByYear).forEach(y => yearSet.add(Number(y)));
+    });
+    if (yearSet.size === 0) {
+      for (let i = 0; i < 6; i++) yearSet.add(2020 + i);
+    }
+    return Array.from(yearSet).sort();
+  }, [companies]);
   const filterableFields = fields.filter(f => f.fieldType === 'text' || f.fieldType === 'select');
 
   return (

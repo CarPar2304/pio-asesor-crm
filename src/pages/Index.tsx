@@ -1,10 +1,10 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCRM } from '@/contexts/CRMContext';
 import { showSuccess } from '@/lib/toast';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { FilterState, DEFAULT_FILTERS } from '@/types/crm';
-import { calculateGrowth } from '@/lib/calculations';
+import { calculateGrowth, getLatestSalesValue } from '@/lib/calculations';
 import CompanyCard from '@/components/crm/CompanyCard';
 import { CompanyGridSkeleton, CompanyTableSkeleton } from '@/components/crm/CompanySkeleton';
 import CompanyTable from '@/components/crm/CompanyTable';
@@ -102,9 +102,10 @@ export default function Index() {
       if (filters.nitFilter === 'has' && (!c.nit || c.nit === '0')) return false;
       if (filters.nitFilter === 'no' && c.nit && c.nit !== '0') return false;
 
-      const yearSales = c.salesByYear[filters.activeYear];
-      if (filters.salesMin && (yearSales === undefined || yearSales < Number(filters.salesMin) * 1_000_000)) return false;
-      if (filters.salesMax && (yearSales === undefined || yearSales > Number(filters.salesMax) * 1_000_000)) return false;
+      // Sales filter uses latest year with data for each company
+      const latestSales = getLatestSalesValue(c.salesByYear);
+      if (filters.salesMin && (latestSales === null || latestSales < Number(filters.salesMin) * 1_000_000)) return false;
+      if (filters.salesMax && (latestSales === null || latestSales > Number(filters.salesMax) * 1_000_000)) return false;
 
       const { avgYoY, lastYoY } = calculateGrowth(c.salesByYear);
       if (filters.avgYoYMin && (avgYoY === null || avgYoY < Number(filters.avgYoYMin))) return false;
@@ -137,7 +138,16 @@ export default function Index() {
         case 'tradeName': cmp = a.tradeName.localeCompare(b.tradeName); break;
         case 'city': cmp = a.city.localeCompare(b.city); break;
         case 'vertical': cmp = a.vertical.localeCompare(b.vertical); break;
-        case 'salesByYear': cmp = (a.salesByYear[filters.activeYear] || 0) - (b.salesByYear[filters.activeYear] || 0); break;
+        case 'salesByYear': {
+          const sa = getLatestSalesValue(a.salesByYear);
+          const sb = getLatestSalesValue(b.salesByYear);
+          // Companies without sales always go last
+          if (sa === null && sb === null) cmp = 0;
+          else if (sa === null) cmp = sortDirection === 'asc' ? 1 : -1;
+          else if (sb === null) cmp = sortDirection === 'asc' ? -1 : 1;
+          else cmp = sa - sb;
+          break;
+        }
         case 'createdAt': cmp = a.createdAt.localeCompare(b.createdAt); break;
       }
       return sortDirection === 'desc' ? -cmp : cmp;
@@ -146,16 +156,16 @@ export default function Index() {
     return result;
   }, [companies, filters, fields]);
 
-  // Paginate — sync page state when it exceeds total pages
+  // Sync page when it exceeds total pages
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
-  if (safePage !== page) {
-    // Schedule state update to avoid rendering stale page
-    Promise.resolve().then(() => {
-      setPage(safePage);
-      try { sessionStorage.setItem('crm-page', String(safePage)); } catch {}
-    });
-  }
+  useEffect(() => {
+    if (page > totalPages) {
+      const sp = Math.min(page, totalPages);
+      setPage(sp);
+      try { sessionStorage.setItem('crm-page', String(sp)); } catch {}
+    }
+  }, [page, totalPages]);
   const paginatedItems = useMemo(() => {
     const start = (safePage - 1) * pageSize;
     return filtered.slice(start, start + pageSize);
