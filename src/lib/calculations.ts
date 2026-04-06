@@ -26,6 +26,13 @@ export function getLastYearSales(salesByYear: MetricByYear) {
   return { year, value: salesByYear[year] };
 }
 
+/** Returns the sales value from the latest year with data, or null. Used for filtering & sorting. */
+export function getLatestSalesValue(salesByYear: MetricByYear): number | null {
+  const years = Object.keys(salesByYear).map(Number).sort();
+  if (years.length === 0) return null;
+  return salesByYear[years[years.length - 1]];
+}
+
 export function formatCOP(value: number): string {
   if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(1)}B`;
   if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(0)}M`;
