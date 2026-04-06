@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useProfile } from '@/contexts/ProfileContext';
 import NotificationPanel from '@/components/NotificationPanel';
+import ChatBubble from '@/components/chat/ChatBubble';
 import logoCCC from '@/assets/logo-ccc.png';
 
 const navItems = [
