@@ -146,9 +146,16 @@ export default function Index() {
     return result;
   }, [companies, filters, fields]);
 
-  // Paginate
+  // Paginate — sync page state when it exceeds total pages
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
+  if (safePage !== page) {
+    // Schedule state update to avoid rendering stale page
+    Promise.resolve().then(() => {
+      setPage(safePage);
+      try { sessionStorage.setItem('crm-page', String(safePage)); } catch {}
+    });
+  }
   const paginatedItems = useMemo(() => {
     const start = (safePage - 1) * pageSize;
     return filtered.slice(start, start + pageSize);

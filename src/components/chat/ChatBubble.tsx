@@ -178,6 +178,16 @@ export default function ChatBubble() {
                           ul: ({ children }) => <ul className="list-disc pl-4 mb-1.5 space-y-0.5">{children}</ul>,
                           ol: ({ children }) => <ol className="list-decimal pl-4 mb-1.5 space-y-0.5">{children}</ol>,
                           li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                          table: ({ children }) => (
+                            <div className="overflow-x-auto my-2">
+                              <table className="w-full text-xs border-collapse border border-border rounded">{children}</table>
+                            </div>
+                          ),
+                          thead: ({ children }) => <thead className="bg-muted/60">{children}</thead>,
+                          tbody: ({ children }) => <tbody>{children}</tbody>,
+                          tr: ({ children }) => <tr className="border-b border-border">{children}</tr>,
+                          th: ({ children }) => <th className="px-2 py-1.5 text-left font-semibold border border-border">{children}</th>,
+                          td: ({ children }) => <td className="px-2 py-1.5 border border-border">{children}</td>,
                         }}
                       >
                         {msg.content}
