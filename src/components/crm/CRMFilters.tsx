@@ -148,7 +148,16 @@ export default function CRMFilters({ filters, onChange }: Props) {
     setViewName('');
   };
 
-  const years = Array.from({ length: 6 }, (_, i) => 2020 + i);
+  const years = useMemo(() => {
+    const yearSet = new Set<number>();
+    companies.forEach(c => {
+      Object.keys(c.salesByYear).forEach(y => yearSet.add(Number(y)));
+    });
+    if (yearSet.size === 0) {
+      for (let i = 0; i < 6; i++) yearSet.add(2020 + i);
+    }
+    return Array.from(yearSet).sort();
+  }, [companies]);
   const filterableFields = fields.filter(f => f.fieldType === 'text' || f.fieldType === 'select');
 
   return (
