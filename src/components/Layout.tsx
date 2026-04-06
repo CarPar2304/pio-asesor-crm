@@ -81,6 +81,7 @@ export default function Layout() {
           <Outlet />
         </main>
       </InfiniteGridBackground>
+      <ChatBubble />
     </div>
   );
 }

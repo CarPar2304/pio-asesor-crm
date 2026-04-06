@@ -188,6 +188,7 @@ export default function ProfilePage() {
         {activeFeature === 'company_fit' && <CompanyFitSettings />}
         {activeFeature === 'taxonomy' && <TaxonomySettings />}
         {activeFeature === 'company_radar' && <CompanyRadarSettings />}
+        {activeFeature === 'company_chat' && <ChatSettings />}
       </div>
     </div>
   );
