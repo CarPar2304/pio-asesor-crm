@@ -138,7 +138,16 @@ export default function Index() {
         case 'tradeName': cmp = a.tradeName.localeCompare(b.tradeName); break;
         case 'city': cmp = a.city.localeCompare(b.city); break;
         case 'vertical': cmp = a.vertical.localeCompare(b.vertical); break;
-        case 'salesByYear': cmp = (a.salesByYear[filters.activeYear] || 0) - (b.salesByYear[filters.activeYear] || 0); break;
+        case 'salesByYear': {
+          const sa = getLatestSalesValue(a.salesByYear);
+          const sb = getLatestSalesValue(b.salesByYear);
+          // Companies without sales always go last
+          if (sa === null && sb === null) cmp = 0;
+          else if (sa === null) cmp = sortDirection === 'asc' ? 1 : -1;
+          else if (sb === null) cmp = sortDirection === 'asc' ? -1 : 1;
+          else cmp = sa - sb;
+          break;
+        }
         case 'createdAt': cmp = a.createdAt.localeCompare(b.createdAt); break;
       }
       return sortDirection === 'desc' ? -cmp : cmp;
