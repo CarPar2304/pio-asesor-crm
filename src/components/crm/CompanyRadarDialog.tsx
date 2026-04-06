@@ -50,7 +50,7 @@ export default function CompanyRadarDialog({ open, onClose, onApplyFilters, curr
       setReasoning(filters.reasoning || null);
       setAppliedFilters(filters);
 
-      // Build new FilterState from AI response
+      // Build new FilterState from AI response, mapping ALL available filters
       const newFilters: FilterState = {
         ...DEFAULT_FILTERS,
         activeYear: currentFilters.activeYear,
@@ -59,6 +59,15 @@ export default function CompanyRadarDialog({ open, onClose, onApplyFilters, curr
         economicActivity: filters.economicActivity || [],
         city: filters.city || [],
         search: filters.search || '',
+        salesMin: filters.salesMin || '',
+        salesMax: filters.salesMax || '',
+        avgYoYMin: filters.avgYoYMin || '',
+        avgYoYMax: filters.avgYoYMax || '',
+        lastYoYMin: filters.lastYoYMin || '',
+        lastYoYMax: filters.lastYoYMax || '',
+        nitFilter: filters.nitFilter || '',
+        sortField: filters.sortField || DEFAULT_FILTERS.sortField,
+        sortDirection: filters.sortDirection || DEFAULT_FILTERS.sortDirection,
       };
 
       onApplyFilters(newFilters);
@@ -150,6 +159,35 @@ export default function CompanyRadarDialog({ open, onClose, onApplyFilters, curr
                 ))}
                 {appliedFilters.search && (
                   <Badge variant="secondary" className="text-[10px]">Búsqueda: {appliedFilters.search}</Badge>
+                )}
+                {appliedFilters.salesMin && (
+                  <Badge variant="secondary" className="text-[10px]">Ventas ≥ {appliedFilters.salesMin}M</Badge>
+                )}
+                {appliedFilters.salesMax && (
+                  <Badge variant="secondary" className="text-[10px]">Ventas ≤ {appliedFilters.salesMax}M</Badge>
+                )}
+                {appliedFilters.avgYoYMin && (
+                  <Badge variant="secondary" className="text-[10px]">Crec. prom. ≥ {appliedFilters.avgYoYMin}%</Badge>
+                )}
+                {appliedFilters.avgYoYMax && (
+                  <Badge variant="secondary" className="text-[10px]">Crec. prom. ≤ {appliedFilters.avgYoYMax}%</Badge>
+                )}
+                {appliedFilters.lastYoYMin && (
+                  <Badge variant="secondary" className="text-[10px]">Crec. último año ≥ {appliedFilters.lastYoYMin}%</Badge>
+                )}
+                {appliedFilters.lastYoYMax && (
+                  <Badge variant="secondary" className="text-[10px]">Crec. último año ≤ {appliedFilters.lastYoYMax}%</Badge>
+                )}
+                {appliedFilters.nitFilter === 'has' && (
+                  <Badge variant="secondary" className="text-[10px]">Con NIT</Badge>
+                )}
+                {appliedFilters.nitFilter === 'no' && (
+                  <Badge variant="secondary" className="text-[10px]">Sin NIT</Badge>
+                )}
+                {appliedFilters.sortField && appliedFilters.sortField !== 'tradeName' && (
+                  <Badge variant="secondary" className="text-[10px]">
+                    Orden: {appliedFilters.sortField === 'salesByYear' ? 'Ventas' : appliedFilters.sortField === 'createdAt' ? 'Fecha' : appliedFilters.sortField} {appliedFilters.sortDirection === 'desc' ? '↓' : '↑'}
+                  </Badge>
                 )}
               </div>
             )}
