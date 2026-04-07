@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Phone, CheckSquare, Flag, Pencil, Mail, User, Star, Globe, Trash2, GitBranch } from 'lucide-react';
+import { ArrowLeft, Phone, CheckSquare, Flag, Pencil, Mail, User, Star, Globe, Trash2, GitBranch, FileDown } from 'lucide-react';
+import { exportProfileToPdf } from '@/lib/exportProfilePdf';
 import ActivityTimeline from './ActivityTimeline';
 import QuickActionDialog from './QuickActionDialog';
 import CompanyForm from './CompanyForm';
@@ -98,6 +99,9 @@ export default function CompanyProfile({ company, onBack }: Props) {
           </Button>
           <Button size="sm" className="gap-1.5 text-xs" onClick={() => setEditOpen(true)}>
             <Pencil className="h-3.5 w-3.5" /> Editar
+          </Button>
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => exportProfileToPdf(company, sections, fields)}>
+            <FileDown className="h-3.5 w-3.5" /> PDF
           </Button>
           <Button size="sm" variant="outline" className="gap-1.5 text-xs text-destructive hover:text-destructive" onClick={handleDelete}>
             <Trash2 className="h-3.5 w-3.5" /> Eliminar
