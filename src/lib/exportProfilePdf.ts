@@ -60,13 +60,25 @@ export async function exportProfileToPdf(
   }
 
   // === HEADER ===
-  // Company initial circle
-  doc.setFillColor(...colors.primary);
-  doc.circle(margin + 8, y + 8, 8, 'F');
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(255, 255, 255);
-  doc.text(company.tradeName.charAt(0).toUpperCase(), margin + 8, y + 11, { align: 'center' });
+  // Company logo or initial circle
+  let logoLoaded = false;
+  if (company.logo) {
+    try {
+      const img = await loadImage(company.logo);
+      doc.addImage(img, 'PNG', margin, y, 16, 16);
+      logoLoaded = true;
+    } catch (_) {
+      // fallback to initial circle
+    }
+  }
+  if (!logoLoaded) {
+    doc.setFillColor(...colors.primary);
+    doc.circle(margin + 8, y + 8, 8, 'F');
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255, 255, 255);
+    doc.text(company.tradeName.charAt(0).toUpperCase(), margin + 8, y + 11, { align: 'center' });
+  }
 
   // Company name
   doc.setFontSize(18);
