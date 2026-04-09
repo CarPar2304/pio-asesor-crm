@@ -8,6 +8,60 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const normalizeText = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+function buildCompanyContent(
+  company: Record<string, any>,
+  contacts: Record<string, any>[] = [],
+  customProps: Record<string, any>[] = [],
+) {
+  const parts: string[] = [];
+
+  parts.push(`Nombre comercial: ${company.trade_name}`);
+  if (company.legal_name) parts.push(`Razón social: ${company.legal_name}`);
+  if (company.nit) parts.push(`NIT: ${company.nit}`);
+  if (company.category) parts.push(`Categoría: ${company.category}`);
+  if (company.vertical) parts.push(`Vertical: ${company.vertical}`);
+  if (company.economic_activity) parts.push(`Sub-vertical / Actividad económica: ${company.economic_activity}`);
+  if (company.description) parts.push(`Descripción: ${company.description}`);
+  if (company.city) parts.push(`Ciudad: ${company.city}`);
+  if (company.website) parts.push(`Sitio web: ${company.website}`);
+  if (company.exports_usd) parts.push(`Exportaciones USD: ${company.exports_usd}`);
+
+  if (company.sales_by_year && typeof company.sales_by_year === "object") {
+    const salesEntries = Object.entries(company.sales_by_year as Record<string, number>)
+      .filter(([, v]) => v > 0)
+      .sort(([a], [b]) => Number(b) - Number(a));
+
+    if (salesEntries.length > 0) {
+      parts.push(`Ventas: ${salesEntries.map(([y, v]) => `${y}: $${Number(v).toLocaleString()}`).join(", ")}`);
+    }
+  }
+
+  if (contacts.length > 0) {
+    const contactText = contacts
+      .map((c) => {
+        const segments = [`${c.name}${c.position ? ` (${c.position})` : ""}`];
+        if (c.email) segments.push(`Email: ${c.email}`);
+        if (c.phone) segments.push(`Celular: ${c.phone}`);
+        return segments.join(" - ");
+      })
+      .join("; ");
+    parts.push(`Contactos: ${contactText}`);
+  }
+
+  if (customProps.length > 0) {
+    const propsText = customProps.map((p) => `${p.name}: ${p.value || ""}`).join("; ");
+    parts.push(`Propiedades: ${propsText}`);
+  }
+
+  return parts.join("\n");
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -42,21 +96,26 @@ serve(async (req) => {
     const reasoningEffort = config.reasoningEffort || "none";
     const customPromptAddition = config.systemPrompt || "";
 
-    // Get last user message for embedding
-    const lastUserMessage = [...messages].reverse().find((m: any) => m.role === "user")?.content || "";
+    const lastUserMessage = [...messages].reverse().find((m: any) => m.role === "user")?.content?.trim() || "";
+    const recentMessages = messages.slice(-4);
+    const retrievalQuery = recentMessages
+      .map((m: any) => `${m.role === "user" ? "Usuario" : "Asistente"}: ${m.content}`)
+      .join("\n\n") || lastUserMessage;
 
-    // Generate embedding for the query
+    // Generate embedding for the retrieval query
     const embResponse = await openai.embeddings.create({
       model: embeddingModel,
-      input: lastUserMessage,
+      input: retrievalQuery,
     });
     const queryEmbedding = embResponse.data[0].embedding;
 
     // Search similar companies via RPC
     // Determine how many results to fetch based on query intent
-    const wantsAll = /\btodas?\b|\btodos?\b|\bcada\b|\blistado\b|\bcompleto\b|\bgeneral\b/i.test(lastUserMessage);
-    const matchCount = wantsAll ? 100 : 15;
-    const matchThreshold = wantsAll ? 0.15 : 0.25;
+    const wantsAll = /\btodas?\b|\btodos?\b|\bcada\b|\blistado\b|\bcompleto\b|\bgeneral\b/i.test(retrievalQuery);
+    const isContactLookup = /\bcelulares?\b|\bteléfonos?\b|\btelefonos?\b|\bcontactos?\b|\bcorreos?\b|\bemails?\b/i.test(retrievalQuery);
+    const isFollowUp = /\besta?s?\b|\besa?s?\b|\besto\b|\bagrega(?:le|r)?\b|\bañade(?:le|r)?\b|\bactualiza(?:r)?\b|\bcompleta(?:r)?\b|\bincluye(?:r)?\b|\btabla\b/i.test(lastUserMessage) && recentMessages.length > 1;
+    const matchCount = wantsAll ? 100 : isContactLookup || isFollowUp ? 40 : 15;
+    const matchThreshold = wantsAll ? 0.15 : isContactLookup || isFollowUp ? 0.18 : 0.25;
 
     const { data: matches, error: matchErr } = await supabase.rpc("match_companies", {
       query_embedding: JSON.stringify(queryEmbedding),
@@ -68,11 +127,79 @@ serve(async (req) => {
       console.error("match_companies error:", matchErr);
     }
 
+    const normalizedConversation = normalizeText(retrievalQuery);
+    const { data: companyNameRows, error: companyNamesErr } = await supabase
+      .from("companies")
+      .select("id, trade_name, legal_name");
+
+    if (companyNamesErr) {
+      console.error("company name lookup error:", companyNamesErr);
+    }
+
+    const mentionedCompanyIds = Array.from(new Set(
+      (companyNameRows || [])
+        .filter((company: any) =>
+          [company.trade_name, company.legal_name]
+            .filter((name): name is string => Boolean(name))
+            .some((name) => {
+              const normalizedName = normalizeText(name);
+              return normalizedName.length >= 4 && normalizedConversation.includes(normalizedName);
+            })
+        )
+        .map((company: any) => company.id)
+    ));
+
+    let directMatches: any[] = [];
+    if (mentionedCompanyIds.length > 0) {
+      const [directCompaniesRes, directContactsRes, directPropsRes] = await Promise.all([
+        supabase.from("companies").select("*").in("id", mentionedCompanyIds),
+        supabase.from("contacts").select("*").in("company_id", mentionedCompanyIds),
+        supabase.from("custom_properties").select("*").in("company_id", mentionedCompanyIds),
+      ]);
+
+      if (directCompaniesRes.error) console.error("direct company fetch error:", directCompaniesRes.error);
+      if (directContactsRes.error) console.error("direct contacts fetch error:", directContactsRes.error);
+      if (directPropsRes.error) console.error("direct custom properties fetch error:", directPropsRes.error);
+
+      const directCompanies = directCompaniesRes.data || [];
+      const directContacts = directContactsRes.data || [];
+      const directProps = directPropsRes.data || [];
+
+      directMatches = directCompanies.map((company: any) => ({
+        id: `direct-${company.id}`,
+        company_id: company.id,
+        content: buildCompanyContent(
+          company,
+          directContacts.filter((contact: any) => contact.company_id === company.id),
+          directProps.filter((prop: any) => prop.company_id === company.id),
+        ),
+        similarity: 1,
+        source: "direct",
+      }));
+    }
+
+    const combinedMatches = Array.from(
+      new Map(
+        [...directMatches, ...(matches || [])].map((match: any) => [match.company_id, match])
+      ).values()
+    );
+
+    console.log("company-chat retrieval", {
+      lastUserMessage,
+      retrievalQueryLength: retrievalQuery.length,
+      mentionedCompanyIds: mentionedCompanyIds.length,
+      semanticMatches: matches?.length || 0,
+      combinedMatches: combinedMatches.length,
+      isContactLookup,
+      isFollowUp,
+      wantsAll,
+    });
+
     // Build context from matches
     let contextBlock = "";
-    if (matches?.length) {
-      contextBlock = matches
-        .map((m: any, i: number) => `--- Empresa ${i + 1} (similitud: ${(m.similarity * 100).toFixed(1)}%) ---\n${m.content}`)
+    if (combinedMatches.length) {
+      contextBlock = combinedMatches
+        .map((m: any, i: number) => `--- Empresa ${i + 1}${m.source === "direct" ? " (mencionada en la conversación)" : ` (similitud: ${(m.similarity * 100).toFixed(1)}%)`} ---\n${m.content}`)
         .join("\n\n");
     }
 
@@ -96,6 +223,7 @@ REGLAS DE CONTENIDO:
 - Si no encuentras información relevante, indícalo claramente
 - Puedes hacer análisis comparativos, resúmenes y recomendaciones basadas en los datos
 - Incluye nombres de empresas, categorías, verticales y métricas cuando sea relevante
+- Si el usuario hace una pregunta de seguimiento como "agrega el celular a esta tabla", prioriza las empresas mencionadas recientemente en la conversación
 - Si el usuario pregunta algo fuera de tu alcance, sugiere vectorizar las empresas para tener datos actualizados
 
 ${customPromptAddition ? `\nINSTRUCCIONES ADICIONALES DEL ADMINISTRADOR:\n${customPromptAddition}` : ""}
