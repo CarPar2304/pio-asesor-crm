@@ -53,10 +53,15 @@ serve(async (req) => {
     const queryEmbedding = embResponse.data[0].embedding;
 
     // Search similar companies via RPC
+    // Determine how many results to fetch based on query intent
+    const wantsAll = /\btodas?\b|\btodos?\b|\bcada\b|\blistado\b|\bcompleto\b|\bgeneral\b/i.test(lastUserMessage);
+    const matchCount = wantsAll ? 100 : 15;
+    const matchThreshold = wantsAll ? 0.15 : 0.25;
+
     const { data: matches, error: matchErr } = await supabase.rpc("match_companies", {
       query_embedding: JSON.stringify(queryEmbedding),
-      match_threshold: 0.3,
-      match_count: 10,
+      match_threshold: matchThreshold,
+      match_count: matchCount,
     });
 
     if (matchErr) {
