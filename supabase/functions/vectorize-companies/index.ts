@@ -96,7 +96,7 @@ serve(async (req) => {
       const compContacts = contacts?.filter((c) => c.company_id === company.id) || [];
       if (compContacts.length > 0) {
         const contactText = compContacts
-          .map((c) => `${c.name}${c.position ? ` (${c.position})` : ""}${c.email ? ` - ${c.email}` : ""}`)
+          .map((c) => `${c.name}${c.position ? ` (${c.position})` : ""}${c.email ? ` - ${c.email}` : ""}${c.phone ? ` - Tel: ${c.phone}` : ""}`)
           .join("; ");
         parts.push(`Contactos: ${contactText}`);
       }
