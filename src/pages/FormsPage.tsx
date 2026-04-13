@@ -196,6 +196,7 @@ export default function FormsPage() {
             </SelectContent>
           </Select>
         )}
+      </div>
 
       {loading ? (
         <div className="grid gap-3">
