@@ -327,7 +327,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
   }, [formFields]);
 
   // Show "only for new" option when form allows both existing + new companies
-  const showOnlyForNew = formType === 'update' && allowCreation;
+  const showOnlyForNew = (formType === 'update' || formType === 'collection') && allowCreation;
 
   // Extended field type options (add 'file' if not present)
   const extendedFieldTypeOptions = useMemo(() => {
@@ -440,7 +440,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                 <Checkbox checked={allowCreation} onCheckedChange={v => setAllowCreation(!!v)} id="allow-creation" />
                 <div>
                   <label htmlFor="allow-creation" className="text-sm font-medium cursor-pointer">Permitir también crear empresas nuevas</label>
-                  <p className="text-[11px] text-muted-foreground">Si el NIT no existe en el CRM, permite crear la empresa desde el formulario. Los campos marcados como "Solo para nuevas" se mostrarán únicamente en ese caso.</p>
+                  <p className="text-[11px] text-muted-foreground">Si el NIT no existe en el CRM, permite crear la empresa desde el formulario. Los campos marcados como "Editable solo nuevas" serán visibles para todos pero solo editables para empresas nuevas.</p>
                 </div>
               </div>
             )}
@@ -685,7 +685,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                       {field.preload_from_crm && <Badge variant="outline" className="text-[9px]">CRM</Badge>}
                       {field.section_name && <Badge variant="secondary" className="text-[9px]">{field.section_name}</Badge>}
                       {field.condition_field_key && <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-200">Condicional</Badge>}
-                      {field.only_for_new && <Badge variant="outline" className="text-[9px] bg-emerald-50 text-emerald-700 border-emerald-200">Solo nuevas</Badge>}
+                      {field.only_for_new && <Badge variant="outline" className="text-[9px] bg-emerald-50 text-emerald-700 border-emerald-200">Editable solo nuevas</Badge>}
                     </div>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeField(idx)}>
                       <Trash2 className="h-3 w-3 text-destructive" />
@@ -791,9 +791,9 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                       Visible
                     </label>
                     {showOnlyForNew && (
-                      <label className="flex items-center gap-1.5">
+                      <label className="flex items-center gap-1.5" title="El campo será visible para todos pero solo editable para empresas nuevas (NIT no encontrado)">
                         <Checkbox checked={!!field.only_for_new} onCheckedChange={v => updateField(idx, { only_for_new: !!v })} className="h-3.5 w-3.5" />
-                        Solo para nuevas
+                        Editable solo nuevas
                       </label>
                     )}
                   </div>
