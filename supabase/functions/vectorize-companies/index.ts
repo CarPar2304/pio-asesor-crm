@@ -23,7 +23,6 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceRoleKey);
     const openai = new OpenAI({ apiKey: openaiKey });
 
-    // Get config for embedding model
     const { data: settingsRow } = await supabase
       .from("feature_settings")
       .select("config")
@@ -33,14 +32,12 @@ serve(async (req) => {
     const config = settingsRow?.config || {};
     const embeddingModel = (config as any).embeddingModel || "text-embedding-3-small";
 
-    // Parse optional body
     let companyIds: string[] | null = null;
     try {
       const body = await req.json();
       if (body?.companyIds?.length) companyIds = body.companyIds;
     } catch { /* no body */ }
 
-    // Fetch companies
     let query = supabase.from("companies").select("*");
     if (companyIds) {
       query = query.in("id", companyIds);
@@ -53,20 +50,36 @@ serve(async (req) => {
       });
     }
 
-    // Fetch contacts for all companies
     const companyIdsList = companies.map((c) => c.id);
-    const { data: contacts } = await supabase
-      .from("contacts")
-      .select("*")
-      .in("company_id", companyIdsList);
 
-    // Fetch custom properties
-    const { data: customProps } = await supabase
-      .from("custom_properties")
-      .select("*")
-      .in("company_id", companyIdsList);
+    // Fetch all related data in parallel
+    const [
+      { data: contacts },
+      { data: customProps },
+      { data: actions },
+      { data: milestones },
+      { data: tasks },
+      { data: pipelineEntries },
+      { data: pipelineStages },
+      { data: offers },
+      { data: profiles },
+    ] = await Promise.all([
+      supabase.from("contacts").select("*").in("company_id", companyIdsList),
+      supabase.from("custom_properties").select("*").in("company_id", companyIdsList),
+      supabase.from("company_actions").select("*").in("company_id", companyIdsList).order("date", { ascending: false }),
+      supabase.from("milestones").select("*").in("company_id", companyIdsList).order("date", { ascending: false }),
+      supabase.from("company_tasks").select("*").in("company_id", companyIdsList).order("due_date", { ascending: false }),
+      supabase.from("pipeline_entries").select("*").in("company_id", companyIdsList),
+      supabase.from("pipeline_stages").select("*"),
+      supabase.from("portfolio_offers").select("id, name, product, status"),
+      supabase.from("profiles").select("user_id, name"),
+    ]);
 
-    // Build content for each company
+    // Build lookup maps
+    const stageMap = new Map((pipelineStages || []).map((s) => [s.id, s]));
+    const offerMap = new Map((offers || []).map((o) => [o.id, o]));
+    const profileMap = new Map((profiles || []).map((p) => [p.user_id, p.name]));
+
     const companyTexts: { companyId: string; content: string }[] = [];
 
     for (const company of companies) {
@@ -96,7 +109,12 @@ serve(async (req) => {
       const compContacts = contacts?.filter((c) => c.company_id === company.id) || [];
       if (compContacts.length > 0) {
         const contactText = compContacts
-          .map((c) => `${c.name}${c.position ? ` (${c.position})` : ""}${c.email ? ` - ${c.email}` : ""}${c.phone ? ` - Tel: ${c.phone}` : ""}`)
+          .map((c) => {
+            const segs = [`${c.name}${c.position ? ` (${c.position})` : ""}`];
+            if (c.email) segs.push(`Email: ${c.email}`);
+            if (c.phone) segs.push(`Celular: ${c.phone}`);
+            return segs.join(" - ");
+          })
           .join("; ");
         parts.push(`Contactos: ${contactText}`);
       }
@@ -106,6 +124,51 @@ serve(async (req) => {
       if (compProps.length > 0) {
         const propsText = compProps.map((p) => `${p.name}: ${p.value || ""}`).join("; ");
         parts.push(`Propiedades: ${propsText}`);
+      }
+
+      // Actions (last 10)
+      const compActions = (actions || []).filter((a) => a.company_id === company.id).slice(0, 10);
+      if (compActions.length > 0) {
+        const actionsText = compActions
+          .map((a) => `${a.date} - ${a.type}: ${a.description}${a.notes ? ` (${a.notes})` : ""}`)
+          .join("; ");
+        parts.push(`Acciones recientes: ${actionsText}`);
+      }
+
+      // Milestones (last 10)
+      const compMilestones = (milestones || []).filter((m) => m.company_id === company.id).slice(0, 10);
+      if (compMilestones.length > 0) {
+        const milestonesText = compMilestones
+          .map((m) => `${m.date} - ${m.type}: ${m.title}${m.description ? ` - ${m.description}` : ""}`)
+          .join("; ");
+        parts.push(`Hitos: ${milestonesText}`);
+      }
+
+      // Tasks (last 10)
+      const compTasks = (tasks || []).filter((t) => t.company_id === company.id).slice(0, 10);
+      if (compTasks.length > 0) {
+        const tasksText = compTasks
+          .map((t) => {
+            const assignedName = t.assigned_to ? (profileMap.get(t.assigned_to) || "Sin asignar") : "Sin asignar";
+            const offerName = t.offer_id ? (offerMap.get(t.offer_id)?.name || "") : "";
+            return `${t.title} (Estado: ${t.status}, Vence: ${t.due_date}, Asignado a: ${assignedName}${offerName ? `, Oferta: ${offerName}` : ""})`;
+          })
+          .join("; ");
+        parts.push(`Tareas: ${tasksText}`);
+      }
+
+      // Pipeline entries
+      const compPipeline = (pipelineEntries || []).filter((pe) => pe.company_id === company.id);
+      if (compPipeline.length > 0) {
+        const pipelineText = compPipeline
+          .map((pe) => {
+            const stage = stageMap.get(pe.stage_id);
+            const offer = offerMap.get(pe.offer_id);
+            const assignedName = pe.assigned_to ? (profileMap.get(pe.assigned_to) || "Sin asignar") : "Sin asignar";
+            return `Oferta: ${offer?.name || "Desconocida"} (Producto: ${offer?.product || "N/A"}) → Etapa: ${stage?.name || "Desconocida"}, Gestor: ${assignedName}${pe.notes ? `, Notas: ${pe.notes}` : ""}`;
+          })
+          .join("; ");
+        parts.push(`Pipeline / Portafolio: ${pipelineText}`);
       }
 
       companyTexts.push({ companyId: company.id, content: parts.join("\n") });
@@ -125,7 +188,6 @@ serve(async (req) => {
           input: batch.map((b) => b.content),
         });
 
-        // Upsert each embedding
         for (let j = 0; j < batch.length; j++) {
           const embedding = embeddingResponse.data[j].embedding;
           const { error: upsertErr } = await supabase.from("company_embeddings").upsert(
