@@ -144,7 +144,9 @@ export interface FilterState {
   lastYoYMax: string;
   activeYear: number;
   nitFilter: '' | 'has' | 'no';
-  customFieldFilters: Record<string, string>; // fieldId -> value
+  customFieldFilters: Record<string, string | string[]>; // fieldId -> value or values array
+  offerFilter: string[]; // offer IDs
+  stageFilter: string[]; // stage IDs
   sortField: SortField;
   sortDirection: SortDirection;
 }
@@ -197,6 +199,8 @@ export const DEFAULT_FILTERS: FilterState = {
   activeYear: new Date().getFullYear() - 1,
   nitFilter: '',
   customFieldFilters: {},
+  offerFilter: [],
+  stageFilter: [],
   sortField: 'tradeName',
   sortDirection: 'asc',
 };

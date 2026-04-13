@@ -153,22 +153,43 @@ serve(async (req) => {
     const queryEmbedding = embResponse.data[0].embedding;
 
     // Search similar companies via RPC
-    // Determine how many results to fetch based on query intent
     const wantsAll = /\btodas?\b|\btodos?\b|\bcada\b|\blistado\b|\bcompleto\b|\bgeneral\b/i.test(retrievalQuery);
     const isContactLookup = /\bcelulares?\b|\bteléfonos?\b|\btelefonos?\b|\bcontactos?\b|\bcorreos?\b|\bemails?\b/i.test(retrievalQuery);
     const isFollowUp = /\besta?s?\b|\besa?s?\b|\besto\b|\bagrega(?:le|r)?\b|\bañade(?:le|r)?\b|\bactualiza(?:r)?\b|\bcompleta(?:r)?\b|\bincluye(?:r)?\b|\btabla\b/i.test(lastUserMessage) && recentMessages.length > 1;
+    const isPortfolioQuery = /\boferta\b|\bportafolio\b|\bpipeline\b|\betapa\b|\baliado\b|\balianza\b|\bgestor\b/i.test(retrievalQuery);
     const matchCount = wantsAll ? 100 : isContactLookup || isFollowUp ? 40 : 15;
     const matchThreshold = wantsAll ? 0.15 : isContactLookup || isFollowUp ? 0.18 : 0.25;
 
-    const { data: matches, error: matchErr } = await supabase.rpc("match_companies", {
-      query_embedding: JSON.stringify(queryEmbedding),
-      match_threshold: matchThreshold,
-      match_count: matchCount,
-    });
+    // Fetch company matches + portfolio/ally matches in parallel
+    const [companyMatchResult, offerMatchResult, pipelineMatchResult, allyMatchResult] = await Promise.all([
+      supabase.rpc("match_companies", {
+        query_embedding: JSON.stringify(queryEmbedding),
+        match_threshold: matchThreshold,
+        match_count: matchCount,
+      }),
+      isPortfolioQuery || wantsAll ? supabase.rpc("match_offers", {
+        query_embedding: JSON.stringify(queryEmbedding),
+        match_threshold: 0.2,
+        match_count: 20,
+      }) : Promise.resolve({ data: [], error: null }),
+      isPortfolioQuery || wantsAll ? supabase.rpc("match_pipeline", {
+        query_embedding: JSON.stringify(queryEmbedding),
+        match_threshold: 0.2,
+        match_count: 20,
+      }) : Promise.resolve({ data: [], error: null }),
+      isPortfolioQuery || wantsAll ? supabase.rpc("match_allies", {
+        query_embedding: JSON.stringify(queryEmbedding),
+        match_threshold: 0.2,
+        match_count: 10,
+      }) : Promise.resolve({ data: [], error: null }),
+    ]);
 
-    if (matchErr) {
-      console.error("match_companies error:", matchErr);
-    }
+    const matches = companyMatchResult.data || [];
+    if (companyMatchResult.error) console.error("match_companies error:", companyMatchResult.error);
+
+    const offerMatches = offerMatchResult.data || [];
+    const pipelineMatches = pipelineMatchResult.data || [];
+    const allyMatches = allyMatchResult.data || [];
 
     const normalizedConversation = normalizeText(retrievalQuery);
     const { data: companyNameRows, error: companyNamesErr } = await supabase
@@ -254,8 +275,12 @@ serve(async (req) => {
       mentionedCompanyIds: mentionedCompanyIds.length,
       semanticMatches: matches?.length || 0,
       combinedMatches: combinedMatches.length,
+      offerMatches: offerMatches.length,
+      pipelineMatches: pipelineMatches.length,
+      allyMatches: allyMatches.length,
       isContactLookup,
       isFollowUp,
+      isPortfolioQuery,
       wantsAll,
     });
 
@@ -265,6 +290,21 @@ serve(async (req) => {
       contextBlock = combinedMatches
         .map((m: any, i: number) => `--- Empresa ${i + 1}${m.source === "direct" ? " (mencionada en la conversación)" : ` (similitud: ${(m.similarity * 100).toFixed(1)}%)`} ---\n${m.content}`)
         .join("\n\n");
+    }
+
+    // Build portfolio context
+    let portfolioContextBlock = "";
+    if (offerMatches.length > 0) {
+      portfolioContextBlock += "\n\n═══ OFERTAS DEL PORTAFOLIO ═══\n";
+      portfolioContextBlock += offerMatches.map((m: any, i: number) => `--- Oferta ${i + 1} (similitud: ${(m.similarity * 100).toFixed(1)}%) ---\n${m.content}`).join("\n\n");
+    }
+    if (pipelineMatches.length > 0) {
+      portfolioContextBlock += "\n\n═══ PIPELINE (empresas por etapa) ═══\n";
+      portfolioContextBlock += pipelineMatches.map((m: any, i: number) => `--- Pipeline ${i + 1} (similitud: ${(m.similarity * 100).toFixed(1)}%) ---\n${m.content}`).join("\n\n");
+    }
+    if (allyMatches.length > 0) {
+      portfolioContextBlock += "\n\n═══ ALIADOS ═══\n";
+      portfolioContextBlock += allyMatches.map((m: any, i: number) => `--- Aliado ${i + 1} (similitud: ${(m.similarity * 100).toFixed(1)}%) ---\n${m.content}`).join("\n\n");
     }
 
     // Fetch CRM categories, verticals and sub-verticals for disambiguation
@@ -283,7 +323,7 @@ serve(async (req) => {
 - Verticales: ${verticalNames.join(", ") || "Sin verticales"}
 - Sub-verticales: ${subVerticalNames.join(", ") || "Sin sub-verticales"}`;
 
-    const systemPrompt = `Eres un asistente inteligente del CRM "Pioneros Globales" de la Cámara de Comercio de Cali. Tu rol es ayudar a los asesores a consultar información sobre las empresas registradas en el sistema.
+    const systemPrompt = `Eres un asistente inteligente del CRM "Pioneros Globales" de la Cámara de Comercio de Cali. Tu rol es ayudar a los asesores a consultar información sobre las empresas registradas, el portafolio de ofertas, los pipelines de gestión y los aliados del sistema.
 
 ${taxonomyBlock}
 
@@ -293,6 +333,13 @@ REGLAS DE DESAMBIGUACIÓN (MUY IMPORTANTE):
   - Ejemplo: Si "Startup" es una categoría y el usuario dice "startups de Cali", debe filtrar por categoría "Startup" y ciudad "Cali".
 - Si hay ambigüedad real (el término podría ser tanto una categoría/vertical como un concepto general), pregunta al usuario: "¿Te refieres a empresas de la categoría '[nombre]' del CRM, o a empresas que [concepto general]?"
 - Nunca asumas el significado general cuando existe una coincidencia con la taxonomía.
+
+CAPACIDADES EXTENDIDAS:
+- Puedes consultar información sobre **ofertas del portafolio**: nombre, descripción, producto, categoría, estado, fechas, etapas del pipeline y aliados vinculados.
+- Puedes consultar el **pipeline** de cada oferta: qué empresas están en qué etapa, quién es el gestor asignado.
+- Puedes consultar información de **aliados**: nombre, contactos, ofertas a las que están vinculados.
+- Si el usuario pregunta "¿en qué etapa está la empresa X en la oferta Y?", busca en el contexto de pipeline.
+- Si pregunta por aliados, contactos de aliados, o qué ofertas tienen aliados vinculados, busca en el contexto de aliados.
 
 REGLAS DE FORMATO:
 - Usa markdown para formatear tus respuestas
@@ -308,17 +355,18 @@ REGLAS DE FORMATO:
 - Sé conciso pero completo
 
 REGLAS DE CONTENIDO:
-- Responde SOLO con información de las empresas proporcionadas en el contexto
+- Responde SOLO con información de las empresas, ofertas, pipelines y aliados proporcionados en el contexto
 - Si no encuentras información relevante, indícalo claramente
 - Puedes hacer análisis comparativos, resúmenes y recomendaciones basadas en los datos
 - Incluye nombres de empresas, categorías, verticales y métricas cuando sea relevante
 - Si el usuario hace una pregunta de seguimiento como "agrega el celular a esta tabla", prioriza las empresas mencionadas recientemente en la conversación
-- Si el usuario pregunta algo fuera de tu alcance, sugiere vectorizar las empresas para tener datos actualizados
+- Si el usuario pregunta algo fuera de tu alcance, sugiere vectorizar las empresas/ofertas/aliados para tener datos actualizados
 
 ${customPromptAddition ? `\nINSTRUCCIONES ADICIONALES DEL ADMINISTRADOR:\n${customPromptAddition}` : ""}
 
 CONTEXTO DE EMPRESAS RELEVANTES:
-${contextBlock || "No se encontraron empresas relevantes para esta consulta. Sugiere al usuario que vectorice las empresas desde la configuración."}`;
+${contextBlock || "No se encontraron empresas relevantes para esta consulta."}
+${portfolioContextBlock || ""}`;
 
     // Build request body
     const isReasoningModel = /^o\d/.test(chatModel);
