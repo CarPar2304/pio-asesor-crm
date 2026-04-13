@@ -194,27 +194,48 @@ serve(async (req) => {
 
     let directMatches: any[] = [];
     if (mentionedCompanyIds.length > 0) {
-      const [directCompaniesRes, directContactsRes, directPropsRes] = await Promise.all([
+      const [
+        directCompaniesRes, directContactsRes, directPropsRes,
+        directActionsRes, directMilestonesRes, directTasksRes,
+        directPipelineRes, directStagesRes, directOffersRes, directProfilesRes,
+      ] = await Promise.all([
         supabase.from("companies").select("*").in("id", mentionedCompanyIds),
         supabase.from("contacts").select("*").in("company_id", mentionedCompanyIds),
         supabase.from("custom_properties").select("*").in("company_id", mentionedCompanyIds),
+        supabase.from("company_actions").select("*").in("company_id", mentionedCompanyIds).order("date", { ascending: false }),
+        supabase.from("milestones").select("*").in("company_id", mentionedCompanyIds).order("date", { ascending: false }),
+        supabase.from("company_tasks").select("*").in("company_id", mentionedCompanyIds).order("due_date", { ascending: false }),
+        supabase.from("pipeline_entries").select("*").in("company_id", mentionedCompanyIds),
+        supabase.from("pipeline_stages").select("*"),
+        supabase.from("portfolio_offers").select("id, name, product, status"),
+        supabase.from("profiles").select("user_id, name"),
       ]);
-
-      if (directCompaniesRes.error) console.error("direct company fetch error:", directCompaniesRes.error);
-      if (directContactsRes.error) console.error("direct contacts fetch error:", directContactsRes.error);
-      if (directPropsRes.error) console.error("direct custom properties fetch error:", directPropsRes.error);
 
       const directCompanies = directCompaniesRes.data || [];
       const directContacts = directContactsRes.data || [];
       const directProps = directPropsRes.data || [];
+      const directActions = directActionsRes.data || [];
+      const directMilestones = directMilestonesRes.data || [];
+      const directTasks = directTasksRes.data || [];
+      const directPipeline = directPipelineRes.data || [];
+      const dStageMap = new Map((directStagesRes.data || []).map((s: any) => [s.id, s]));
+      const dOfferMap = new Map((directOffersRes.data || []).map((o: any) => [o.id, o]));
+      const dProfileMap = new Map((directProfilesRes.data || []).map((p: any) => [p.user_id, p.name]));
 
       directMatches = directCompanies.map((company: any) => ({
         id: `direct-${company.id}`,
         company_id: company.id,
         content: buildCompanyContent(
           company,
-          directContacts.filter((contact: any) => contact.company_id === company.id),
-          directProps.filter((prop: any) => prop.company_id === company.id),
+          directContacts.filter((c: any) => c.company_id === company.id),
+          directProps.filter((p: any) => p.company_id === company.id),
+          directActions.filter((a: any) => a.company_id === company.id),
+          directMilestones.filter((m: any) => m.company_id === company.id),
+          directTasks.filter((t: any) => t.company_id === company.id),
+          directPipeline.filter((pe: any) => pe.company_id === company.id),
+          dStageMap,
+          dOfferMap,
+          dProfileMap,
         ),
         similarity: 1,
         source: "direct",
