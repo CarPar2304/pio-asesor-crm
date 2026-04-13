@@ -13,6 +13,7 @@ import FormResponsesDialog from '@/components/forms/FormResponsesDialog';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function FormsPage() {
+  const { user } = useAuth();
   const [forms, setForms] = useState<ExternalForm[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -71,6 +72,11 @@ export default function FormsPage() {
 
   const getFormUrl = (form: ExternalForm) => {
     return `${window.location.origin}/form/${form.slug}`;
+  };
+
+  const getTestUrl = (form: ExternalForm) => {
+    const email = user?.email || '';
+    return `${window.location.origin}/form/${form.slug}?test=true&test_email=${encodeURIComponent(email)}`;
   };
 
   const copyLink = (form: ExternalForm) => {
