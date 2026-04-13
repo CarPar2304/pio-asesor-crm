@@ -916,6 +916,7 @@ export default function CRMSettingsDialog({ open, onClose }: Props) {
           <TabsList className="mx-6 shrink-0">
             <TabsTrigger value="taxonomy">Taxonomía</TabsTrigger>
             <TabsTrigger value="fields">Campos</TabsTrigger>
+            <TabsTrigger value="forms">Formularios</TabsTrigger>
           </TabsList>
           <TabsContent value="taxonomy" className="flex-1 min-h-0 mt-0">
             <ScrollArea className="h-full px-6 pb-6">
@@ -925,6 +926,11 @@ export default function CRMSettingsDialog({ open, onClose }: Props) {
           <TabsContent value="fields" className="flex-1 min-h-0 mt-0">
             <ScrollArea className="h-full px-6 pb-6">
               <FormFieldsTab />
+            </ScrollArea>
+          </TabsContent>
+          <TabsContent value="forms" className="flex-1 min-h-0 mt-0">
+            <ScrollArea className="h-full px-6 pb-6">
+              <FormsSettingsTab />
             </ScrollArea>
           </TabsContent>
         </Tabs>
