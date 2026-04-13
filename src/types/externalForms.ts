@@ -35,7 +35,7 @@ export const FIELD_TYPE_OPTIONS: { value: FormFieldType; label: string }[] = [
   { value: 'date', label: 'Fecha' },
   { value: 'checkbox', label: 'Checkbox' },
   { value: 'url', label: 'URL' },
-  { value: 'file', label: 'Archivo' },
+  { value: 'file', label: 'Archivo / Logo' },
 ];
 
 export const CRM_FIELD_MAPPINGS = [
@@ -82,6 +82,7 @@ export interface ExternalForm {
   created_by: string | null;
   linked_offer_id: string | null;
   linked_stage_id: string | null;
+  allow_creation: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -105,6 +106,7 @@ export interface ExternalFormField {
   crm_field_id: string | null;
   options: string[];
   display_order: number;
+  only_for_new: boolean;
   created_at: string;
 }
 
