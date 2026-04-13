@@ -18,6 +18,13 @@ function buildCompanyContent(
   company: Record<string, any>,
   contacts: Record<string, any>[] = [],
   customProps: Record<string, any>[] = [],
+  actions: Record<string, any>[] = [],
+  milestonesList: Record<string, any>[] = [],
+  tasksList: Record<string, any>[] = [],
+  pipelineEntries: Record<string, any>[] = [],
+  stageMap: Map<string, any> = new Map(),
+  offerMap: Map<string, any> = new Map(),
+  profileMap: Map<string, string> = new Map(),
 ) {
   const parts: string[] = [];
 
@@ -36,7 +43,6 @@ function buildCompanyContent(
     const salesEntries = Object.entries(company.sales_by_year as Record<string, number>)
       .filter(([, v]) => v > 0)
       .sort(([a], [b]) => Number(b) - Number(a));
-
     if (salesEntries.length > 0) {
       parts.push(`Ventas: ${salesEntries.map(([y, v]) => `${y}: $${Number(v).toLocaleString()}`).join(", ")}`);
     }
@@ -57,6 +63,43 @@ function buildCompanyContent(
   if (customProps.length > 0) {
     const propsText = customProps.map((p) => `${p.name}: ${p.value || ""}`).join("; ");
     parts.push(`Propiedades: ${propsText}`);
+  }
+
+  if (actions.length > 0) {
+    const actionsText = actions.slice(0, 10)
+      .map((a) => `${a.date} - ${a.type}: ${a.description}${a.notes ? ` (${a.notes})` : ""}`)
+      .join("; ");
+    parts.push(`Acciones recientes: ${actionsText}`);
+  }
+
+  if (milestonesList.length > 0) {
+    const milestonesText = milestonesList.slice(0, 10)
+      .map((m) => `${m.date} - ${m.type}: ${m.title}${m.description ? ` - ${m.description}` : ""}`)
+      .join("; ");
+    parts.push(`Hitos: ${milestonesText}`);
+  }
+
+  if (tasksList.length > 0) {
+    const tasksText = tasksList.slice(0, 10)
+      .map((t) => {
+        const assignedName = t.assigned_to ? (profileMap.get(t.assigned_to) || "Sin asignar") : "Sin asignar";
+        const offerName = t.offer_id ? (offerMap.get(t.offer_id)?.name || "") : "";
+        return `${t.title} (Estado: ${t.status}, Vence: ${t.due_date}, Asignado a: ${assignedName}${offerName ? `, Oferta: ${offerName}` : ""})`;
+      })
+      .join("; ");
+    parts.push(`Tareas: ${tasksText}`);
+  }
+
+  if (pipelineEntries.length > 0) {
+    const pipelineText = pipelineEntries
+      .map((pe) => {
+        const stage = stageMap.get(pe.stage_id);
+        const offer = offerMap.get(pe.offer_id);
+        const assignedName = pe.assigned_to ? (profileMap.get(pe.assigned_to) || "Sin asignar") : "Sin asignar";
+        return `Oferta: ${offer?.name || "Desconocida"} (Producto: ${offer?.product || "N/A"}) → Etapa: ${stage?.name || "Desconocida"}, Gestor: ${assignedName}${pe.notes ? `, Notas: ${pe.notes}` : ""}`;
+      })
+      .join("; ");
+    parts.push(`Pipeline / Portafolio: ${pipelineText}`);
   }
 
   return parts.join("\n");
