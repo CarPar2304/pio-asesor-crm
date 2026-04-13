@@ -143,7 +143,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       setLinkedOfferId(editingForm.linked_offer_id || null);
       setLinkedStageId(editingForm.linked_stage_id || null);
       // Detect allowCreation from form_type
-      setAllowCreation(editingForm.form_type === 'creation' || (editingForm as any).allow_creation === true);
+      setAllowCreation(editingForm.allow_creation || false);
       supabase.from('external_form_fields').select('*').eq('form_id', editingForm.id).order('display_order')
         .then(({ data }) => {
           if (data) setFormFields(data.map((f: any) => ({ ...f, options: Array.isArray(f.options) ? f.options : [], only_for_new: f.only_for_new || false })));
@@ -350,6 +350,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
         primary_color: primaryColor, created_by: session?.user?.id,
         linked_offer_id: linkedOfferId || null,
         linked_stage_id: linkedStageId || null,
+        allow_creation: allowCreation,
       };
 
       let formId: string;
@@ -374,7 +375,8 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
           preload_from_crm: f.preload_from_crm, crm_table: f.crm_table, crm_column: f.crm_column,
           crm_field_id: f.crm_field_id, options: f.options, display_order: i,
           condition_field_key: f.condition_field_key || null,
-          condition_value: f.condition_value || null
+          condition_value: f.condition_value || null,
+          only_for_new: f.only_for_new || false,
         }));
         const { error } = await supabase.from('external_form_fields').insert(fieldsToInsert as any);
         if (error) throw error;
