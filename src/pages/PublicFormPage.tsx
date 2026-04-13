@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle2, AlertCircle, ShieldCheck, FlaskConical } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, ShieldCheck, FlaskConical, Upload, X } from 'lucide-react';
 import logoCCC from '@/assets/logo-ccc.png';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
