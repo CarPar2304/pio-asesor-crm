@@ -982,6 +982,8 @@ export type Database = {
           error_messages: Json
           form_type: string
           id: string
+          linked_offer_id: string | null
+          linked_stage_id: string | null
           logo_url: string | null
           max_code_attempts: number
           name: string
@@ -1010,6 +1012,8 @@ export type Database = {
           error_messages?: Json
           form_type?: string
           id?: string
+          linked_offer_id?: string | null
+          linked_stage_id?: string | null
           logo_url?: string | null
           max_code_attempts?: number
           name: string
@@ -1038,6 +1042,8 @@ export type Database = {
           error_messages?: Json
           form_type?: string
           id?: string
+          linked_offer_id?: string | null
+          linked_stage_id?: string | null
           logo_url?: string | null
           max_code_attempts?: number
           name?: string
@@ -1057,6 +1063,20 @@ export type Database = {
           verification_mode?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "external_forms_linked_offer_id_fkey"
+            columns: ["linked_offer_id"]
+            isOneToOne: false
+            referencedRelation: "portfolio_offers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_forms_linked_stage_id_fkey"
+            columns: ["linked_stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "external_forms_target_company_id_fkey"
             columns: ["target_company_id"]
