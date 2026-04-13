@@ -213,7 +213,7 @@ export default function PipelineBoard({ offer, onBack }: Props) {
               key={stage.id}
               ref={el => { stageRefs.current[stage.id] = el; }}
               className={cn(
-                "flex w-72 shrink-0 flex-col rounded-xl border bg-card transition-all duration-200",
+                "flex w-96 shrink-0 flex-col rounded-xl border bg-card transition-all duration-200",
                 isDropTarget
                   ? "border-primary/50 bg-primary/5 shadow-md shadow-primary/10"
                   : "border-border/60"
