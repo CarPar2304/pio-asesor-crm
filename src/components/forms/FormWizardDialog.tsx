@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,17 +7,16 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/lib/toast';
 import { useAuth } from '@/hooks/useAuth';
 import {
-  ExternalForm, ExternalFormField, FormType, FormStatus, VerificationMode,
+  ExternalForm, FormType, FormStatus, VerificationMode,
   FormFieldType, FORM_TYPE_LABELS, FIELD_TYPE_OPTIONS, CRM_FIELD_MAPPINGS
 } from '@/types/externalForms';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
-import { ChevronLeft, ChevronRight, Plus, Trash2, GripVertical, Copy, ExternalLink } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Trash2, GripVertical, Copy, ExternalLink, FolderPlus, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -54,11 +53,15 @@ interface FieldDraft {
   crm_field_id: string | null;
   options: string[];
   display_order: number;
+  // New: track if this field needs to be created as a custom field in the CRM
+  _newCrmField?: boolean;
+  _newSectionName?: string; // if we need to create a new section for it
+  _crmFieldType?: string; // the CRM field type (text, number, select, metric_by_year)
 }
 
 export default function FormWizardDialog({ open, onClose, editingForm, onSaved }: Props) {
   const { session } = useAuth();
-  const { fields: customFields, sections: customSections } = useCustomFields();
+  const { fields: customFields, sections: customSections, addSection, addField: addCustomField, refresh: refreshCustomFields } = useCustomFields();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
 
@@ -76,6 +79,13 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
 
   // Step 3
   const [formFields, setFormFields] = useState<FieldDraft[]>([]);
+  const [showNewSectionDialog, setShowNewSectionDialog] = useState(false);
+  const [newSectionName, setNewSectionName] = useState('');
+  const [showNewFieldDialog, setShowNewFieldDialog] = useState(false);
+  const [newFieldName, setNewFieldName] = useState('');
+  const [newFieldType, setNewFieldType] = useState<string>('text');
+  const [newFieldSection, setNewFieldSection] = useState<string>('');
+  const [newFieldOptions, setNewFieldOptions] = useState('');
 
   // Step 5
   const [publicTitle, setPublicTitle] = useState('');
@@ -104,7 +114,6 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       setSuccessMessage(editingForm.success_message);
       setPrimaryColor(editingForm.primary_color);
       setSavedSlug(editingForm.slug);
-      // Load fields
       supabase.from('external_form_fields').select('*').eq('form_id', editingForm.id).order('display_order')
         .then(({ data }) => {
           if (data) setFormFields(data.map((f: any) => ({ ...f, options: Array.isArray(f.options) ? f.options : [] })));
@@ -143,9 +152,10 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
   const addCustomCrmField = (cf: any) => {
     const key = `custom_${cf.id}`;
     if (formFields.find(f => f.field_key === key)) return;
+    const sectionName = customSections.find(s => s.id === cf.sectionId)?.name || '';
     setFormFields(prev => [...prev, {
       label: cf.name, field_key: key, field_type: cf.fieldType === 'number' ? 'number' : cf.fieldType === 'select' ? 'select' : 'short_text',
-      placeholder: '', help_text: '', section_name: '',
+      placeholder: '', help_text: '', section_name: sectionName,
       is_required: false, is_visible: true, is_editable: true, is_readonly: false,
       preload_from_crm: true, crm_table: 'custom_field_values', crm_column: null, crm_field_id: cf.id,
       options: cf.options || [], display_order: prev.length
@@ -159,6 +169,79 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
   const removeField = (idx: number) => {
     setFormFields(prev => prev.filter((_, i) => i !== idx));
   };
+
+  // Create a new section in the CRM and optionally add it
+  const handleCreateSection = async () => {
+    if (!newSectionName.trim()) return;
+    const section = await addSection(newSectionName.trim());
+    if (section) {
+      showSuccess('Sección creada', `"${section.name}" se creó en el CRM y estará disponible en el perfil de todas las empresas`);
+      setNewSectionName('');
+      setShowNewSectionDialog(false);
+    } else {
+      showError('Error', 'No se pudo crear la sección');
+    }
+  };
+
+  // Create a new custom field in the CRM and add it to the form
+  const handleCreateNewCrmField = async () => {
+    if (!newFieldName.trim()) { showError('Error', 'El nombre del campo es obligatorio'); return; }
+    if (!newFieldSection) { showError('Error', 'Selecciona una sección'); return; }
+
+    const sectionObj = customSections.find(s => s.id === newFieldSection);
+    if (!sectionObj) { showError('Error', 'Sección no encontrada'); return; }
+
+    // Map form field type to CRM field type
+    const crmFieldType = newFieldType === 'number' ? 'number' : newFieldType === 'select' ? 'select' : 'text';
+    const opts = newFieldType === 'select' ? newFieldOptions.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+    const created = await addCustomField({
+      sectionId: newFieldSection,
+      name: newFieldName.trim(),
+      fieldType: crmFieldType as any,
+      options: opts,
+      displayOrder: 0,
+    });
+
+    if (created) {
+      // Add to form fields
+      const key = `custom_${created.id}`;
+      setFormFields(prev => [...prev, {
+        label: created.name, field_key: key,
+        field_type: newFieldType === 'number' ? 'number' : newFieldType === 'select' ? 'select' : 'short_text' as FormFieldType,
+        placeholder: '', help_text: '', section_name: sectionObj.name,
+        is_required: false, is_visible: true, is_editable: true, is_readonly: false,
+        preload_from_crm: true, crm_table: 'custom_field_values', crm_column: null, crm_field_id: created.id,
+        options: opts, display_order: prev.length
+      }]);
+
+      showSuccess('Campo creado', `"${created.name}" se añadió al CRM (sección "${sectionObj.name}") y al formulario`);
+      setNewFieldName('');
+      setNewFieldType('text');
+      setNewFieldSection('');
+      setNewFieldOptions('');
+      setShowNewFieldDialog(false);
+    } else {
+      showError('Error', 'No se pudo crear el campo');
+    }
+  };
+
+  // Group custom fields by section for display
+  const customFieldsBySection = useMemo(() => {
+    const map: Record<string, { section: typeof customSections[0]; fields: typeof customFields }> = {};
+    for (const s of customSections) {
+      const sFields = customFields.filter(f => f.sectionId === s.id);
+      if (sFields.length > 0) {
+        map[s.id] = { section: s, fields: sFields };
+      }
+    }
+    // Also fields without section
+    const unsectioned = customFields.filter(f => !f.sectionId);
+    if (unsectioned.length > 0) {
+      map['__none'] = { section: { id: '__none', name: 'Sin sección', displayOrder: 999 } as any, fields: unsectioned };
+    }
+    return map;
+  }, [customSections, customFields]);
 
   const handleSave = async () => {
     if (!name.trim()) { showError('Error', 'El nombre es obligatorio'); return; }
@@ -180,7 +263,6 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
         const { error } = await supabase.from('external_forms').update(formData).eq('id', editingForm.id);
         if (error) throw error;
         formId = editingForm.id;
-        // Delete old fields, insert new
         await supabase.from('external_form_fields').delete().eq('form_id', formId);
       } else {
         const { data, error } = await supabase.from('external_forms').insert(formData).select('id, slug').single();
@@ -205,7 +287,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       showSuccess('Guardado', editingForm ? 'Formulario actualizado' : 'Formulario creado');
       if (!editingForm) setSavedSlug(slug);
       onSaved();
-      if (step < 5) setStep(5); // Go to publish step
+      if (step < 5) setStep(5);
     } catch (e: any) {
       showError('Error', e.message);
     } finally {
@@ -324,11 +406,89 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
             <div className="flex items-center justify-between">
               <Label className="text-sm font-medium">Campos del formulario ({formFields.length})</Label>
               <div className="flex gap-1">
+                <Button variant="outline" size="sm" onClick={() => setShowNewSectionDialog(true)}>
+                  <FolderPlus className="h-3 w-3 mr-1" /> Nueva sección CRM
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setShowNewFieldDialog(true)}>
+                  <Layers className="h-3 w-3 mr-1" /> Nuevo campo CRM
+                </Button>
                 <Button variant="outline" size="sm" onClick={addField}>
                   <Plus className="h-3 w-3 mr-1" /> Campo libre
                 </Button>
               </div>
             </div>
+
+            {/* New Section Dialog (inline) */}
+            {showNewSectionDialog && (
+              <div className="rounded-md border-2 border-primary/30 bg-primary/5 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <FolderPlus className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">Crear nueva sección en el CRM</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Esta sección se creará en el CRM y aparecerá como una pestaña en el perfil de todas las empresas.
+                </p>
+                <div className="flex gap-2">
+                  <Input value={newSectionName} onChange={e => setNewSectionName(e.target.value)} placeholder="Ej: Inversión, Mercado, Tecnología..."
+                    className="h-8 text-xs" onKeyDown={e => e.key === 'Enter' && handleCreateSection()} />
+                  <Button size="sm" className="h-8" onClick={handleCreateSection}>Crear</Button>
+                  <Button size="sm" variant="ghost" className="h-8" onClick={() => { setShowNewSectionDialog(false); setNewSectionName(''); }}>Cancelar</Button>
+                </div>
+              </div>
+            )}
+
+            {/* New CRM Field Dialog (inline) */}
+            {showNewFieldDialog && (
+              <div className="rounded-md border-2 border-primary/30 bg-primary/5 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium">Crear nuevo campo en el CRM y agregarlo al formulario</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Este campo se creará en el CRM (visible en el perfil de todas las empresas) y se agregará automáticamente a este formulario.
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-[11px]">Nombre del campo *</Label>
+                    <Input value={newFieldName} onChange={e => setNewFieldName(e.target.value)} placeholder="Ej: Monto inversión, Mercado objetivo..." className="h-8 text-xs" />
+                  </div>
+                  <div>
+                    <Label className="text-[11px]">Sección *</Label>
+                    <Select value={newFieldSection} onValueChange={setNewFieldSection}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Seleccionar sección..." /></SelectTrigger>
+                      <SelectContent>
+                        {customSections.map(s => (
+                          <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-[11px]">Tipo de campo</Label>
+                    <Select value={newFieldType} onValueChange={setNewFieldType}>
+                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="text">Texto</SelectItem>
+                        <SelectItem value="number">Número</SelectItem>
+                        <SelectItem value="select">Selección</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {newFieldType === 'select' && (
+                    <div>
+                      <Label className="text-[11px]">Opciones (separadas por coma)</Label>
+                      <Input value={newFieldOptions} onChange={e => setNewFieldOptions(e.target.value)} placeholder="Opción 1, Opción 2..." className="h-8 text-xs" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" className="h-8" onClick={handleCreateNewCrmField}>Crear campo y agregar</Button>
+                  <Button size="sm" variant="ghost" className="h-8" onClick={() => { setShowNewFieldDialog(false); setNewFieldName(''); setNewFieldType('text'); setNewFieldSection(''); setNewFieldOptions(''); }}>Cancelar</Button>
+                </div>
+              </div>
+            )}
 
             {/* Quick add from CRM */}
             <div className="rounded-md border p-3">
@@ -341,17 +501,21 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                   </Button>
                 ))}
               </div>
-              {customFields.length > 0 && (
+              {Object.keys(customFieldsBySection).length > 0 && (
                 <>
-                  <p className="text-[11px] font-medium text-muted-foreground mt-3 mb-2">Campos personalizados</p>
-                  <div className="flex flex-wrap gap-1">
-                    {customFields.map(cf => (
-                      <Button key={cf.id} variant="outline" size="sm" className="h-6 text-[10px] px-2"
-                        onClick={() => addCustomCrmField(cf)} disabled={formFields.some(f => f.field_key === `custom_${cf.id}`)}>
-                        {cf.name}
-                      </Button>
-                    ))}
-                  </div>
+                  {Object.entries(customFieldsBySection).map(([sId, { section, fields: sFields }]) => (
+                    <div key={sId}>
+                      <p className="text-[11px] font-medium text-muted-foreground mt-3 mb-2">{section.name}</p>
+                      <div className="flex flex-wrap gap-1">
+                        {sFields.map(cf => (
+                          <Button key={cf.id} variant="outline" size="sm" className="h-6 text-[10px] px-2"
+                            onClick={() => addCustomCrmField(cf)} disabled={formFields.some(f => f.field_key === `custom_${cf.id}`)}>
+                            {cf.name}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </>
               )}
             </div>
@@ -365,9 +529,10 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                       <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
                       <span className="text-xs font-medium">Campo {idx + 1}</span>
                       {field.preload_from_crm && <Badge variant="outline" className="text-[9px]">CRM</Badge>}
+                      {field.section_name && <Badge variant="secondary" className="text-[9px]">{field.section_name}</Badge>}
                     </div>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeField(idx)}>
-                      <Trash2 className="h-3 w-3 text-red-500" />
+                      <Trash2 className="h-3 w-3 text-destructive" />
                     </Button>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -392,7 +557,15 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                     </div>
                     <div>
                       <Label className="text-[11px]">Sección</Label>
-                      <Input className="h-8 text-xs" value={field.section_name} onChange={e => updateField(idx, { section_name: e.target.value })} />
+                      <Select value={field.section_name || '__none'} onValueChange={v => updateField(idx, { section_name: v === '__none' ? '' : v })}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none">Sin sección</SelectItem>
+                          {customSections.map(s => (
+                            <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                   {(field.field_type === 'select' || field.field_type === 'multiselect') && (
