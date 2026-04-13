@@ -367,7 +367,8 @@ export default function PublicFormPage() {
                             onChange={e => updateFormData(field.field_key, e.target.value)}
                             placeholder={field.placeholder}
                           />
-                        )}
+                        );
+                        })()}
                       </div>
                     ))}
                   </div>
