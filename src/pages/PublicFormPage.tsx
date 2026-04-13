@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, CheckCircle2, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Loader2, CheckCircle2, AlertCircle, ShieldCheck, FlaskConical } from 'lucide-react';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -31,6 +32,9 @@ type Step = 'identify' | 'code' | 'form' | 'success' | 'error';
 
 export default function PublicFormPage() {
   const { slug } = useParams<{ slug: string }>();
+  const [searchParams] = useSearchParams();
+  const isTestMode = searchParams.get('test') === 'true';
+  const testEmail = searchParams.get('test_email') || '';
   const [step, setStep] = useState<Step>('identify');
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -54,10 +58,11 @@ export default function PublicFormPage() {
   const [formMeta, setFormMeta] = useState<any>(null);
 
   useEffect(() => {
-    // Load form metadata to check type
     (async () => {
       try {
-        const data = await callFormApi('load-form', undefined, { slug: slug! });
+        const params: Record<string, string> = { slug: slug! };
+        if (isTestMode) params.test_mode = 'true';
+        const data = await callFormApi('load-form', undefined, params);
         if (data.form) {
           setFormMeta(data.form);
           if (data.form.form_type === 'creation' && data.form.verification_mode === 'none') {
@@ -69,7 +74,7 @@ export default function PublicFormPage() {
         }
       } catch {}
     })();
-  }, [slug]);
+  }, [slug, isTestMode]);
 
   const handleIdentify = async () => {
     if (!keyValue.trim()) { setErrorMsg('Ingresa el NIT'); return; }
@@ -79,7 +84,9 @@ export default function PublicFormPage() {
       const data = await callFormApi('identify', {
         form_id: formMeta?.id,
         key_value: keyValue.trim(),
-        ip_address: ''
+        ip_address: '',
+        test_mode: isTestMode,
+        test_email: isTestMode ? testEmail : undefined
       });
       if (data.error) { setErrorMsg(data.error); setLoading(false); return; }
 
@@ -114,7 +121,9 @@ export default function PublicFormPage() {
   };
 
   const loadForm = async (token: string) => {
-    const data = await callFormApi('load-form', undefined, { session_token: token });
+    const params: Record<string, string> = { session_token: token };
+    if (isTestMode) params.test_mode = 'true';
+    const data = await callFormApi('load-form', undefined, params);
     if (data.error) { setErrorMsg(data.error); return; }
     setForm(data.form);
     setFields(data.fields || []);
@@ -137,7 +146,8 @@ export default function PublicFormPage() {
       const data = await callFormApi('submit', {
         session_token: sessionToken || undefined,
         form_id: form.id,
-        response_data: formData
+        response_data: formData,
+        test_mode: isTestMode
       });
       if (data.error) { setErrorMsg(data.error); setLoading(false); return; }
       setStep('success');
