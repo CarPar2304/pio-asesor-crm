@@ -7,9 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Plus, Copy, Pencil, Archive, Play, Pause, Eye, BarChart3, FileText, Search } from 'lucide-react';
+import { Plus, Copy, Pencil, Archive, Play, Pause, Eye, BarChart3, FileText, Search, FlaskConical } from 'lucide-react';
 import FormWizardDialog from '@/components/forms/FormWizardDialog';
 import FormResponsesDialog from '@/components/forms/FormResponsesDialog';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function FormsPage() {
   const [forms, setForms] = useState<ExternalForm[]>([]);

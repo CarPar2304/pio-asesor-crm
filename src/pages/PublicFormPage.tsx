@@ -173,7 +173,13 @@ export default function PublicFormPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4">
-      <Card className="w-full max-w-lg shadow-lg">
+      {isTestMode && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-amber-500 text-white text-center py-1.5 text-sm font-medium flex items-center justify-center gap-2">
+          <FlaskConical className="h-4 w-4" />
+          Modo prueba — El código de verificación se enviará a: {testEmail}
+        </div>
+      )}
+      <Card className={`w-full max-w-lg shadow-lg ${isTestMode ? 'mt-10' : ''}`}>
         {/* Identify step */}
         {step === 'identify' && (
           <>
