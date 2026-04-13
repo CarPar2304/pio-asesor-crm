@@ -18,6 +18,8 @@ import Stats from "./pages/Stats";
 import ProfilePage from "./pages/ProfilePage";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
+import FormsPage from "./pages/FormsPage";
+import PublicFormPage from "./pages/PublicFormPage";
 
 const queryClient = new QueryClient();
 
@@ -34,11 +36,13 @@ const App = () => (
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/form/:slug" element={<PublicFormPage />} />
               <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route path="/" element={<Index />} />
                 <Route path="/empresa/:id" element={<CompanyProfilePage />} />
                 <Route path="/tareas" element={<Tasks />} />
                 <Route path="/portafolio" element={<Portafolio />} />
+                <Route path="/formularios" element={<FormsPage />} />
                 <Route path="/stats" element={<Stats />} />
                 <Route path="/perfil" element={<ProfilePage />} />
               </Route>

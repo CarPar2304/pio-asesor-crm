@@ -57,7 +57,7 @@ interface FieldDraft {
 }
 
 export default function FormWizardDialog({ open, onClose, editingForm, onSaved }: Props) {
-  const { user } = useAuth();
+  const { session } = useAuth();
   const { fields: customFields, sections: customSections } = useCustomFields();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -172,7 +172,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
         code_expiration_minutes: codeExpiration, max_code_attempts: maxAttempts,
         public_title: publicTitle, public_subtitle: publicSubtitle,
         submit_button_text: submitButtonText, success_message: successMessage,
-        primary_color: primaryColor, created_by: user?.id
+        primary_color: primaryColor, created_by: session?.user?.id
       };
 
       let formId: string;

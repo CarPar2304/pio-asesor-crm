@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Building2, Layers, BarChart3, ListChecks, LogOut, User } from 'lucide-react';
+import { Building2, Layers, BarChart3, ListChecks, LogOut, User, FileText } from 'lucide-react';
 import { InfiniteGridBackground } from '@/components/ui/the-infinite-grid';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,6 +14,7 @@ const navItems = [
   { to: '/', label: 'CRM', icon: Building2 },
   { to: '/tareas', label: 'Tareas', icon: ListChecks },
   { to: '/portafolio', label: 'Portafolio', icon: Layers },
+  { to: '/formularios', label: 'Formularios', icon: FileText },
   { to: '/stats', label: 'Stats', icon: BarChart3 },
 ];
 
