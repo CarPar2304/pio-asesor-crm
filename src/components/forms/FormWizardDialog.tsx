@@ -16,7 +16,7 @@ import {
   FormFieldType, FORM_TYPE_LABELS, FIELD_TYPE_OPTIONS, CRM_FIELD_MAPPINGS
 } from '@/types/externalForms';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
-import { ChevronLeft, ChevronRight, Plus, Trash2, GripVertical, Copy, ExternalLink, FolderPlus, Layers } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Trash2, GripVertical, Copy, ExternalLink, FolderPlus, Layers, Link2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -53,17 +53,14 @@ interface FieldDraft {
   crm_field_id: string | null;
   options: string[];
   display_order: number;
-  // Conditional logic
   condition_field_key?: string | null;
   condition_value?: string | null;
-  _newCrmField?: boolean;
-  _newSectionName?: string;
-  _crmFieldType?: string;
+  only_for_new?: boolean;
 }
 
 export default function FormWizardDialog({ open, onClose, editingForm, onSaved }: Props) {
   const { session } = useAuth();
-  const { fields: customFields, sections: customSections, addSection, addField: addCustomField, refresh: refreshCustomFields } = useCustomFields();
+  const { fields: customFields, sections: customSections, addSection, addField: addCustomField } = useCustomFields();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
 
@@ -71,6 +68,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [formType, setFormType] = useState<FormType>('update');
+  const [allowCreation, setAllowCreation] = useState(false);
   const [status, setStatus] = useState<FormStatus>('draft');
 
   // Step 2
@@ -92,6 +90,8 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
   // Drag and drop state
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const fieldListRef = useRef<HTMLDivElement>(null);
+  const dragScrollInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Step 5
   const [publicTitle, setPublicTitle] = useState('');
@@ -103,6 +103,24 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
   // Step 6
   const [savedSlug, setSavedSlug] = useState('');
   const [savedFormId, setSavedFormId] = useState<string | null>(null);
+
+  // Offer/Pipeline linking
+  const [linkedOfferId, setLinkedOfferId] = useState<string | null>(null);
+  const [linkedStageId, setLinkedStageId] = useState<string | null>(null);
+  const [offers, setOffers] = useState<{ id: string; name: string }[]>([]);
+  const [stages, setStages] = useState<{ id: string; name: string; offer_id: string }[]>([]);
+
+  // Load offers and stages
+  useEffect(() => {
+    if (!open) return;
+    supabase.from('portfolio_offers').select('id, name').order('name').then(({ data }) => setOffers(data || []));
+    supabase.from('pipeline_stages').select('id, name, offer_id').order('display_order').then(({ data }) => setStages((data || []) as any));
+  }, [open]);
+
+  const filteredStages = useMemo(() => {
+    if (!linkedOfferId) return [];
+    return stages.filter(s => s.offer_id === linkedOfferId);
+  }, [linkedOfferId, stages]);
 
   useEffect(() => {
     if (!open) return;
@@ -122,22 +140,50 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       setPrimaryColor(editingForm.primary_color);
       setSavedSlug(editingForm.slug);
       setSavedFormId(editingForm.id);
+      setLinkedOfferId(editingForm.linked_offer_id || null);
+      setLinkedStageId(editingForm.linked_stage_id || null);
+      // Detect allowCreation from form_type
+      setAllowCreation(editingForm.form_type === 'creation' || (editingForm as any).allow_creation === true);
       supabase.from('external_form_fields').select('*').eq('form_id', editingForm.id).order('display_order')
         .then(({ data }) => {
-          if (data) setFormFields(data.map((f: any) => ({ ...f, options: Array.isArray(f.options) ? f.options : [] })));
+          if (data) setFormFields(data.map((f: any) => ({ ...f, options: Array.isArray(f.options) ? f.options : [], only_for_new: f.only_for_new || false })));
         });
     } else {
       setName(''); setDescription(''); setFormType('update'); setStatus('draft');
+      setAllowCreation(false);
       setVerificationMode('key_and_code'); setVerificationKeyField('nit');
       setCodeExpiration(10); setMaxAttempts(5); setFormFields([]);
       setPublicTitle(''); setPublicSubtitle(''); setSubmitButtonText('Enviar');
       setSuccessMessage('Tu información ha sido enviada exitosamente.');
       setPrimaryColor('#4f46e5'); setSavedSlug(''); setSavedFormId(null);
+      setLinkedOfferId(null); setLinkedStageId(null);
     }
     setStep(0);
   }, [open, editingForm]);
 
-  // Drag and drop handlers
+  // Auto-scroll during drag
+  const handleDragOverContainer = useCallback((e: React.DragEvent) => {
+    if (dragIdx === null || !fieldListRef.current) return;
+    const rect = fieldListRef.current.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    const scrollZone = 60;
+
+    if (dragScrollInterval.current) {
+      clearInterval(dragScrollInterval.current);
+      dragScrollInterval.current = null;
+    }
+
+    if (y < scrollZone) {
+      dragScrollInterval.current = setInterval(() => {
+        fieldListRef.current?.scrollBy(0, -8);
+      }, 16);
+    } else if (y > rect.height - scrollZone) {
+      dragScrollInterval.current = setInterval(() => {
+        fieldListRef.current?.scrollBy(0, 8);
+      }, 16);
+    }
+  }, [dragIdx]);
+
   const handleDragStart = (idx: number) => {
     setDragIdx(idx);
   };
@@ -156,6 +202,10 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
     }
     setDragIdx(null);
     setDragOverIdx(null);
+    if (dragScrollInterval.current) {
+      clearInterval(dragScrollInterval.current);
+      dragScrollInterval.current = null;
+    }
   };
 
   const addField = () => {
@@ -164,7 +214,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       section_name: '', is_required: false, is_visible: true, is_editable: true, is_readonly: false,
       preload_from_crm: false, crm_table: null, crm_column: null, crm_field_id: null,
       options: [], display_order: prev.length,
-      condition_field_key: null, condition_value: null
+      condition_field_key: null, condition_value: null, only_for_new: false
     }]);
   };
 
@@ -176,7 +226,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       section_name: '', is_required: false, is_visible: true, is_editable: true, is_readonly: false,
       preload_from_crm: true, crm_table: mapping.table, crm_column: mapping.column, crm_field_id: null,
       options: [], display_order: prev.length,
-      condition_field_key: null, condition_value: null
+      condition_field_key: null, condition_value: null, only_for_new: false
     }]);
   };
 
@@ -190,7 +240,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       is_required: false, is_visible: true, is_editable: true, is_readonly: false,
       preload_from_crm: true, crm_table: 'custom_field_values', crm_column: null, crm_field_id: cf.id,
       options: cf.options || [], display_order: prev.length,
-      condition_field_key: null, condition_value: null
+      condition_field_key: null, condition_value: null, only_for_new: false
     }]);
   };
 
@@ -241,7 +291,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
         is_required: false, is_visible: true, is_editable: true, is_readonly: false,
         preload_from_crm: true, crm_table: 'custom_field_values', crm_column: null, crm_field_id: created.id,
         options: opts, display_order: prev.length,
-        condition_field_key: null, condition_value: null
+        condition_field_key: null, condition_value: null, only_for_new: false
       }]);
 
       showSuccess('Campo creado', `"${created.name}" se añadió al CRM (sección "${sectionObj.name}") y al formulario`);
@@ -270,12 +320,20 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
     return map;
   }, [customSections, customFields]);
 
-  // Fields available for conditional logic (only those with options or checkbox)
   const conditionalSourceFields = useMemo(() => {
-    return formFields.filter(f => 
+    return formFields.filter(f =>
       f.field_type === 'select' || f.field_type === 'checkbox' || f.field_type === 'multiselect'
     );
   }, [formFields]);
+
+  // Show "only for new" option when form allows both existing + new companies
+  const showOnlyForNew = formType === 'update' && allowCreation;
+
+  // Extended field type options (add 'file' if not present)
+  const extendedFieldTypeOptions = useMemo(() => {
+    const has = FIELD_TYPE_OPTIONS.some(o => o.value === 'file');
+    return has ? FIELD_TYPE_OPTIONS : [...FIELD_TYPE_OPTIONS, { value: 'file' as FormFieldType, label: 'Archivo / Logo' }];
+  }, []);
 
   const handleSave = async () => {
     if (!name.trim()) { showError('Error', 'El nombre es obligatorio'); return; }
@@ -289,18 +347,18 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
         code_expiration_minutes: codeExpiration, max_code_attempts: maxAttempts,
         public_title: publicTitle, public_subtitle: publicSubtitle,
         submit_button_text: submitButtonText, success_message: successMessage,
-        primary_color: primaryColor, created_by: session?.user?.id
+        primary_color: primaryColor, created_by: session?.user?.id,
+        linked_offer_id: linkedOfferId || null,
+        linked_stage_id: linkedStageId || null,
       };
 
       let formId: string;
       if (savedFormId) {
-        // Update existing
         const { error } = await supabase.from('external_forms').update(formData).eq('id', savedFormId);
         if (error) throw error;
         formId = savedFormId;
         await supabase.from('external_form_fields').delete().eq('form_id', formId);
       } else {
-        // Create new
         const { data, error } = await supabase.from('external_forms').insert(formData).select('id, slug').single();
         if (error) throw error;
         formId = data!.id;
@@ -308,7 +366,6 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
         setSavedFormId(formId);
       }
 
-      // Insert fields
       if (formFields.length > 0) {
         const fieldsToInsert = formFields.map((f, i) => ({
           form_id: formId, label: f.label, field_key: f.field_key || f.label.toLowerCase().replace(/\s+/g, '_'),
@@ -367,7 +424,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
             </div>
             <div>
               <Label>Tipo de formulario</Label>
-              <Select value={formType} onValueChange={v => setFormType(v as FormType)}>
+              <Select value={formType} onValueChange={v => { setFormType(v as FormType); if (v === 'creation') setAllowCreation(false); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="update">Actualización — la empresa actualiza info existente</SelectItem>
@@ -376,6 +433,15 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                 </SelectContent>
               </Select>
             </div>
+            {(formType === 'update' || formType === 'collection') && (
+              <div className="flex items-center gap-2 rounded-md border p-3 bg-muted/30">
+                <Checkbox checked={allowCreation} onCheckedChange={v => setAllowCreation(!!v)} id="allow-creation" />
+                <div>
+                  <label htmlFor="allow-creation" className="text-sm font-medium cursor-pointer">Permitir también crear empresas nuevas</label>
+                  <p className="text-[11px] text-muted-foreground">Si el NIT no existe en el CRM, permite crear la empresa desde el formulario. Los campos marcados como "Solo para nuevas" se mostrarán únicamente en ese caso.</p>
+                </div>
+              </div>
+            )}
             <div>
               <Label>Estado inicial</Label>
               <Select value={status} onValueChange={v => setStatus(v as FormStatus)}>
@@ -385,6 +451,38 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                   <SelectItem value="active">Activo</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Offer/Pipeline linking */}
+            <Separator />
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Link2 className="h-4 w-4 text-primary" />
+                <Label className="text-sm font-medium">Vincular a oferta y pipeline</Label>
+              </div>
+              <p className="text-[11px] text-muted-foreground">Al enviar el formulario, la empresa se agregará o moverá automáticamente a la etapa seleccionada del pipeline.</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-[11px]">Oferta</Label>
+                  <Select value={linkedOfferId || '__none'} onValueChange={v => { setLinkedOfferId(v === '__none' ? null : v); setLinkedStageId(null); }}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin vincular" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">Sin vincular</SelectItem>
+                      {offers.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-[11px]">Etapa del pipeline</Label>
+                  <Select value={linkedStageId || '__none'} onValueChange={v => setLinkedStageId(v === '__none' ? null : v)} disabled={!linkedOfferId}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Seleccionar etapa..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">Sin etapa</SelectItem>
+                      {filteredStages.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -558,8 +656,15 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
               )}
             </div>
 
-            {/* Field list with drag and drop */}
-            <div className="space-y-3 max-h-[350px] overflow-y-auto">
+            {/* Field list with drag and drop + auto-scroll */}
+            <div
+              ref={fieldListRef}
+              className="space-y-3 max-h-[350px] overflow-y-auto"
+              onDragOver={handleDragOverContainer}
+              onDragLeave={() => {
+                if (dragScrollInterval.current) { clearInterval(dragScrollInterval.current); dragScrollInterval.current = null; }
+              }}
+            >
               {formFields.map((field, idx) => (
                 <div key={idx}
                   draggable
@@ -578,6 +683,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                       {field.preload_from_crm && <Badge variant="outline" className="text-[9px]">CRM</Badge>}
                       {field.section_name && <Badge variant="secondary" className="text-[9px]">{field.section_name}</Badge>}
                       {field.condition_field_key && <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-200">Condicional</Badge>}
+                      {field.only_for_new && <Badge variant="outline" className="text-[9px] bg-emerald-50 text-emerald-700 border-emerald-200">Solo nuevas</Badge>}
                     </div>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeField(idx)}>
                       <Trash2 className="h-3 w-3 text-destructive" />
@@ -593,7 +699,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                       <Select value={field.field_type} onValueChange={v => updateField(idx, { field_type: v as FormFieldType })}>
                         <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          {FIELD_TYPE_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                          {extendedFieldTypeOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
@@ -621,6 +727,11 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                       <Label className="text-[11px]">Opciones (separadas por coma)</Label>
                       <Input className="h-8 text-xs" value={field.options.join(', ')}
                         onChange={e => updateField(idx, { options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
+                    </div>
+                  )}
+                  {field.field_type === 'file' && (
+                    <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-2 text-[10px] text-blue-700 dark:text-blue-300">
+                      El campo de archivo permite al usuario subir un archivo o pegar una imagen con Ctrl+V (ideal para logos).
                     </div>
                   )}
                   {/* Conditional logic */}
@@ -677,6 +788,12 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                       <Checkbox checked={field.is_visible} onCheckedChange={v => updateField(idx, { is_visible: !!v })} className="h-3.5 w-3.5" />
                       Visible
                     </label>
+                    {showOnlyForNew && (
+                      <label className="flex items-center gap-1.5">
+                        <Checkbox checked={!!field.only_for_new} onCheckedChange={v => updateField(idx, { only_for_new: !!v })} className="h-3.5 w-3.5" />
+                        Solo para nuevas
+                      </label>
+                    )}
                   </div>
                 </div>
               ))}
@@ -785,6 +902,12 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                     </Button>
                   </div>
                 </div>
+                {linkedOfferId && linkedStageId && (
+                  <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-3 text-xs text-blue-700 dark:text-blue-300 text-center">
+                    <Link2 className="h-3.5 w-3.5 inline mr-1" />
+                    Las empresas que envíen este formulario serán agregadas/movidas automáticamente al pipeline vinculado.
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground text-center">
                   Recuerda activar el formulario para que sea accesible públicamente.
                 </p>
