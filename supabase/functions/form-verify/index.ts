@@ -360,6 +360,28 @@ Deno.serve(async (req) => {
         await supabaseAdmin.from("external_form_responses").update({ status: "applied" }).eq("id", response!.id);
       }
 
+      // Pipeline linking: add or move company to linked stage
+      if (companyId && form.linked_offer_id && form.linked_stage_id) {
+        const { data: existingEntry } = await supabaseAdmin.from("pipeline_entries")
+          .select("id")
+          .eq("company_id", companyId)
+          .eq("offer_id", form.linked_offer_id)
+          .maybeSingle();
+
+        if (existingEntry) {
+          await supabaseAdmin.from("pipeline_entries")
+            .update({ stage_id: form.linked_stage_id })
+            .eq("id", existingEntry.id);
+        } else {
+          await supabaseAdmin.from("pipeline_entries").insert({
+            company_id: companyId,
+            offer_id: form.linked_offer_id,
+            stage_id: form.linked_stage_id,
+            notes: `Agregado automáticamente desde formulario: ${form.name}`
+          });
+        }
+      }
+
       // Update stats
       await supabaseAdmin.from("external_forms").update({
         submitted_count: (form.submitted_count || 0) + 1,

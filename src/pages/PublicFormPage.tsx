@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,7 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle2, AlertCircle, ShieldCheck, FlaskConical } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, ShieldCheck, FlaskConical, Upload, X } from 'lucide-react';
 import logoCCC from '@/assets/logo-ccc.png';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -30,6 +30,62 @@ async function callFormApi(action: string, body?: any, params?: Record<string, s
 }
 
 type Step = 'identify' | 'code' | 'form' | 'success' | 'error';
+
+function FileUploadField({ value, onChange, placeholder }: { value: string | null; onChange: (v: string | null) => void; placeholder?: string }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
+
+  const handleFile = (file: File) => {
+    if (!file.type.startsWith('image/') && file.size > 5 * 1024 * 1024) return;
+    const reader = new FileReader();
+    reader.onload = () => onChange(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handlePaste = useCallback((e: ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) handleFile(file);
+        break;
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const el = dropRef.current;
+    if (!el) return;
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, [handlePaste]);
+
+  if (value) {
+    return (
+      <div className="relative inline-block">
+        <img src={value} alt="Preview" className="h-20 rounded-md border object-contain" />
+        <button onClick={() => onChange(null)} className="absolute -top-2 -right-2 bg-background border rounded-full p-0.5">
+          <X className="h-3 w-3" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div ref={dropRef}
+      className="border-2 border-dashed rounded-md p-4 text-center cursor-pointer hover:border-primary/50 transition-colors"
+      onClick={() => inputRef.current?.click()}
+      onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
+      onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}>
+      <Upload className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
+      <p className="text-xs text-muted-foreground">{placeholder || 'Arrastra, haz clic o pega con Ctrl+V'}</p>
+      <input ref={inputRef} type="file" accept="image/*" className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+    </div>
+  );
+}
 
 export default function PublicFormPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -197,7 +253,7 @@ export default function PublicFormPage() {
         {step === 'identify' && (
           <>
             <CardHeader className="text-center">
-              <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-12 mx-auto mb-2" />
+              <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-12 mx-auto mb-2 object-contain" />
               <CardTitle className="text-lg">{formMeta?.public_title || 'Verificación de identidad'}</CardTitle>
               <CardDescription>{formMeta?.public_subtitle || 'Ingresa tu NIT para continuar'}</CardDescription>
             </CardHeader>
@@ -225,7 +281,7 @@ export default function PublicFormPage() {
         {step === 'code' && (
           <>
             <CardHeader className="text-center">
-              <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-12 mx-auto mb-2" />
+              <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-12 mx-auto mb-2 object-contain" />
               <CardTitle className="text-lg">Código de verificación</CardTitle>
               <CardDescription>
                 Hemos enviado un código de verificación a <strong>{maskedEmail}</strong>
@@ -257,7 +313,7 @@ export default function PublicFormPage() {
         {step === 'form' && form && (
           <>
             <CardHeader>
-              <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-10 mb-2" />
+              <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-10 mb-2 object-contain" />
               <CardTitle className="text-lg">{form.public_title || form.name}</CardTitle>
               {form.public_subtitle && <CardDescription>{form.public_subtitle}</CardDescription>}
             </CardHeader>
@@ -294,6 +350,12 @@ export default function PublicFormPage() {
                               onCheckedChange={v => updateFormData(field.field_key, !!v)} />
                             <span className="text-sm">{field.placeholder || 'Sí'}</span>
                           </div>
+                        ) : field.field_type === 'file' ? (
+                          <FileUploadField
+                            value={formData[field.field_key] || null}
+                            onChange={(val) => updateFormData(field.field_key, val)}
+                            placeholder={field.placeholder}
+                          />
                         ) : (
                           <Input
                             type={field.field_type === 'number' ? 'number' : field.field_type === 'email' ? 'email' : field.field_type === 'date' ? 'date' : field.field_type === 'url' ? 'url' : field.field_type === 'phone' ? 'tel' : 'text'}
