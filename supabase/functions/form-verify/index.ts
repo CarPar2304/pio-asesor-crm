@@ -263,7 +263,8 @@ Deno.serve(async (req) => {
         }
       }
 
-      return jsonRes({ form, fields: fields || [], preloaded_data: preloadedData });
+      const isNewCompany = !session.company_id;
+      return jsonRes({ form, fields: fields || [], preloaded_data: preloadedData, is_new_company: isNewCompany });
     }
 
     if (req.method === "POST" && action === "submit") {
