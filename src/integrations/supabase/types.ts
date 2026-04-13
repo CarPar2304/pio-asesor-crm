@@ -79,6 +79,41 @@ export type Database = {
           },
         ]
       }
+      ally_embeddings: {
+        Row: {
+          ally_id: string
+          content: string
+          created_at: string
+          embedding: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          ally_id: string
+          content: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          ally_id?: string
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ally_embeddings_ally_id_fkey"
+            columns: ["ally_id"]
+            isOneToOne: true
+            referencedRelation: "allies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_conversations: {
         Row: {
           created_at: string
@@ -1229,6 +1264,76 @@ export type Database = {
           },
         ]
       }
+      offer_embeddings: {
+        Row: {
+          content: string
+          created_at: string
+          embedding: string | null
+          id: string
+          offer_id: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          offer_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          offer_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offer_embeddings_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: true
+            referencedRelation: "portfolio_offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipeline_embeddings: {
+        Row: {
+          content: string
+          created_at: string
+          embedding: string | null
+          id: string
+          offer_id: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          offer_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          offer_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_embeddings_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: true
+            referencedRelation: "portfolio_offers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pipeline_entries: {
         Row: {
           added_by: string | null
@@ -1580,6 +1685,19 @@ export type Database = {
         }
         Returns: boolean
       }
+      match_allies: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          ally_id: string
+          content: string
+          id: string
+          similarity: number
+        }[]
+      }
       match_companies: {
         Args: {
           match_count?: number
@@ -1590,6 +1708,32 @@ export type Database = {
           company_id: string
           content: string
           id: string
+          similarity: number
+        }[]
+      }
+      match_offers: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          content: string
+          id: string
+          offer_id: string
+          similarity: number
+        }[]
+      }
+      match_pipeline: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          content: string
+          id: string
+          offer_id: string
           similarity: number
         }[]
       }
