@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,10 +53,12 @@ interface FieldDraft {
   crm_field_id: string | null;
   options: string[];
   display_order: number;
-  // New: track if this field needs to be created as a custom field in the CRM
+  // Conditional logic
+  condition_field_key?: string | null;
+  condition_value?: string | null;
   _newCrmField?: boolean;
-  _newSectionName?: string; // if we need to create a new section for it
-  _crmFieldType?: string; // the CRM field type (text, number, select, metric_by_year)
+  _newSectionName?: string;
+  _crmFieldType?: string;
 }
 
 export default function FormWizardDialog({ open, onClose, editingForm, onSaved }: Props) {
@@ -87,6 +89,10 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
   const [newFieldSection, setNewFieldSection] = useState<string>('');
   const [newFieldOptions, setNewFieldOptions] = useState('');
 
+  // Drag and drop state
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+
   // Step 5
   const [publicTitle, setPublicTitle] = useState('');
   const [publicSubtitle, setPublicSubtitle] = useState('');
@@ -96,6 +102,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
 
   // Step 6
   const [savedSlug, setSavedSlug] = useState('');
+  const [savedFormId, setSavedFormId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -114,6 +121,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       setSuccessMessage(editingForm.success_message);
       setPrimaryColor(editingForm.primary_color);
       setSavedSlug(editingForm.slug);
+      setSavedFormId(editingForm.id);
       supabase.from('external_form_fields').select('*').eq('form_id', editingForm.id).order('display_order')
         .then(({ data }) => {
           if (data) setFormFields(data.map((f: any) => ({ ...f, options: Array.isArray(f.options) ? f.options : [] })));
@@ -124,17 +132,39 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       setCodeExpiration(10); setMaxAttempts(5); setFormFields([]);
       setPublicTitle(''); setPublicSubtitle(''); setSubmitButtonText('Enviar');
       setSuccessMessage('Tu información ha sido enviada exitosamente.');
-      setPrimaryColor('#4f46e5'); setSavedSlug('');
+      setPrimaryColor('#4f46e5'); setSavedSlug(''); setSavedFormId(null);
     }
     setStep(0);
   }, [open, editingForm]);
+
+  // Drag and drop handlers
+  const handleDragStart = (idx: number) => {
+    setDragIdx(idx);
+  };
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    setDragOverIdx(idx);
+  };
+  const handleDragEnd = () => {
+    if (dragIdx !== null && dragOverIdx !== null && dragIdx !== dragOverIdx) {
+      setFormFields(prev => {
+        const items = [...prev];
+        const [moved] = items.splice(dragIdx, 1);
+        items.splice(dragOverIdx, 0, moved);
+        return items.map((f, i) => ({ ...f, display_order: i }));
+      });
+    }
+    setDragIdx(null);
+    setDragOverIdx(null);
+  };
 
   const addField = () => {
     setFormFields(prev => [...prev, {
       label: '', field_key: '', field_type: 'short_text', placeholder: '', help_text: '',
       section_name: '', is_required: false, is_visible: true, is_editable: true, is_readonly: false,
       preload_from_crm: false, crm_table: null, crm_column: null, crm_field_id: null,
-      options: [], display_order: prev.length
+      options: [], display_order: prev.length,
+      condition_field_key: null, condition_value: null
     }]);
   };
 
@@ -145,7 +175,8 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       label: mapping.label, field_key: key, field_type: 'short_text', placeholder: '', help_text: '',
       section_name: '', is_required: false, is_visible: true, is_editable: true, is_readonly: false,
       preload_from_crm: true, crm_table: mapping.table, crm_column: mapping.column, crm_field_id: null,
-      options: [], display_order: prev.length
+      options: [], display_order: prev.length,
+      condition_field_key: null, condition_value: null
     }]);
   };
 
@@ -158,7 +189,8 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       placeholder: '', help_text: '', section_name: sectionName,
       is_required: false, is_visible: true, is_editable: true, is_readonly: false,
       preload_from_crm: true, crm_table: 'custom_field_values', crm_column: null, crm_field_id: cf.id,
-      options: cf.options || [], display_order: prev.length
+      options: cf.options || [], display_order: prev.length,
+      condition_field_key: null, condition_value: null
     }]);
   };
 
@@ -170,7 +202,6 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
     setFormFields(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // Create a new section in the CRM and optionally add it
   const handleCreateSection = async () => {
     if (!newSectionName.trim()) return;
     const section = await addSection(newSectionName.trim());
@@ -183,7 +214,6 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
     }
   };
 
-  // Create a new custom field in the CRM and add it to the form
   const handleCreateNewCrmField = async () => {
     if (!newFieldName.trim()) { showError('Error', 'El nombre del campo es obligatorio'); return; }
     if (!newFieldSection) { showError('Error', 'Selecciona una sección'); return; }
@@ -191,7 +221,6 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
     const sectionObj = customSections.find(s => s.id === newFieldSection);
     if (!sectionObj) { showError('Error', 'Sección no encontrada'); return; }
 
-    // Map form field type to CRM field type
     const crmFieldType = newFieldType === 'number' ? 'number' : newFieldType === 'select' ? 'select' : 'text';
     const opts = newFieldType === 'select' ? newFieldOptions.split(',').map(s => s.trim()).filter(Boolean) : [];
 
@@ -204,7 +233,6 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
     });
 
     if (created) {
-      // Add to form fields
       const key = `custom_${created.id}`;
       setFormFields(prev => [...prev, {
         label: created.name, field_key: key,
@@ -212,7 +240,8 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
         placeholder: '', help_text: '', section_name: sectionObj.name,
         is_required: false, is_visible: true, is_editable: true, is_readonly: false,
         preload_from_crm: true, crm_table: 'custom_field_values', crm_column: null, crm_field_id: created.id,
-        options: opts, display_order: prev.length
+        options: opts, display_order: prev.length,
+        condition_field_key: null, condition_value: null
       }]);
 
       showSuccess('Campo creado', `"${created.name}" se añadió al CRM (sección "${sectionObj.name}") y al formulario`);
@@ -226,7 +255,6 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
     }
   };
 
-  // Group custom fields by section for display
   const customFieldsBySection = useMemo(() => {
     const map: Record<string, { section: typeof customSections[0]; fields: typeof customFields }> = {};
     for (const s of customSections) {
@@ -235,7 +263,6 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
         map[s.id] = { section: s, fields: sFields };
       }
     }
-    // Also fields without section
     const unsectioned = customFields.filter(f => !f.sectionId);
     if (unsectioned.length > 0) {
       map['__none'] = { section: { id: '__none', name: 'Sin sección', displayOrder: 999 } as any, fields: unsectioned };
@@ -243,12 +270,19 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
     return map;
   }, [customSections, customFields]);
 
+  // Fields available for conditional logic (only those with options or checkbox)
+  const conditionalSourceFields = useMemo(() => {
+    return formFields.filter(f => 
+      f.field_type === 'select' || f.field_type === 'checkbox' || f.field_type === 'multiselect'
+    );
+  }, [formFields]);
+
   const handleSave = async () => {
     if (!name.trim()) { showError('Error', 'El nombre es obligatorio'); return; }
     setSaving(true);
 
     try {
-      const slug = editingForm?.slug || crypto.randomUUID().slice(0, 12);
+      const slug = savedSlug || crypto.randomUUID().slice(0, 12);
       const formData: any = {
         slug, name, description, form_type: formType, status,
         verification_mode: verificationMode, verification_key_field: verificationKeyField,
@@ -259,16 +293,19 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       };
 
       let formId: string;
-      if (editingForm) {
-        const { error } = await supabase.from('external_forms').update(formData).eq('id', editingForm.id);
+      if (savedFormId) {
+        // Update existing
+        const { error } = await supabase.from('external_forms').update(formData).eq('id', savedFormId);
         if (error) throw error;
-        formId = editingForm.id;
+        formId = savedFormId;
         await supabase.from('external_form_fields').delete().eq('form_id', formId);
       } else {
+        // Create new
         const { data, error } = await supabase.from('external_forms').insert(formData).select('id, slug').single();
         if (error) throw error;
         formId = data!.id;
         setSavedSlug(data!.slug);
+        setSavedFormId(formId);
       }
 
       // Insert fields
@@ -278,14 +315,15 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
           field_type: f.field_type, placeholder: f.placeholder, help_text: f.help_text, section_name: f.section_name,
           is_required: f.is_required, is_visible: f.is_visible, is_editable: f.is_editable, is_readonly: f.is_readonly,
           preload_from_crm: f.preload_from_crm, crm_table: f.crm_table, crm_column: f.crm_column,
-          crm_field_id: f.crm_field_id, options: f.options, display_order: i
+          crm_field_id: f.crm_field_id, options: f.options, display_order: i,
+          condition_field_key: f.condition_field_key || null,
+          condition_value: f.condition_value || null
         }));
         const { error } = await supabase.from('external_form_fields').insert(fieldsToInsert as any);
         if (error) throw error;
       }
 
-      showSuccess('Guardado', editingForm ? 'Formulario actualizado' : 'Formulario creado');
-      if (!editingForm) setSavedSlug(slug);
+      showSuccess('Guardado', savedFormId ? 'Formulario actualizado' : 'Formulario creado');
       onSaved();
       if (step < 5) setStep(5);
     } catch (e: any) {
@@ -520,16 +558,26 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
               )}
             </div>
 
-            {/* Field list */}
+            {/* Field list with drag and drop */}
             <div className="space-y-3 max-h-[350px] overflow-y-auto">
               {formFields.map((field, idx) => (
-                <div key={idx} className="rounded-md border p-3 space-y-2">
+                <div key={idx}
+                  draggable
+                  onDragStart={() => handleDragStart(idx)}
+                  onDragOver={(e) => handleDragOver(e, idx)}
+                  onDragEnd={handleDragEnd}
+                  className={cn(
+                    "rounded-md border p-3 space-y-2 transition-all",
+                    dragIdx === idx && "opacity-50",
+                    dragOverIdx === idx && dragIdx !== idx && "border-primary border-2"
+                  )}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                      <GripVertical className="h-3.5 w-3.5 text-muted-foreground cursor-grab active:cursor-grabbing" />
                       <span className="text-xs font-medium">Campo {idx + 1}</span>
                       {field.preload_from_crm && <Badge variant="outline" className="text-[9px]">CRM</Badge>}
                       {field.section_name && <Badge variant="secondary" className="text-[9px]">{field.section_name}</Badge>}
+                      {field.condition_field_key && <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-200">Condicional</Badge>}
                     </div>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeField(idx)}>
                       <Trash2 className="h-3 w-3 text-destructive" />
@@ -575,6 +623,51 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                         onChange={e => updateField(idx, { options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
                     </div>
                   )}
+                  {/* Conditional logic */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-[11px]">Mostrar solo si campo...</Label>
+                      <Select value={field.condition_field_key || '__none'} onValueChange={v => updateField(idx, { condition_field_key: v === '__none' ? null : v, condition_value: v === '__none' ? null : field.condition_value })}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin condición" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none">Sin condición</SelectItem>
+                          {conditionalSourceFields.filter(f => f.field_key !== field.field_key && f.field_key).map(f => (
+                            <SelectItem key={f.field_key} value={f.field_key}>{f.label || f.field_key}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {field.condition_field_key && (
+                      <div>
+                        <Label className="text-[11px]">...tiene valor</Label>
+                        {(() => {
+                          const sourceField = formFields.find(f => f.field_key === field.condition_field_key);
+                          if (sourceField?.field_type === 'checkbox') {
+                            return (
+                              <Select value={field.condition_value || 'true'} onValueChange={v => updateField(idx, { condition_value: v })}>
+                                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="true">Sí (marcado)</SelectItem>
+                                  <SelectItem value="false">No (desmarcado)</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            );
+                          }
+                          if (sourceField && (sourceField.field_type === 'select' || sourceField.field_type === 'multiselect') && sourceField.options.length > 0) {
+                            return (
+                              <Select value={field.condition_value || ''} onValueChange={v => updateField(idx, { condition_value: v })}>
+                                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Seleccionar valor..." /></SelectTrigger>
+                                <SelectContent>
+                                  {sourceField.options.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            );
+                          }
+                          return <Input className="h-8 text-xs" value={field.condition_value || ''} onChange={e => updateField(idx, { condition_value: e.target.value })} placeholder="Valor esperado" />;
+                        })()}
+                      </div>
+                    )}
+                  </div>
                   <div className="flex items-center gap-4 text-[11px]">
                     <label className="flex items-center gap-1.5">
                       <Checkbox checked={field.is_required} onCheckedChange={v => updateField(idx, { is_required: !!v })} className="h-3.5 w-3.5" />
