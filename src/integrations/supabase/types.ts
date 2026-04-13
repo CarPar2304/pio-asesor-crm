@@ -687,6 +687,379 @@ export type Database = {
         }
         Relationships: []
       }
+      external_form_audit_log: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          field_key: string
+          field_label: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+          response_id: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          field_key: string
+          field_label?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          response_id: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          field_key?: string
+          field_label?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+          response_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_form_audit_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_form_audit_log_response_id_fkey"
+            columns: ["response_id"]
+            isOneToOne: false
+            referencedRelation: "external_form_responses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_form_fields: {
+        Row: {
+          created_at: string
+          crm_column: string | null
+          crm_field_id: string | null
+          crm_table: string | null
+          display_order: number
+          field_key: string
+          field_type: string
+          form_id: string
+          help_text: string
+          id: string
+          is_editable: boolean
+          is_readonly: boolean
+          is_required: boolean
+          is_visible: boolean
+          label: string
+          options: Json
+          placeholder: string
+          preload_from_crm: boolean
+          section_name: string
+        }
+        Insert: {
+          created_at?: string
+          crm_column?: string | null
+          crm_field_id?: string | null
+          crm_table?: string | null
+          display_order?: number
+          field_key: string
+          field_type?: string
+          form_id: string
+          help_text?: string
+          id?: string
+          is_editable?: boolean
+          is_readonly?: boolean
+          is_required?: boolean
+          is_visible?: boolean
+          label: string
+          options?: Json
+          placeholder?: string
+          preload_from_crm?: boolean
+          section_name?: string
+        }
+        Update: {
+          created_at?: string
+          crm_column?: string | null
+          crm_field_id?: string | null
+          crm_table?: string | null
+          display_order?: number
+          field_key?: string
+          field_type?: string
+          form_id?: string
+          help_text?: string
+          id?: string
+          is_editable?: boolean
+          is_readonly?: boolean
+          is_required?: boolean
+          is_visible?: boolean
+          label?: string
+          options?: Json
+          placeholder?: string
+          preload_from_crm?: boolean
+          section_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_form_fields_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "external_forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_form_responses: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          form_id: string
+          id: string
+          response_data: Json
+          reviewed_at: string | null
+          reviewed_by: string | null
+          session_id: string | null
+          status: string
+          submitted_at: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          form_id: string
+          id?: string
+          response_data?: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          session_id?: string | null
+          status?: string
+          submitted_at?: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          form_id?: string
+          id?: string
+          response_data?: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          session_id?: string | null
+          status?: string
+          submitted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_form_responses_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_form_responses_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "external_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_form_responses_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "external_form_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_form_sessions: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          expires_at: string
+          form_id: string
+          id: string
+          ip_address: string | null
+          is_verified: boolean
+          session_token: string
+          user_agent: string | null
+          verified_at: string | null
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          expires_at?: string
+          form_id: string
+          id?: string
+          ip_address?: string | null
+          is_verified?: boolean
+          session_token: string
+          user_agent?: string | null
+          verified_at?: string | null
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          expires_at?: string
+          form_id?: string
+          id?: string
+          ip_address?: string | null
+          is_verified?: boolean
+          session_token?: string
+          user_agent?: string | null
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_form_sessions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_form_sessions_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "external_forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_form_verification_codes: {
+        Row: {
+          attempts: number
+          code_hash: string
+          created_at: string
+          expires_at: string
+          id: string
+          max_attempts: number
+          session_id: string
+          used: boolean
+        }
+        Insert: {
+          attempts?: number
+          code_hash: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          max_attempts?: number
+          session_id: string
+          used?: boolean
+        }
+        Update: {
+          attempts?: number
+          code_hash?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          max_attempts?: number
+          session_id?: string
+          used?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_form_verification_codes_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "external_form_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_forms: {
+        Row: {
+          access_count: number
+          code_expiration_minutes: number
+          completed_count: number
+          created_at: string
+          created_by: string | null
+          description: string
+          error_messages: Json
+          form_type: string
+          id: string
+          logo_url: string | null
+          max_code_attempts: number
+          name: string
+          primary_color: string
+          public_subtitle: string
+          public_title: string
+          slug: string
+          started_count: number
+          status: string
+          submit_button_text: string
+          submitted_count: number
+          success_message: string
+          target_company_id: string | null
+          target_segment: string | null
+          updated_at: string
+          verification_key_field: string
+          verification_mode: string
+        }
+        Insert: {
+          access_count?: number
+          code_expiration_minutes?: number
+          completed_count?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          error_messages?: Json
+          form_type?: string
+          id?: string
+          logo_url?: string | null
+          max_code_attempts?: number
+          name: string
+          primary_color?: string
+          public_subtitle?: string
+          public_title?: string
+          slug: string
+          started_count?: number
+          status?: string
+          submit_button_text?: string
+          submitted_count?: number
+          success_message?: string
+          target_company_id?: string | null
+          target_segment?: string | null
+          updated_at?: string
+          verification_key_field?: string
+          verification_mode?: string
+        }
+        Update: {
+          access_count?: number
+          code_expiration_minutes?: number
+          completed_count?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          error_messages?: Json
+          form_type?: string
+          id?: string
+          logo_url?: string | null
+          max_code_attempts?: number
+          name?: string
+          primary_color?: string
+          public_subtitle?: string
+          public_title?: string
+          slug?: string
+          started_count?: number
+          status?: string
+          submit_button_text?: string
+          submitted_count?: number
+          success_message?: string
+          target_company_id?: string | null
+          target_segment?: string | null
+          updated_at?: string
+          verification_key_field?: string
+          verification_mode?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_forms_target_company_id_fkey"
+            columns: ["target_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feature_settings: {
         Row: {
           config: Json

@@ -905,6 +905,52 @@ function FormFieldsTab() {
   );
 }
 
+function FormsSettingsTab() {
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('feature_settings').select('config').eq('feature_key', 'external_forms').maybeSingle();
+      if (data?.config && typeof data.config === 'object') {
+        setWebhookUrl((data.config as any).webhook_url || '');
+      }
+      setLoaded(true);
+    })();
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const config = { webhook_url: webhookUrl };
+    const { data: existing } = await supabase.from('feature_settings').select('id').eq('feature_key', 'external_forms').maybeSingle();
+    if (existing) {
+      await supabase.from('feature_settings').update({ config } as any).eq('id', existing.id);
+    } else {
+      await supabase.from('feature_settings').insert({ feature_key: 'external_forms', config } as any);
+    }
+    showSuccess('Guardado', 'Configuración de formularios actualizada');
+    setSaving(false);
+  };
+
+  if (!loaded) return <div className="py-8 text-center text-sm text-muted-foreground">Cargando...</div>;
+
+  return (
+    <div className="space-y-6 py-4">
+      <div>
+        <h3 className="text-sm font-semibold mb-1">Webhook n8n</h3>
+        <p className="text-xs text-muted-foreground mb-3">URL del webhook de n8n para enviar códigos de verificación por email.</p>
+        <Input value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)}
+          placeholder="https://n8n.ejemplo.com/webhook/..." />
+      </div>
+      <Button size="sm" onClick={handleSave} disabled={saving}>
+        <Save className="h-3.5 w-3.5 mr-1.5" />
+        {saving ? 'Guardando...' : 'Guardar configuración'}
+      </Button>
+    </div>
+  );
+}
+
 export default function CRMSettingsDialog({ open, onClose }: Props) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -916,6 +962,7 @@ export default function CRMSettingsDialog({ open, onClose }: Props) {
           <TabsList className="mx-6 shrink-0">
             <TabsTrigger value="taxonomy">Taxonomía</TabsTrigger>
             <TabsTrigger value="fields">Campos</TabsTrigger>
+            <TabsTrigger value="forms">Formularios</TabsTrigger>
           </TabsList>
           <TabsContent value="taxonomy" className="flex-1 min-h-0 mt-0">
             <ScrollArea className="h-full px-6 pb-6">
@@ -925,6 +972,11 @@ export default function CRMSettingsDialog({ open, onClose }: Props) {
           <TabsContent value="fields" className="flex-1 min-h-0 mt-0">
             <ScrollArea className="h-full px-6 pb-6">
               <FormFieldsTab />
+            </ScrollArea>
+          </TabsContent>
+          <TabsContent value="forms" className="flex-1 min-h-0 mt-0">
+            <ScrollArea className="h-full px-6 pb-6">
+              <FormsSettingsTab />
             </ScrollArea>
           </TabsContent>
         </Tabs>
