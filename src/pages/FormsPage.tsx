@@ -160,6 +160,11 @@ export default function FormsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
+                    {form.status !== 'archived' && (
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => window.open(getTestUrl(form), '_blank')} title="Probar formulario">
+                        <FlaskConical className="h-3.5 w-3.5 text-amber-600" />
+                      </Button>
+                    )}
                     {form.status === 'active' && (
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => copyLink(form)} title="Copiar enlace">
                         <Copy className="h-3.5 w-3.5" />
