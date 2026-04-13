@@ -294,6 +294,12 @@ export default function PublicFormPage() {
                               onCheckedChange={v => updateFormData(field.field_key, !!v)} />
                             <span className="text-sm">{field.placeholder || 'Sí'}</span>
                           </div>
+                        ) : field.field_type === 'file' ? (
+                          <FileUploadField
+                            value={formData[field.field_key] || null}
+                            onChange={(val) => updateFormData(field.field_key, val)}
+                            placeholder={field.placeholder}
+                          />
                         ) : (
                           <Input
                             type={field.field_type === 'number' ? 'number' : field.field_type === 'email' ? 'email' : field.field_type === 'date' ? 'date' : field.field_type === 'url' ? 'url' : field.field_type === 'phone' ? 'tel' : 'text'}
