@@ -197,7 +197,7 @@ export default function PublicFormPage() {
         {step === 'identify' && (
           <>
             <CardHeader className="text-center">
-              <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-12 mx-auto mb-2" />
+              <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-12 mx-auto mb-2 object-contain" />
               <CardTitle className="text-lg">{formMeta?.public_title || 'Verificación de identidad'}</CardTitle>
               <CardDescription>{formMeta?.public_subtitle || 'Ingresa tu NIT para continuar'}</CardDescription>
             </CardHeader>
@@ -225,7 +225,7 @@ export default function PublicFormPage() {
         {step === 'code' && (
           <>
             <CardHeader className="text-center">
-              <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-12 mx-auto mb-2" />
+              <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-12 mx-auto mb-2 object-contain" />
               <CardTitle className="text-lg">Código de verificación</CardTitle>
               <CardDescription>
                 Hemos enviado un código de verificación a <strong>{maskedEmail}</strong>
@@ -257,7 +257,7 @@ export default function PublicFormPage() {
         {step === 'form' && form && (
           <>
             <CardHeader>
-              <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-10 mb-2" />
+              <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-10 mb-2 object-contain" />
               <CardTitle className="text-lg">{form.public_title || form.name}</CardTitle>
               {form.public_subtitle && <CardDescription>{form.public_subtitle}</CardDescription>}
             </CardHeader>
