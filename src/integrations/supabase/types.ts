@@ -754,6 +754,7 @@ export type Database = {
           is_required: boolean
           is_visible: boolean
           label: string
+          only_for_new: boolean
           options: Json
           placeholder: string
           preload_from_crm: boolean
@@ -777,6 +778,7 @@ export type Database = {
           is_required?: boolean
           is_visible?: boolean
           label: string
+          only_for_new?: boolean
           options?: Json
           placeholder?: string
           preload_from_crm?: boolean
@@ -800,6 +802,7 @@ export type Database = {
           is_required?: boolean
           is_visible?: boolean
           label?: string
+          only_for_new?: boolean
           options?: Json
           placeholder?: string
           preload_from_crm?: boolean
@@ -974,6 +977,7 @@ export type Database = {
       external_forms: {
         Row: {
           access_count: number
+          allow_creation: boolean
           code_expiration_minutes: number
           completed_count: number
           created_at: string
@@ -1004,6 +1008,7 @@ export type Database = {
         }
         Insert: {
           access_count?: number
+          allow_creation?: boolean
           code_expiration_minutes?: number
           completed_count?: number
           created_at?: string
@@ -1034,6 +1039,7 @@ export type Database = {
         }
         Update: {
           access_count?: number
+          allow_creation?: boolean
           code_expiration_minutes?: number
           completed_count?: number
           created_at?: string
