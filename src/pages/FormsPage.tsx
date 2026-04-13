@@ -7,11 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Plus, Copy, Pencil, Archive, Play, Pause, Eye, BarChart3, FileText, Search } from 'lucide-react';
+import { Plus, Copy, Pencil, Archive, Play, Pause, Eye, BarChart3, FileText, Search, FlaskConical } from 'lucide-react';
 import FormWizardDialog from '@/components/forms/FormWizardDialog';
 import FormResponsesDialog from '@/components/forms/FormResponsesDialog';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function FormsPage() {
+  const { session } = useAuth();
   const [forms, setForms] = useState<ExternalForm[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -70,6 +72,11 @@ export default function FormsPage() {
 
   const getFormUrl = (form: ExternalForm) => {
     return `${window.location.origin}/form/${form.slug}`;
+  };
+
+  const getTestUrl = (form: ExternalForm) => {
+    const email = session?.user?.email || '';
+    return `${window.location.origin}/form/${form.slug}?test=true&test_email=${encodeURIComponent(email)}`;
   };
 
   const copyLink = (form: ExternalForm) => {
@@ -153,6 +160,11 @@ export default function FormsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
+                    {form.status !== 'archived' && (
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => window.open(getTestUrl(form), '_blank')} title="Probar formulario">
+                        <FlaskConical className="h-3.5 w-3.5 text-amber-600" />
+                      </Button>
+                    )}
                     {form.status === 'active' && (
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => copyLink(form)} title="Copiar enlace">
                         <Copy className="h-3.5 w-3.5" />

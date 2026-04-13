@@ -55,21 +55,27 @@ Deno.serve(async (req) => {
     const action = url.searchParams.get("action");
 
     if (req.method === "POST" && action === "identify") {
-      const { form_id, key_value, ip_address } = await req.json();
+      const { form_id, key_value, ip_address, test_mode, test_email } = await req.json();
       if (!form_id || !key_value) return jsonRes({ error: "form_id y key_value son requeridos" }, 400);
 
-      // Rate limit by IP
-      const ipKey = `ip:${ip_address || "unknown"}`;
-      if (!checkRateLimit(ipKey, 10, 60000)) return jsonRes({ error: "Demasiados intentos. Intenta de nuevo en un minuto." }, 429);
-      // Rate limit by key value
-      const nitKey = `nit:${key_value}`;
-      if (!checkRateLimit(nitKey, 5, 60000)) return jsonRes({ error: "Demasiados intentos para este NIT. Intenta de nuevo en un minuto." }, 429);
+      const isTestMode = test_mode === true && !!test_email;
 
-      // Get form
-      const { data: form, error: formErr } = await supabaseAdmin.from("external_forms").select("*").eq("id", form_id).eq("status", "active").single();
-      if (formErr || !form) return jsonRes({ error: "Formulario no encontrado o no está activo" }, 404);
+      // Rate limit by IP (skip in test mode)
+      if (!isTestMode) {
+        const ipKey = `ip:${ip_address || "unknown"}`;
+        if (!checkRateLimit(ipKey, 10, 60000)) return jsonRes({ error: "Demasiados intentos. Intenta de nuevo en un minuto." }, 429);
+        const nitKey = `nit:${key_value}`;
+        if (!checkRateLimit(nitKey, 5, 60000)) return jsonRes({ error: "Demasiados intentos para este NIT. Intenta de nuevo en un minuto." }, 429);
+      }
 
-      // Increment access count
+      // Get form — in test mode allow any status (draft, paused, etc.)
+      let formQuery = supabaseAdmin.from("external_forms").select("*").eq("id", form_id);
+      if (!isTestMode) formQuery = formQuery.eq("status", "active");
+      const { data: form, error: formErr } = await formQuery.single();
+      if (formErr || !form) return jsonRes({ error: isTestMode ? "Formulario no encontrado" : "Formulario no encontrado o no está activo" }, 404);
+
+      // Increment access count (skip in test mode)
+      if (!isTestMode)
       await supabaseAdmin.from("external_forms").update({ access_count: (form.access_count || 0) + 1 }).eq("id", form_id);
 
       const keyField = form.verification_key_field || "nit";
@@ -111,12 +117,17 @@ Deno.serve(async (req) => {
       // Key + code verification
       if (!company) return jsonRes({ error: "Empresa no encontrada" }, 404);
 
-      // Get primary contact email
-      const { data: contacts } = await supabaseAdmin.from("contacts").select("email").eq("company_id", company.id).eq("is_primary", true).limit(1);
-      let email = contacts?.[0]?.email;
-      if (!email) {
-        const { data: allContacts } = await supabaseAdmin.from("contacts").select("email").eq("company_id", company.id).limit(1);
-        email = allContacts?.[0]?.email;
+      // In test mode, use the test_email; otherwise get primary contact email
+      let email: string | undefined;
+      if (isTestMode) {
+        email = test_email;
+      } else {
+        const { data: contacts } = await supabaseAdmin.from("contacts").select("email").eq("company_id", company.id).eq("is_primary", true).limit(1);
+        email = contacts?.[0]?.email;
+        if (!email) {
+          const { data: allContacts } = await supabaseAdmin.from("contacts").select("email").eq("company_id", company.id).limit(1);
+          email = allContacts?.[0]?.email;
+        }
       }
       if (!email) return jsonRes({ error: "La empresa no tiene un email registrado. Contacte al administrador." }, 400);
 
@@ -145,7 +156,7 @@ Deno.serve(async (req) => {
         webhookUrl = (settings.config as any).webhook_url;
       }
 
-      // Call n8n webhook
+      // Call n8n webhook — in test mode, destination goes to internal user
       try {
         await fetch(webhookUrl, {
           method: "POST",
@@ -155,20 +166,21 @@ Deno.serve(async (req) => {
             company_name: company.trade_name,
             nit: company.nit,
             destination_email: email,
-            masked_email: maskEmail(email),
+            masked_email: isTestMode ? maskEmail(email) : maskEmail(email),
             verification_code: code,
             form_id: form_id,
-            form_name: form.name
+            form_name: form.name,
+            test_mode: isTestMode || false
           })
         });
       } catch (e) {
         console.error("Webhook error:", e);
-        // Don't fail the request, just log
       }
 
       return jsonRes({
         success: true, session_token: token, requires_code: true,
-        masked_email: maskEmail(email), company_name: company.trade_name
+        masked_email: maskEmail(email), company_name: company.trade_name,
+        test_mode: isTestMode
       });
     }
 
@@ -206,10 +218,13 @@ Deno.serve(async (req) => {
     if (req.method === "GET" && action === "load-form") {
       const sessionToken = url.searchParams.get("session_token");
       const slug = url.searchParams.get("slug");
+      const testMode = url.searchParams.get("test_mode") === "true";
 
       // If slug only (for creation forms without verification)
       if (slug && !sessionToken) {
-        const { data: form } = await supabaseAdmin.from("external_forms").select("*").eq("slug", slug).eq("status", "active").single();
+        let formQuery = supabaseAdmin.from("external_forms").select("*").eq("slug", slug);
+        if (!testMode) formQuery = formQuery.eq("status", "active");
+        const { data: form } = await formQuery.single();
         if (!form) return jsonRes({ error: "Formulario no encontrado" }, 404);
         const { data: fields } = await supabaseAdmin.from("external_form_fields").select("*").eq("form_id", form.id).order("display_order");
         return jsonRes({ form, fields: fields || [], preloaded_data: {} });
@@ -252,10 +267,13 @@ Deno.serve(async (req) => {
     }
 
     if (req.method === "POST" && action === "submit") {
-      const { session_token, form_id, response_data } = await req.json();
+      const { session_token, form_id, response_data, test_mode } = await req.json();
       if (!form_id || !response_data) return jsonRes({ error: "Datos incompletos" }, 400);
 
-      const { data: form } = await supabaseAdmin.from("external_forms").select("*").eq("id", form_id).eq("status", "active").single();
+      const isSubmitTest = test_mode === true;
+      let formQuery = supabaseAdmin.from("external_forms").select("*").eq("id", form_id);
+      if (!isSubmitTest) formQuery = formQuery.eq("status", "active");
+      const { data: form } = await formQuery.single();
       if (!form) return jsonRes({ error: "Formulario no encontrado" }, 404);
 
       let companyId: string | null = null;
