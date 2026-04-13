@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { FilterState, SavedView, VERTICALS, CITIES, CATEGORIES, DEFAULT_FILTERS, SortField, SortDirection } from '@/types/crm';
 import { useCRM } from '@/contexts/CRMContext';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
+import { usePortfolio } from '@/contexts/PortfolioContext';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { FilterBadge } from '@/components/ui/filter-badge';
@@ -75,6 +76,7 @@ function MultiSelectDropdown({ label, values, selected, onChange }: { label: str
 export default function CRMFilters({ filters, onChange }: Props) {
   const { companies, savedViews, saveView, deleteView } = useCRM();
   const { sections, fields } = useCustomFields();
+  const { offers, stages } = usePortfolio();
   const [viewName, setViewName] = useState('');
 
   const { allVerticals, allCities, allSubVerticals, allCategories } = useMemo(() => {
@@ -98,8 +100,22 @@ export default function CRMFilters({ filters, onChange }: Props) {
     };
   }, [companies]);
 
+  // Offer/stage filter options
+  const offerOptions = useMemo(() => offers.map(o => ({ id: o.id, name: o.name })), [offers]);
+  const stageOptions = useMemo(() => {
+    if (filters.offerFilter.length === 0) return [];
+    return stages
+      .filter(s => filters.offerFilter.includes(s.offerId))
+      .map(s => {
+        const offer = offers.find(o => o.id === s.offerId);
+        const prefix = filters.offerFilter.length > 1 && offer ? `${offer.name} | ` : '';
+        return { id: s.id, name: `${prefix}${s.name}`, offerId: s.offerId };
+      });
+  }, [stages, filters.offerFilter, offers]);
+
   const update = (partial: Partial<FilterState>) => onChange({ ...filters, ...partial });
-  const updateCustomFilter = (fieldId: string, value: string) => {
+
+  const updateCustomFilter = (fieldId: string, value: string | string[]) => {
     onChange({ ...filters, customFieldFilters: { ...filters.customFieldFilters, [fieldId]: value } });
   };
   const clearCustomFilter = (fieldId: string) => {
@@ -134,10 +150,45 @@ export default function CRMFilters({ filters, onChange }: Props) {
   if (filters.avgYoYMin) activeChips.push({ label: 'Avg YoY ≥', value: `${filters.avgYoYMin}%`, clear: () => update({ avgYoYMin: '' }) });
   if (filters.lastYoYMin) activeChips.push({ label: 'Último YoY ≥', value: `${filters.lastYoYMin}%`, clear: () => update({ lastYoYMin: '' }) });
 
+  // Offer/stage filter chips
+  if (filters.offerFilter.length > 0) {
+    filters.offerFilter.forEach(offerId => {
+      const offer = offers.find(o => o.id === offerId);
+      if (offer) activeChips.push({ label: 'Oferta', value: offer.name, clear: () => update({ offerFilter: filters.offerFilter.filter(x => x !== offerId), stageFilter: filters.stageFilter.filter(sid => { const s = stages.find(st => st.id === sid); return s && s.offerId !== offerId; }) }) });
+    });
+  }
+  if (filters.stageFilter.length > 0) {
+    filters.stageFilter.forEach(stageId => {
+      const stage = stages.find(s => s.id === stageId);
+      if (stage) {
+        const offer = offers.find(o => o.id === stage.offerId);
+        const label = filters.offerFilter.length > 1 && offer ? `${offer.name} | ${stage.name}` : stage.name;
+        activeChips.push({ label: 'Etapa', value: label, clear: () => update({ stageFilter: filters.stageFilter.filter(x => x !== stageId) }) });
+      }
+    });
+  }
+
   Object.entries(filters.customFieldFilters || {}).forEach(([fieldId, val]) => {
-    if (!val) return;
+    if (!val || (Array.isArray(val) && val.length === 0)) return;
     const field = fields.find(f => f.id === fieldId);
-    if (field) activeChips.push({ label: field.name, value: val, clear: () => clearCustomFilter(fieldId) });
+    if (field) {
+      if (Array.isArray(val)) {
+        val.forEach(v => {
+          activeChips.push({ label: field.name, value: v, clear: () => {
+            const current = filters.customFieldFilters[fieldId];
+            if (Array.isArray(current)) {
+              const newVal = current.filter(x => x !== v);
+              if (newVal.length === 0) clearCustomFilter(fieldId);
+              else updateCustomFilter(fieldId, newVal);
+            } else {
+              clearCustomFilter(fieldId);
+            }
+          }});
+        });
+      } else {
+        activeChips.push({ label: field.name, value: val, clear: () => clearCustomFilter(fieldId) });
+      }
+    }
   });
 
   const hasFilters = activeChips.length > 0 || filters.search;
@@ -180,6 +231,35 @@ export default function CRMFilters({ filters, onChange }: Props) {
         <MultiSelectDropdown label="Vertical" values={allVerticals} selected={filters.vertical} onChange={v => update({ vertical: v })} />
         <MultiSelectDropdown label="Ciudad" values={allCities} selected={filters.city} onChange={v => update({ city: v })} />
         <MultiSelectDropdown label="Sub-vertical" values={allSubVerticals} selected={filters.economicActivity} onChange={v => update({ economicActivity: v })} />
+
+        {/* Offer filter */}
+        <MultiSelectDropdown
+          label="Oferta"
+          values={offerOptions.map(o => o.name)}
+          selected={filters.offerFilter.map(id => offerOptions.find(o => o.id === id)?.name || '').filter(Boolean)}
+          onChange={names => {
+            const ids = names.map(n => offerOptions.find(o => o.name === n)?.id).filter(Boolean) as string[];
+            // Clean up stage filters for removed offers
+            const validStages = filters.stageFilter.filter(sid => {
+              const s = stages.find(st => st.id === sid);
+              return s && ids.includes(s.offerId);
+            });
+            update({ offerFilter: ids, stageFilter: validStages });
+          }}
+        />
+
+        {/* Stage filter - only if offers selected */}
+        {filters.offerFilter.length > 0 && stageOptions.length > 0 && (
+          <MultiSelectDropdown
+            label="Etapa"
+            values={stageOptions.map(s => s.name)}
+            selected={filters.stageFilter.map(id => stageOptions.find(s => s.id === id)?.name || '').filter(Boolean)}
+            onChange={names => {
+              const ids = names.map(n => stageOptions.find(s => s.name === n)?.id).filter(Boolean) as string[];
+              update({ stageFilter: ids });
+            }}
+          />
+        )}
 
         {/* NIT dropdown */}
         <DropdownMenu>
@@ -295,15 +375,21 @@ export default function CRMFilters({ filters, onChange }: Props) {
                   <div key={field.id}>
                     <label className="text-xs text-muted-foreground">{field.name}</label>
                     {field.fieldType === 'select' ? (
-                      <Select value={filters.customFieldFilters?.[field.id] || ''} onValueChange={v => v === 'all' ? clearCustomFilter(field.id) : updateCustomFilter(field.id, v)}>
-                        <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Todos" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">Todos</SelectItem>
-                          {field.options.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                      <CustomSelectMultiFilter
+                        options={field.options}
+                        selected={(() => {
+                          const v = filters.customFieldFilters?.[field.id];
+                          if (!v) return [];
+                          if (Array.isArray(v)) return v;
+                          return [v];
+                        })()}
+                        onChange={vals => {
+                          if (vals.length === 0) clearCustomFilter(field.id);
+                          else updateCustomFilter(field.id, vals);
+                        }}
+                      />
                     ) : (
-                      <Input className="mt-1 h-8 text-sm bg-background/80" value={filters.customFieldFilters?.[field.id] || ''} onChange={e => e.target.value ? updateCustomFilter(field.id, e.target.value) : clearCustomFilter(field.id)} placeholder="Buscar..." />
+                      <Input className="mt-1 h-8 text-sm bg-background/80" value={typeof filters.customFieldFilters?.[field.id] === 'string' ? (filters.customFieldFilters[field.id] as string) : ''} onChange={e => e.target.value ? updateCustomFilter(field.id, e.target.value) : clearCustomFilter(field.id)} placeholder="Buscar..." />
                     )}
                   </div>
                 ))}
@@ -368,5 +454,39 @@ export default function CRMFilters({ filters, onChange }: Props) {
         </div>
       )}
     </div>
+  );
+}
+
+function CustomSelectMultiFilter({ options, selected, onChange }: { options: string[]; selected: string[]; onChange: (vals: string[]) => void }) {
+  const toggle = (val: string) => {
+    if (selected.includes(val)) {
+      onChange(selected.filter(v => v !== val));
+    } else {
+      onChange([...selected, val]);
+    }
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="mt-1 w-full h-8 justify-between text-xs">
+          {selected.length === 0 ? 'Todos' : selected.length === 1 ? selected[0] : `${selected.length} seleccionados`}
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-48 max-h-48 overflow-y-auto p-2" align="start">
+        {selected.length > 0 && (
+          <button className="mb-1 w-full text-left rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-accent" onClick={() => onChange([])}>
+            Limpiar
+          </button>
+        )}
+        {options.map(opt => (
+          <label key={opt} className="flex items-center gap-2 rounded-md px-2 py-1 text-xs cursor-pointer hover:bg-accent">
+            <Checkbox checked={selected.includes(opt)} onCheckedChange={() => toggle(opt)} className="h-3 w-3" />
+            <span className="truncate">{opt}</span>
+          </label>
+        ))}
+      </PopoverContent>
+    </Popover>
   );
 }

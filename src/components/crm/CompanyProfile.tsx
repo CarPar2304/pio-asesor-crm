@@ -61,11 +61,10 @@ export default function CompanyProfile({ company, onBack }: Props) {
   const tipoClienteField = fields.find(f => f.name.toLowerCase().includes('tipo de cliente'));
   const tipoClienteValue = tipoClienteField ? getFieldValueDisplay(tipoClienteField.id) : null;
 
-  // Build tabs: custom sections with data + pipeline + activity
+  // Build tabs: custom sections with data + activity (pipeline removed - redundant with portfolio)
   const tabItems = useMemo(() => {
-    const items: { id: string; label: string; type: 'section' | 'pipeline' | 'activity' }[] = [];
+    const items: { id: string; label: string; type: 'section' | 'activity' }[] = [];
 
-    // Custom sections that have data (excluding "Tipo de Cliente" field from unsectioned)
     const unsectionedFields = fields.filter(f => !f.sectionId && f.id !== tipoClienteField?.id);
     const hasUnsectioned = unsectionedFields.some(f => getFieldValueDisplay(f.id));
     if (hasUnsectioned) {
@@ -80,9 +79,6 @@ export default function CompanyProfile({ company, onBack }: Props) {
       }
     });
 
-    // Pipeline notes always as tab
-    items.push({ id: '__pipeline', label: 'Pipeline', type: 'pipeline' });
-    // Activity always as tab
     items.push({ id: '__activity', label: 'Actividad', type: 'activity' });
 
     return items;
@@ -264,9 +260,6 @@ export default function CompanyProfile({ company, onBack }: Props) {
                   sectionFields={fields.filter(f => f.sectionId === tab.id)}
                   getFieldValueDisplay={getFieldValueDisplay}
                 />
-              )}
-              {tab.type === 'pipeline' && (
-                <CompanyPipelineNotes companyId={company.id} />
               )}
               {tab.type === 'activity' && (
                 <ActivityTimeline company={company} />

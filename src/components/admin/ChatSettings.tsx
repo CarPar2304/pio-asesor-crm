@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Save, RefreshCw, Loader2, Database, Zap } from 'lucide-react';
+import { Save, RefreshCw, Loader2, Database, Zap, Package, GitBranch, Users } from 'lucide-react';
 
 interface ChatConfig {
   model: string;
@@ -17,6 +17,9 @@ interface ChatConfig {
   systemPrompt: string;
   lastVectorizedAt?: string;
   totalVectorized?: number;
+  lastOfferVectorizedAt?: string;
+  lastPipelineVectorizedAt?: string;
+  lastAllyVectorizedAt?: string;
 }
 
 const DEFAULT_CONFIG: ChatConfig = {
@@ -30,12 +33,18 @@ export default function ChatSettings() {
   const [config, setConfig] = useState<ChatConfig>(DEFAULT_CONFIG);
   const [saving, setSaving] = useState(false);
   const [vectorizing, setVectorizing] = useState(false);
+  const [vectorizingOffers, setVectorizingOffers] = useState(false);
+  const [vectorizingPipeline, setVectorizingPipeline] = useState(false);
+  const [vectorizingAllies, setVectorizingAllies] = useState(false);
   const [vectorProgress, setVectorProgress] = useState<{ processed: number; total: number; errors: number } | null>(null);
   const [embeddingCount, setEmbeddingCount] = useState<number>(0);
+  const [offerEmbeddingCount, setOfferEmbeddingCount] = useState<number>(0);
+  const [pipelineEmbeddingCount, setPipelineEmbeddingCount] = useState<number>(0);
+  const [allyEmbeddingCount, setAllyEmbeddingCount] = useState<number>(0);
 
   useEffect(() => {
     loadConfig();
-    loadEmbeddingCount();
+    loadEmbeddingCounts();
   }, []);
 
   const loadConfig = async () => {
@@ -49,11 +58,17 @@ export default function ChatSettings() {
     }
   };
 
-  const loadEmbeddingCount = async () => {
-    const { count } = await supabase
-      .from('company_embeddings')
-      .select('id', { count: 'exact', head: true });
-    setEmbeddingCount(count || 0);
+  const loadEmbeddingCounts = async () => {
+    const [c1, c2, c3, c4] = await Promise.all([
+      supabase.from('company_embeddings').select('id', { count: 'exact', head: true }),
+      supabase.from('offer_embeddings').select('id', { count: 'exact', head: true }),
+      supabase.from('pipeline_embeddings').select('id', { count: 'exact', head: true }),
+      supabase.from('ally_embeddings').select('id', { count: 'exact', head: true }),
+    ]);
+    setEmbeddingCount(c1.count || 0);
+    setOfferEmbeddingCount(c2.count || 0);
+    setPipelineEmbeddingCount(c3.count || 0);
+    setAllyEmbeddingCount(c4.count || 0);
   };
 
   const handleSave = async () => {
@@ -73,18 +88,17 @@ export default function ChatSettings() {
     setVectorizing(true);
     setVectorProgress(null);
     try {
-      const { data, error } = await supabase.functions.invoke('vectorize-companies', { body: {} });
+      const { data, error } = await supabase.functions.invoke('vectorize-companies', { body: { mode: 'companies' } });
       if (error) throw error;
       setVectorProgress({ processed: data.processed, total: data.total, errors: data.errors });
 
-      // Update config with timestamp
       const updatedConfig = { ...config, lastVectorizedAt: new Date().toISOString(), totalVectorized: data.processed };
       setConfig(updatedConfig);
       await supabase
         .from('feature_settings')
         .upsert({ feature_key: 'company_chat', config: updatedConfig as any, updated_at: new Date().toISOString() }, { onConflict: 'feature_key' });
 
-      loadEmbeddingCount();
+      loadEmbeddingCounts();
       showSuccess('Vectorización completa', `${data.processed} empresas procesadas en ${(data.duration_ms / 1000).toFixed(1)}s`);
     } catch (err) {
       showError('Error', err instanceof Error ? err.message : 'Error al vectorizar');
@@ -93,13 +107,34 @@ export default function ChatSettings() {
     }
   };
 
+  const handleVectorizeMode = async (mode: 'offers' | 'pipeline' | 'allies', setLoading: (v: boolean) => void, configKey: string, label: string) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('vectorize-companies', { body: { mode } });
+      if (error) throw error;
+
+      const updatedConfig = { ...config, [configKey]: new Date().toISOString() };
+      setConfig(updatedConfig);
+      await supabase
+        .from('feature_settings')
+        .upsert({ feature_key: 'company_chat', config: updatedConfig as any, updated_at: new Date().toISOString() }, { onConflict: 'feature_key' });
+
+      loadEmbeddingCounts();
+      showSuccess('Vectorización completa', `${data.processed} ${label} procesados en ${(data.duration_ms / 1000).toFixed(1)}s`);
+    } catch (err) {
+      showError('Error', err instanceof Error ? err.message : 'Error al vectorizar');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      {/* Vectorization */}
+      {/* Vectorization - Companies */}
       <div className="rounded-xl border border-border bg-card p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-semibold flex items-center gap-2"><Database className="h-4 w-4" />Base vectorial</h3>
+            <h3 className="text-sm font-semibold flex items-center gap-2"><Database className="h-4 w-4" />Base vectorial - Empresas</h3>
             <p className="text-xs text-muted-foreground mt-0.5">Genera embeddings de todas las empresas para habilitar el chat semántico</p>
           </div>
           <Badge variant="secondary" className="text-xs">
@@ -127,6 +162,59 @@ export default function ChatSettings() {
           {vectorizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
           {vectorizing ? 'Vectorizando...' : 'Vectorizar empresas'}
         </Button>
+      </div>
+
+      {/* Vectorization - Offers, Pipeline, Allies */}
+      <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+        <h3 className="text-sm font-semibold flex items-center gap-2"><Package className="h-4 w-4" />Base vectorial - Portafolio</h3>
+        <p className="text-xs text-muted-foreground">Vectoriza ofertas, pipeline y aliados para que el chat pueda consultar información del portafolio</p>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-lg border border-border/50 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium flex items-center gap-1.5"><Package className="h-3.5 w-3.5" /> Oferta</span>
+              <Badge variant="outline" className="text-[10px]">{offerEmbeddingCount}</Badge>
+            </div>
+            {config.lastOfferVectorizedAt && (
+              <p className="text-[10px] text-muted-foreground">{new Date(config.lastOfferVectorizedAt).toLocaleString('es-CO')}</p>
+            )}
+            <Button size="sm" variant="outline" className="w-full gap-1.5" disabled={vectorizingOffers}
+              onClick={() => handleVectorizeMode('offers', setVectorizingOffers, 'lastOfferVectorizedAt', 'ofertas')}>
+              {vectorizingOffers ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+              Vectorizar Oferta
+            </Button>
+          </div>
+
+          <div className="rounded-lg border border-border/50 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium flex items-center gap-1.5"><GitBranch className="h-3.5 w-3.5" /> Pipeline</span>
+              <Badge variant="outline" className="text-[10px]">{pipelineEmbeddingCount}</Badge>
+            </div>
+            {config.lastPipelineVectorizedAt && (
+              <p className="text-[10px] text-muted-foreground">{new Date(config.lastPipelineVectorizedAt).toLocaleString('es-CO')}</p>
+            )}
+            <Button size="sm" variant="outline" className="w-full gap-1.5" disabled={vectorizingPipeline}
+              onClick={() => handleVectorizeMode('pipeline', setVectorizingPipeline, 'lastPipelineVectorizedAt', 'pipelines')}>
+              {vectorizingPipeline ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+              Vectorizar Pipeline
+            </Button>
+          </div>
+
+          <div className="rounded-lg border border-border/50 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> Aliados</span>
+              <Badge variant="outline" className="text-[10px]">{allyEmbeddingCount}</Badge>
+            </div>
+            {config.lastAllyVectorizedAt && (
+              <p className="text-[10px] text-muted-foreground">{new Date(config.lastAllyVectorizedAt).toLocaleString('es-CO')}</p>
+            )}
+            <Button size="sm" variant="outline" className="w-full gap-1.5" disabled={vectorizingAllies}
+              onClick={() => handleVectorizeMode('allies', setVectorizingAllies, 'lastAllyVectorizedAt', 'aliados')}>
+              {vectorizingAllies ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+              Vectorizar Aliados
+            </Button>
+          </div>
+        </div>
       </div>
 
       {/* Model config */}

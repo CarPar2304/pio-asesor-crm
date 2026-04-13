@@ -32,11 +32,22 @@ serve(async (req) => {
     const config = settingsRow?.config || {};
     const embeddingModel = (config as any).embeddingModel || "text-embedding-3-small";
 
+    let body: any = {};
+    try { body = await req.json(); } catch { /* no body */ }
+
+    const mode = body?.mode || "companies"; // "companies" | "offers" | "pipeline" | "allies"
+
+    if (mode === "offers") {
+      return await vectorizeOffers(supabase, openai, embeddingModel, startTime);
+    } else if (mode === "pipeline") {
+      return await vectorizePipeline(supabase, openai, embeddingModel, startTime);
+    } else if (mode === "allies") {
+      return await vectorizeAllies(supabase, openai, embeddingModel, startTime);
+    }
+
+    // Default: companies
     let companyIds: string[] | null = null;
-    try {
-      const body = await req.json();
-      if (body?.companyIds?.length) companyIds = body.companyIds;
-    } catch { /* no body */ }
+    if (body?.companyIds?.length) companyIds = body.companyIds;
 
     let query = supabase.from("companies").select("*");
     if (companyIds) {
@@ -52,7 +63,6 @@ serve(async (req) => {
 
     const companyIdsList = companies.map((c) => c.id);
 
-    // Fetch all related data in parallel
     const [
       { data: contacts },
       { data: customProps },
@@ -75,7 +85,6 @@ serve(async (req) => {
       supabase.from("profiles").select("user_id, name"),
     ]);
 
-    // Build lookup maps
     const stageMap = new Map((pipelineStages || []).map((s) => [s.id, s]));
     const offerMap = new Map((offers || []).map((o) => [o.id, o]));
     const profileMap = new Map((profiles || []).map((p) => [p.user_id, p.name]));
@@ -95,7 +104,6 @@ serve(async (req) => {
       if (company.website) parts.push(`Sitio web: ${company.website}`);
       if (company.exports_usd) parts.push(`Exportaciones USD: ${company.exports_usd}`);
 
-      // Sales by year
       if (company.sales_by_year && typeof company.sales_by_year === "object") {
         const salesEntries = Object.entries(company.sales_by_year as Record<string, number>)
           .filter(([, v]) => v > 0)
@@ -105,7 +113,6 @@ serve(async (req) => {
         }
       }
 
-      // Contacts
       const compContacts = contacts?.filter((c) => c.company_id === company.id) || [];
       if (compContacts.length > 0) {
         const contactText = compContacts
@@ -119,14 +126,12 @@ serve(async (req) => {
         parts.push(`Contactos: ${contactText}`);
       }
 
-      // Custom properties
       const compProps = customProps?.filter((p) => p.company_id === company.id) || [];
       if (compProps.length > 0) {
         const propsText = compProps.map((p) => `${p.name}: ${p.value || ""}`).join("; ");
         parts.push(`Propiedades: ${propsText}`);
       }
 
-      // Actions (last 10)
       const compActions = (actions || []).filter((a) => a.company_id === company.id).slice(0, 10);
       if (compActions.length > 0) {
         const actionsText = compActions
@@ -135,7 +140,6 @@ serve(async (req) => {
         parts.push(`Acciones recientes: ${actionsText}`);
       }
 
-      // Milestones (last 10)
       const compMilestones = (milestones || []).filter((m) => m.company_id === company.id).slice(0, 10);
       if (compMilestones.length > 0) {
         const milestonesText = compMilestones
@@ -144,7 +148,6 @@ serve(async (req) => {
         parts.push(`Hitos: ${milestonesText}`);
       }
 
-      // Tasks (last 10)
       const compTasks = (tasks || []).filter((t) => t.company_id === company.id).slice(0, 10);
       if (compTasks.length > 0) {
         const tasksText = compTasks
@@ -157,7 +160,6 @@ serve(async (req) => {
         parts.push(`Tareas: ${tasksText}`);
       }
 
-      // Pipeline entries
       const compPipeline = (pipelineEntries || []).filter((pe) => pe.company_id === company.id);
       if (compPipeline.length > 0) {
         const pipelineText = compPipeline
@@ -174,54 +176,12 @@ serve(async (req) => {
       companyTexts.push({ companyId: company.id, content: parts.join("\n") });
     }
 
-    // Batch embed in groups of 50
-    const BATCH_SIZE = 50;
-    let processed = 0;
-    let errors = 0;
-
-    for (let i = 0; i < companyTexts.length; i += BATCH_SIZE) {
-      const batch = companyTexts.slice(i, i + BATCH_SIZE);
-
-      try {
-        const embeddingResponse = await openai.embeddings.create({
-          model: embeddingModel,
-          input: batch.map((b) => b.content),
-        });
-
-        for (let j = 0; j < batch.length; j++) {
-          const embedding = embeddingResponse.data[j].embedding;
-          const { error: upsertErr } = await supabase.from("company_embeddings").upsert(
-            {
-              company_id: batch[j].companyId,
-              content: batch[j].content,
-              embedding: JSON.stringify(embedding),
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: "company_id" }
-          );
-          if (upsertErr) {
-            console.error(`Error upserting embedding for ${batch[j].companyId}:`, upsertErr);
-            errors++;
-          } else {
-            processed++;
-          }
-        }
-      } catch (batchErr) {
-        console.error("Batch embedding error:", batchErr);
-        errors += batch.length;
-      }
-    }
+    const result = await batchEmbed(supabase, openai, embeddingModel, companyTexts.map(c => ({ id: c.companyId, content: c.content })), "company_embeddings", "company_id");
 
     const duration = Date.now() - startTime;
 
     return new Response(
-      JSON.stringify({
-        processed,
-        errors,
-        total: companyTexts.length,
-        duration_ms: duration,
-        embeddingModel,
-      }),
+      JSON.stringify({ ...result, total: companyTexts.length, duration_ms: duration, embeddingModel }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
@@ -232,3 +192,219 @@ serve(async (req) => {
     );
   }
 });
+
+async function batchEmbed(
+  supabase: any,
+  openai: OpenAI,
+  embeddingModel: string,
+  items: { id: string; content: string }[],
+  table: string,
+  idColumn: string,
+) {
+  const BATCH_SIZE = 50;
+  let processed = 0;
+  let errors = 0;
+
+  for (let i = 0; i < items.length; i += BATCH_SIZE) {
+    const batch = items.slice(i, i + BATCH_SIZE);
+    try {
+      const embeddingResponse = await openai.embeddings.create({
+        model: embeddingModel,
+        input: batch.map((b) => b.content),
+      });
+
+      for (let j = 0; j < batch.length; j++) {
+        const embedding = embeddingResponse.data[j].embedding;
+        const { error: upsertErr } = await supabase.from(table).upsert(
+          {
+            [idColumn]: batch[j].id,
+            content: batch[j].content,
+            embedding: JSON.stringify(embedding),
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: idColumn }
+        );
+        if (upsertErr) {
+          console.error(`Error upserting ${table} for ${batch[j].id}:`, upsertErr);
+          errors++;
+        } else {
+          processed++;
+        }
+      }
+    } catch (batchErr) {
+      console.error("Batch embedding error:", batchErr);
+      errors += batch.length;
+    }
+  }
+
+  return { processed, errors };
+}
+
+async function vectorizeOffers(supabase: any, openai: OpenAI, embeddingModel: string, startTime: number) {
+  const [
+    { data: offers },
+    { data: stages },
+    { data: categories },
+    { data: offerAllies },
+    { data: allies },
+  ] = await Promise.all([
+    supabase.from("portfolio_offers").select("*"),
+    supabase.from("pipeline_stages").select("*").order("display_order"),
+    supabase.from("portfolio_offer_categories").select("*"),
+    supabase.from("offer_allies").select("*"),
+    supabase.from("allies").select("*"),
+  ]);
+
+  if (!offers?.length) {
+    return new Response(JSON.stringify({ processed: 0, message: "No offers found", duration_ms: Date.now() - startTime }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  const categoryMap = new Map((categories || []).map((c: any) => [c.id, c]));
+  const allyMap = new Map((allies || []).map((a: any) => [a.id, a]));
+
+  const items = offers.map((offer: any) => {
+    const parts: string[] = [];
+    parts.push(`Oferta: ${offer.name}`);
+    if (offer.description) parts.push(`Descripción: ${offer.description}`);
+    parts.push(`Producto: ${offer.product || "N/A"}`);
+    const cat = offer.category_id ? categoryMap.get(offer.category_id) : null;
+    if (cat) parts.push(`Categoría de oferta: ${cat.name}`);
+    parts.push(`Estado: ${offer.status}`);
+    parts.push(`Tipo: ${offer.type}`);
+    if (offer.start_date) parts.push(`Inicio: ${offer.start_date}`);
+    if (offer.end_date) parts.push(`Fin: ${offer.end_date}`);
+
+    const offerStages = (stages || []).filter((s: any) => s.offer_id === offer.id);
+    if (offerStages.length > 0) {
+      parts.push(`Etapas del pipeline: ${offerStages.map((s: any) => s.name).join(" → ")}`);
+    }
+
+    const linkedAllies = (offerAllies || []).filter((oa: any) => oa.offer_id === offer.id);
+    if (linkedAllies.length > 0) {
+      const allyNames = linkedAllies.map((oa: any) => allyMap.get(oa.ally_id)?.name).filter(Boolean);
+      if (allyNames.length > 0) parts.push(`Aliados vinculados: ${allyNames.join(", ")}`);
+    }
+
+    return { id: offer.id, content: parts.join("\n") };
+  });
+
+  const result = await batchEmbed(supabase, openai, embeddingModel, items, "offer_embeddings", "offer_id");
+
+  return new Response(
+    JSON.stringify({ ...result, total: items.length, duration_ms: Date.now() - startTime, embeddingModel }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
+async function vectorizePipeline(supabase: any, openai: OpenAI, embeddingModel: string, startTime: number) {
+  const [
+    { data: offers },
+    { data: entries },
+    { data: stages },
+    { data: companies },
+    { data: profiles },
+  ] = await Promise.all([
+    supabase.from("portfolio_offers").select("id, name, product"),
+    supabase.from("pipeline_entries").select("*"),
+    supabase.from("pipeline_stages").select("*").order("display_order"),
+    supabase.from("companies").select("id, trade_name, nit, category, vertical, city"),
+    supabase.from("profiles").select("user_id, name"),
+  ]);
+
+  if (!offers?.length) {
+    return new Response(JSON.stringify({ processed: 0, message: "No offers found", duration_ms: Date.now() - startTime }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  const companyMap = new Map((companies || []).map((c: any) => [c.id, c]));
+  const profileMap = new Map((profiles || []).map((p: any) => [p.user_id, p.name]));
+  const stageMap = new Map((stages || []).map((s: any) => [s.id, s]));
+
+  const items = offers.map((offer: any) => {
+    const offerEntries = (entries || []).filter((e: any) => e.offer_id === offer.id);
+    const offerStages = (stages || []).filter((s: any) => s.offer_id === offer.id);
+
+    const parts: string[] = [];
+    parts.push(`Pipeline de oferta: ${offer.name} (Producto: ${offer.product || "N/A"})`);
+    parts.push(`Total empresas en pipeline: ${offerEntries.length}`);
+    parts.push(`Etapas: ${offerStages.map((s: any) => s.name).join(" → ")}`);
+
+    // Group entries by stage
+    for (const stage of offerStages) {
+      const stageEntries = offerEntries.filter((e: any) => e.stage_id === stage.id);
+      if (stageEntries.length === 0) continue;
+      const companyNames = stageEntries.map((e: any) => {
+        const company = companyMap.get(e.company_id);
+        const assignedName = e.assigned_to ? (profileMap.get(e.assigned_to) || "") : "";
+        return `${company?.trade_name || "Desconocida"}${assignedName ? ` (Gestor: ${assignedName})` : ""}`;
+      });
+      parts.push(`\nEtapa "${stage.name}" (${stageEntries.length} empresas): ${companyNames.join(", ")}`);
+    }
+
+    return { id: offer.id, content: parts.join("\n") };
+  });
+
+  const result = await batchEmbed(supabase, openai, embeddingModel, items, "pipeline_embeddings", "offer_id");
+
+  return new Response(
+    JSON.stringify({ ...result, total: items.length, duration_ms: Date.now() - startTime, embeddingModel }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
+
+async function vectorizeAllies(supabase: any, openai: OpenAI, embeddingModel: string, startTime: number) {
+  const [
+    { data: allies },
+    { data: contacts },
+    { data: offerAllies },
+    { data: offers },
+  ] = await Promise.all([
+    supabase.from("allies").select("*"),
+    supabase.from("ally_contacts").select("*"),
+    supabase.from("offer_allies").select("*"),
+    supabase.from("portfolio_offers").select("id, name, product"),
+  ]);
+
+  if (!allies?.length) {
+    return new Response(JSON.stringify({ processed: 0, message: "No allies found", duration_ms: Date.now() - startTime }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
+  const offerMap = new Map((offers || []).map((o: any) => [o.id, o]));
+
+  const items = allies.map((ally: any) => {
+    const parts: string[] = [];
+    parts.push(`Aliado: ${ally.name}`);
+
+    const allyContacts = (contacts || []).filter((c: any) => c.ally_id === ally.id);
+    if (allyContacts.length > 0) {
+      const contactText = allyContacts.map((c: any) => {
+        const segs = [`${c.name}${c.position ? ` (${c.position})` : ""}`];
+        if (c.email) segs.push(`Email: ${c.email}`);
+        if (c.phone) segs.push(`Celular: ${c.phone}`);
+        if (c.is_primary) segs.push("(Contacto principal)");
+        return segs.join(" - ");
+      }).join("; ");
+      parts.push(`Contactos: ${contactText}`);
+    }
+
+    const linkedOffers = (offerAllies || []).filter((oa: any) => oa.ally_id === ally.id);
+    if (linkedOffers.length > 0) {
+      const offerNames = linkedOffers.map((oa: any) => {
+        const o = offerMap.get(oa.offer_id);
+        return o ? `${o.name} (${o.product || "N/A"})` : null;
+      }).filter(Boolean);
+      if (offerNames.length > 0) parts.push(`Ofertas vinculadas: ${offerNames.join(", ")}`);
+    }
+
+    return { id: ally.id, content: parts.join("\n") };
+  });
+
+  const result = await batchEmbed(supabase, openai, embeddingModel, items, "ally_embeddings", "ally_id");
+
+  return new Response(
+    JSON.stringify({ ...result, total: items.length, duration_ms: Date.now() - startTime, embeddingModel }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
