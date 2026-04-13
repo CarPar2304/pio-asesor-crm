@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/lib/toast';
 import { ExternalForm, ExternalFormField, FORM_TYPE_LABELS, FORM_STATUS_LABELS, FORM_STATUS_COLORS, FormStatus } from '@/types/externalForms';
@@ -12,16 +12,24 @@ import FormWizardDialog from '@/components/forms/FormWizardDialog';
 import FormResponsesDialog from '@/components/forms/FormResponsesDialog';
 import { useAuth } from '@/hooks/useAuth';
 
+interface OfferInfo { id: string; name: string; product: string; category_id: string | null; }
+interface CategoryInfo { id: string; name: string; }
+
 export default function FormsPage() {
   const { session } = useAuth();
   const [forms, setForms] = useState<ExternalForm[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterType, setFilterType] = useState<string>('all');
+  const [filterOffer, setFilterOffer] = useState<string>('all');
+  const [filterProduct, setFilterProduct] = useState<string>('all');
+  const [filterCategory, setFilterCategory] = useState<string>('all');
   const [search, setSearch] = useState('');
   const [wizardOpen, setWizardOpen] = useState(false);
   const [editingForm, setEditingForm] = useState<ExternalForm | null>(null);
   const [responsesFormId, setResponsesFormId] = useState<string | null>(null);
+  const [offers, setOffers] = useState<OfferInfo[]>([]);
+  const [categories, setCategories] = useState<CategoryInfo[]>([]);
 
   const loadForms = useCallback(async () => {
     setLoading(true);
@@ -33,10 +41,35 @@ export default function FormsPage() {
 
   useEffect(() => { loadForms(); }, [loadForms]);
 
+  useEffect(() => {
+    supabase.from('portfolio_offers').select('id, name, product, category_id').order('name').then(({ data }) => setOffers((data || []) as OfferInfo[]));
+    supabase.from('portfolio_offer_categories').select('id, name').order('name').then(({ data }) => setCategories((data || []) as CategoryInfo[]));
+  }, []);
+
+  // Derived: unique products from offers that have linked forms
+  const linkedOfferIds = useMemo(() => new Set(forms.filter(f => f.linked_offer_id).map(f => f.linked_offer_id!)), [forms]);
+  const linkedOffers = useMemo(() => offers.filter(o => linkedOfferIds.has(o.id)), [offers, linkedOfferIds]);
+  const uniqueProducts = useMemo(() => [...new Set(linkedOffers.map(o => o.product).filter(Boolean))], [linkedOffers]);
+  const uniqueCategoryIds = useMemo(() => [...new Set(linkedOffers.map(o => o.category_id).filter(Boolean) as string[])], [linkedOffers]);
+
   const filtered = forms.filter(f => {
     if (filterStatus !== 'all' && f.status !== filterStatus) return false;
     if (filterType !== 'all' && f.form_type !== filterType) return false;
     if (search && !f.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (filterOffer !== 'all') {
+      if (filterOffer === '__none') { if (f.linked_offer_id) return false; }
+      else { if (f.linked_offer_id !== filterOffer) return false; }
+    }
+    if (filterProduct !== 'all') {
+      if (!f.linked_offer_id) return false;
+      const offer = offers.find(o => o.id === f.linked_offer_id);
+      if (!offer || offer.product !== filterProduct) return false;
+    }
+    if (filterCategory !== 'all') {
+      if (!f.linked_offer_id) return false;
+      const offer = offers.find(o => o.id === f.linked_offer_id);
+      if (!offer || offer.category_id !== filterCategory) return false;
+    }
     return true;
   });
 
@@ -134,6 +167,35 @@ export default function FormsPage() {
             <SelectItem value="creation">Creación</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={filterOffer} onValueChange={setFilterOffer}>
+          <SelectTrigger className="w-[160px] h-9"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas las ofertas</SelectItem>
+            <SelectItem value="__none">Sin oferta</SelectItem>
+            {linkedOffers.map(o => <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        {uniqueProducts.length > 0 && (
+          <Select value={filterProduct} onValueChange={setFilterProduct}>
+            <SelectTrigger className="w-[140px] h-9"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos productos</SelectItem>
+              {uniqueProducts.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
+        {uniqueCategoryIds.length > 0 && (
+          <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <SelectTrigger className="w-[140px] h-9"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas categorías</SelectItem>
+              {uniqueCategoryIds.map(cid => {
+                const cat = categories.find(c => c.id === cid);
+                return <SelectItem key={cid} value={cid}>{cat?.name || cid}</SelectItem>;
+              })}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {loading ? (

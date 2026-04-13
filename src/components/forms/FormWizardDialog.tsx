@@ -143,7 +143,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       setLinkedOfferId(editingForm.linked_offer_id || null);
       setLinkedStageId(editingForm.linked_stage_id || null);
       // Detect allowCreation from form_type
-      setAllowCreation(editingForm.form_type === 'creation' || (editingForm as any).allow_creation === true);
+      setAllowCreation(editingForm.allow_creation || false);
       supabase.from('external_form_fields').select('*').eq('form_id', editingForm.id).order('display_order')
         .then(({ data }) => {
           if (data) setFormFields(data.map((f: any) => ({ ...f, options: Array.isArray(f.options) ? f.options : [], only_for_new: f.only_for_new || false })));
@@ -327,7 +327,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
   }, [formFields]);
 
   // Show "only for new" option when form allows both existing + new companies
-  const showOnlyForNew = formType === 'update' && allowCreation;
+  const showOnlyForNew = (formType === 'update' || formType === 'collection') && allowCreation;
 
   // Extended field type options (add 'file' if not present)
   const extendedFieldTypeOptions = useMemo(() => {
@@ -350,6 +350,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
         primary_color: primaryColor, created_by: session?.user?.id,
         linked_offer_id: linkedOfferId || null,
         linked_stage_id: linkedStageId || null,
+        allow_creation: allowCreation,
       };
 
       let formId: string;
@@ -374,7 +375,8 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
           preload_from_crm: f.preload_from_crm, crm_table: f.crm_table, crm_column: f.crm_column,
           crm_field_id: f.crm_field_id, options: f.options, display_order: i,
           condition_field_key: f.condition_field_key || null,
-          condition_value: f.condition_value || null
+          condition_value: f.condition_value || null,
+          only_for_new: f.only_for_new || false,
         }));
         const { error } = await supabase.from('external_form_fields').insert(fieldsToInsert as any);
         if (error) throw error;
@@ -438,7 +440,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                 <Checkbox checked={allowCreation} onCheckedChange={v => setAllowCreation(!!v)} id="allow-creation" />
                 <div>
                   <label htmlFor="allow-creation" className="text-sm font-medium cursor-pointer">Permitir también crear empresas nuevas</label>
-                  <p className="text-[11px] text-muted-foreground">Si el NIT no existe en el CRM, permite crear la empresa desde el formulario. Los campos marcados como "Solo para nuevas" se mostrarán únicamente en ese caso.</p>
+                  <p className="text-[11px] text-muted-foreground">Si el NIT no existe en el CRM, permite crear la empresa desde el formulario. Los campos marcados como "Editable solo nuevas" serán visibles para todos pero solo editables para empresas nuevas.</p>
                 </div>
               </div>
             )}
@@ -683,7 +685,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                       {field.preload_from_crm && <Badge variant="outline" className="text-[9px]">CRM</Badge>}
                       {field.section_name && <Badge variant="secondary" className="text-[9px]">{field.section_name}</Badge>}
                       {field.condition_field_key && <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-200">Condicional</Badge>}
-                      {field.only_for_new && <Badge variant="outline" className="text-[9px] bg-emerald-50 text-emerald-700 border-emerald-200">Solo nuevas</Badge>}
+                      {field.only_for_new && <Badge variant="outline" className="text-[9px] bg-emerald-50 text-emerald-700 border-emerald-200">Editable solo nuevas</Badge>}
                     </div>
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeField(idx)}>
                       <Trash2 className="h-3 w-3 text-destructive" />
@@ -789,9 +791,9 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                       Visible
                     </label>
                     {showOnlyForNew && (
-                      <label className="flex items-center gap-1.5">
+                      <label className="flex items-center gap-1.5" title="El campo será visible para todos pero solo editable para empresas nuevas (NIT no encontrado)">
                         <Checkbox checked={!!field.only_for_new} onCheckedChange={v => updateField(idx, { only_for_new: !!v })} className="h-3.5 w-3.5" />
-                        Solo para nuevas
+                        Editable solo nuevas
                       </label>
                     )}
                   </div>

@@ -110,6 +110,7 @@ export default function PublicFormPage() {
   const [form, setForm] = useState<any>(null);
   const [fields, setFields] = useState<any[]>([]);
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const [isNewCompany, setIsNewCompany] = useState(false);
 
   // Check if creation form (skip identification)
   const [formMeta, setFormMeta] = useState<any>(null);
@@ -184,6 +185,7 @@ export default function PublicFormPage() {
     setForm(data.form);
     setFields(data.fields || []);
     setFormData(data.preloaded_data || {});
+    setIsNewCompany(data.is_new_company || false);
     setStep('form');
   };
 
@@ -332,9 +334,11 @@ export default function PublicFormPage() {
                         </Label>
                         {field.help_text && <p className="text-[11px] text-muted-foreground mb-1">{field.help_text}</p>}
 
-                        {field.is_readonly ? (
-                          <div className="rounded-md bg-muted px-3 py-2 text-sm">{formData[field.field_key] || '—'}</div>
-                        ) : field.field_type === 'long_text' ? (
+                        {(() => {
+                          const effectiveReadonly = field.is_readonly || (field.only_for_new && !isNewCompany);
+                          return effectiveReadonly ? (
+                            <div className="rounded-md bg-muted px-3 py-2 text-sm">{formData[field.field_key] || '—'}</div>
+                          ) : field.field_type === 'long_text' ? (
                           <Textarea value={formData[field.field_key] || ''} onChange={e => updateFormData(field.field_key, e.target.value)}
                             placeholder={field.placeholder} rows={3} />
                         ) : field.field_type === 'select' ? (
@@ -363,7 +367,8 @@ export default function PublicFormPage() {
                             onChange={e => updateFormData(field.field_key, e.target.value)}
                             placeholder={field.placeholder}
                           />
-                        )}
+                        );
+                        })()}
                       </div>
                     ))}
                   </div>
