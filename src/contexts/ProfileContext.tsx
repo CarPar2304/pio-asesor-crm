@@ -85,8 +85,21 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   const fetchSegments = useCallback(async () => {
     if (!session) return;
-    const { data } = await supabase.from('segments').select('*').order('name');
-    setSegments((data || []).map((s: any) => ({ id: s.id, name: s.name })));
+    const [{ data: segData }, { data: catData }] = await Promise.all([
+      supabase.from('segments').select('*').order('name'),
+      supabase.from('crm_categories').select('id, name').order('name'),
+    ]);
+    const manualSegments = (segData || []).map((s: any) => ({ id: s.id, name: s.name }));
+    const categorySegments = (catData || []).map((c: any) => ({ id: `cat-${c.id}`, name: c.name }));
+    // Merge both, deduplicate by name
+    const merged = [...manualSegments];
+    for (const cat of categorySegments) {
+      if (!merged.some(s => s.name.toLowerCase() === cat.name.toLowerCase())) {
+        merged.push(cat);
+      }
+    }
+    merged.sort((a, b) => a.name.localeCompare(b.name));
+    setSegments(merged);
   }, [session]);
 
   const fetchNotifications = useCallback(async () => {
