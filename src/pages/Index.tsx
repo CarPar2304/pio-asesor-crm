@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCRM } from '@/contexts/CRMContext';
+import { usePortfolio } from '@/contexts/PortfolioContext';
 import { showSuccess } from '@/lib/toast';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { FilterState, DEFAULT_FILTERS } from '@/types/crm';
@@ -37,6 +38,7 @@ export default function Index() {
   const navigate = useNavigate();
   const { companies, loading, deleteCompany } = useCRM();
   const { fields } = useCustomFields();
+  const { entries: pipelineEntries } = usePortfolio();
   const [view, setView] = useState<'grid' | 'table'>('grid');
   const [page, setPage] = useState(() => {
     try {
@@ -102,6 +104,18 @@ export default function Index() {
       if (filters.nitFilter === 'has' && (!c.nit || c.nit === '0')) return false;
       if (filters.nitFilter === 'no' && c.nit && c.nit !== '0') return false;
 
+      // Offer/stage filter
+      if (filters.offerFilter && filters.offerFilter.length > 0) {
+        const companyPipelineEntries = pipelineEntries.filter(pe => pe.companyId === c.id);
+        const inAnyOffer = companyPipelineEntries.some(pe => filters.offerFilter.includes(pe.offerId));
+        if (!inAnyOffer) return false;
+
+        if (filters.stageFilter && filters.stageFilter.length > 0) {
+          const inAnyStage = companyPipelineEntries.some(pe => filters.stageFilter.includes(pe.stageId));
+          if (!inAnyStage) return false;
+        }
+      }
+
       // Sales filter uses latest year with data for each company
       const latestSales = getLatestSalesValue(c.salesByYear);
       if (filters.salesMin && (latestSales === null || latestSales < Number(filters.salesMin) * 1_000_000)) return false;
@@ -115,15 +129,20 @@ export default function Index() {
 
       const customFilters = filters.customFieldFilters || {};
       for (const [fieldId, filterValue] of Object.entries(customFilters)) {
-        if (!filterValue) continue;
+        if (!filterValue || (Array.isArray(filterValue) && filterValue.length === 0)) continue;
         const field = fields.find(f => f.id === fieldId);
         if (!field) continue;
         const val = (c.fieldValues || []).find(v => v.fieldId === fieldId);
         if (!val) return false;
         if (field.fieldType === 'select') {
-          if (val.textValue !== filterValue) return false;
+          if (Array.isArray(filterValue)) {
+            if (!filterValue.includes(val.textValue)) return false;
+          } else {
+            if (val.textValue !== filterValue) return false;
+          }
         } else {
-          if (!val.textValue.toLowerCase().includes(filterValue.toLowerCase())) return false;
+          const searchStr = Array.isArray(filterValue) ? filterValue[0] || '' : filterValue;
+          if (!val.textValue.toLowerCase().includes(searchStr.toLowerCase())) return false;
         }
       }
 
