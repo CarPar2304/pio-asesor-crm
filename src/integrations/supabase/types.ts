@@ -737,6 +737,8 @@ export type Database = {
       }
       external_form_fields: {
         Row: {
+          condition_field_key: string | null
+          condition_value: string | null
           created_at: string
           crm_column: string | null
           crm_field_id: string | null
@@ -758,6 +760,8 @@ export type Database = {
           section_name: string
         }
         Insert: {
+          condition_field_key?: string | null
+          condition_value?: string | null
           created_at?: string
           crm_column?: string | null
           crm_field_id?: string | null
@@ -779,6 +783,8 @@ export type Database = {
           section_name?: string
         }
         Update: {
+          condition_field_key?: string | null
+          condition_value?: string | null
           created_at?: string
           crm_column?: string | null
           crm_field_id?: string | null
