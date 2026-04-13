@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle2, AlertCircle, ShieldCheck, FlaskConical } from 'lucide-react';
+import logoCCC from '@/assets/logo-ccc.png';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -97,7 +98,6 @@ export default function PublicFormPage() {
         setCompanyName(data.company_name);
         setStep('code');
       } else {
-        // Load form directly
         await loadForm(data.session_token);
       }
     } catch (e: any) {
@@ -132,9 +132,9 @@ export default function PublicFormPage() {
   };
 
   const handleSubmit = async () => {
-    // Validate required fields
+    // Validate required fields (only visible ones considering conditions)
     for (const field of fields) {
-      if (field.is_required && field.is_visible && !formData[field.field_key]?.toString().trim()) {
+      if (field.is_required && isFieldVisible(field) && !formData[field.field_key]?.toString().trim()) {
         setErrorMsg(`El campo "${field.label}" es obligatorio`);
         return;
       }
@@ -161,15 +161,28 @@ export default function PublicFormPage() {
     setFormData(prev => ({ ...prev, [key]: value }));
   };
 
+  // Check if a field should be visible based on conditional logic
+  const isFieldVisible = (field: any) => {
+    if (!field.is_visible) return false;
+    if (!field.condition_field_key) return true;
+    const sourceValue = formData[field.condition_field_key];
+    if (field.condition_value === 'true') return !!sourceValue;
+    if (field.condition_value === 'false') return !sourceValue;
+    return String(sourceValue || '') === String(field.condition_value || '');
+  };
+
   const primaryColor = form?.primary_color || formMeta?.primary_color || '#4f46e5';
 
-  // Group fields by section
+  // Group fields by section (only visible ones)
   const sections = fields.reduce((acc: Record<string, any[]>, field) => {
     const section = field.section_name || 'General';
     if (!acc[section]) acc[section] = [];
-    if (field.is_visible) acc[section].push(field);
+    if (isFieldVisible(field)) acc[section].push(field);
     return acc;
   }, {});
+
+  // Filter out empty sections
+  const nonEmptySections = Object.entries(sections).filter(([, f]) => (f as any[]).length > 0);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4">
@@ -184,7 +197,7 @@ export default function PublicFormPage() {
         {step === 'identify' && (
           <>
             <CardHeader className="text-center">
-              {form?.logo_url && <img src={form.logo_url} alt="" className="h-12 mx-auto mb-2" />}
+              <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-12 mx-auto mb-2" />
               <CardTitle className="text-lg">{formMeta?.public_title || 'Verificación de identidad'}</CardTitle>
               <CardDescription>{formMeta?.public_subtitle || 'Ingresa tu NIT para continuar'}</CardDescription>
             </CardHeader>
@@ -212,6 +225,7 @@ export default function PublicFormPage() {
         {step === 'code' && (
           <>
             <CardHeader className="text-center">
+              <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-12 mx-auto mb-2" />
               <CardTitle className="text-lg">Código de verificación</CardTitle>
               <CardDescription>
                 Hemos enviado un código de verificación a <strong>{maskedEmail}</strong>
@@ -243,14 +257,14 @@ export default function PublicFormPage() {
         {step === 'form' && form && (
           <>
             <CardHeader>
-              {form.logo_url && <img src={form.logo_url} alt="" className="h-10 mb-2" />}
+              <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-10 mb-2" />
               <CardTitle className="text-lg">{form.public_title || form.name}</CardTitle>
               {form.public_subtitle && <CardDescription>{form.public_subtitle}</CardDescription>}
             </CardHeader>
             <CardContent className="space-y-6">
-              {Object.entries(sections).map(([sectionName, sectionFields]) => (
+              {nonEmptySections.map(([sectionName, sectionFields]) => (
                 <div key={sectionName}>
-                  {Object.keys(sections).length > 1 && (
+                  {nonEmptySections.length > 1 && (
                     <h3 className="text-sm font-semibold mb-3 text-foreground/80">{sectionName}</h3>
                   )}
                   <div className="space-y-3">

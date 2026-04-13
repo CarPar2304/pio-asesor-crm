@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Plus, Copy, Pencil, Archive, Play, Pause, Eye, BarChart3, FileText, Search, FlaskConical } from 'lucide-react';
+import { Plus, Copy, Pencil, Archive, Play, Pause, Eye, BarChart3, FileText, Search, FlaskConical, Trash2 } from 'lucide-react';
 import FormWizardDialog from '@/components/forms/FormWizardDialog';
 import FormResponsesDialog from '@/components/forms/FormResponsesDialog';
 import { useAuth } from '@/hooks/useAuth';
@@ -45,6 +45,20 @@ export default function FormsPage() {
     if (error) showError('Error', error.message);
     else {
       showSuccess('Estado actualizado', `${form.name} → ${FORM_STATUS_LABELS[newStatus]}`);
+      loadForms();
+    }
+  };
+
+  const handleDelete = async (form: ExternalForm) => {
+    if (!confirm(`¿Estás seguro de eliminar "${form.name}"? Esta acción no se puede deshacer.`)) return;
+    // Delete fields, responses, sessions, then form
+    await supabase.from('external_form_fields').delete().eq('form_id', form.id);
+    await supabase.from('external_form_responses').delete().eq('form_id', form.id);
+    await supabase.from('external_form_sessions').delete().eq('form_id', form.id);
+    const { error } = await supabase.from('external_forms').delete().eq('id', form.id);
+    if (error) showError('Error', error.message);
+    else {
+      showSuccess('Eliminado', `"${form.name}" fue eliminado`);
       loadForms();
     }
   };
@@ -198,6 +212,9 @@ export default function FormsPage() {
                         <Archive className="h-3.5 w-3.5 text-red-500" />
                       </Button>
                     )}
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDelete(form)} title="Eliminar">
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
                     {form.status === 'active' && (
                       <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => handleDuplicate(form)}>
                         Duplicar
