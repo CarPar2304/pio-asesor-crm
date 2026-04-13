@@ -80,6 +80,8 @@ export interface ExternalForm {
   target_segment: string | null;
   target_company_id: string | null;
   created_by: string | null;
+  linked_offer_id: string | null;
+  linked_stage_id: string | null;
   created_at: string;
   updated_at: string;
 }
