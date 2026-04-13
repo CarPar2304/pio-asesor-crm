@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Company, GENDER_LABELS, FIELD_TYPE_LABELS } from '@/types/crm';
+import { useState, useMemo } from 'react';
+import { Company, GENDER_LABELS } from '@/types/crm';
 import { calculateGrowth, formatCOP, formatPercentage, formatUSD, getLastYearSales } from '@/lib/calculations';
 import { useCRM } from '@/contexts/CRMContext';
 import { showSuccess } from '@/lib/toast';
@@ -7,6 +7,7 @@ import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowLeft, Phone, CheckSquare, Flag, Pencil, Mail, User, Star, Globe, Trash2, GitBranch, FileDown } from 'lucide-react';
 import { exportProfileToPdf } from '@/lib/exportProfilePdf';
@@ -41,7 +42,6 @@ export default function CompanyProfile({ company, onBack }: Props) {
   const { avgYoY, lastYoY } = calculateGrowth(company.salesByYear);
   const lastSales = getLastYearSales(company.salesByYear);
   const salesYears = Object.keys(company.salesByYear).map(Number).sort();
-  const primaryContact = company.contacts.find(c => c.isPrimary);
 
   const getFieldValueDisplay = (fieldId: string) => {
     const val = (company.fieldValues || []).find(v => v.fieldId === fieldId);
@@ -57,12 +57,46 @@ export default function CompanyProfile({ company, onBack }: Props) {
     return val.textValue || null;
   };
 
+  // Find "Tipo de Cliente" field to show in metrics row
+  const tipoClienteField = fields.find(f => f.name.toLowerCase().includes('tipo de cliente'));
+  const tipoClienteValue = tipoClienteField ? getFieldValueDisplay(tipoClienteField.id) : null;
+
+  // Build tabs: custom sections with data + pipeline + activity
+  const tabItems = useMemo(() => {
+    const items: { id: string; label: string; type: 'section' | 'pipeline' | 'activity' }[] = [];
+
+    // Custom sections that have data (excluding "Tipo de Cliente" field from unsectioned)
+    const unsectionedFields = fields.filter(f => !f.sectionId && f.id !== tipoClienteField?.id);
+    const hasUnsectioned = unsectionedFields.some(f => getFieldValueDisplay(f.id));
+    if (hasUnsectioned) {
+      items.push({ id: '__unsectioned', label: 'Campos personalizados', type: 'section' });
+    }
+
+    sections.forEach(s => {
+      const sectionFields = fields.filter(f => f.sectionId === s.id);
+      const hasData = sectionFields.some(f => getFieldValueDisplay(f.id));
+      if (hasData) {
+        items.push({ id: s.id, label: s.name, type: 'section' });
+      }
+    });
+
+    // Pipeline notes always as tab
+    items.push({ id: '__pipeline', label: 'Pipeline', type: 'pipeline' });
+    // Activity always as tab
+    items.push({ id: '__activity', label: 'Actividad', type: 'activity' });
+
+    return items;
+  }, [company, sections, fields]);
+
+  const defaultTab = tabItems.length > 0 ? tabItems[0].id : '__activity';
+
   return (
     <div className="container max-w-4xl py-6 animate-fade-in">
       <Button variant="ghost" size="sm" onClick={onBack} className="mb-4 gap-1.5 text-muted-foreground">
         <ArrowLeft className="h-3.5 w-3.5" /> Volver al CRM
       </Button>
 
+      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex items-start gap-4">
           {company.logo ? (
@@ -120,16 +154,18 @@ export default function CompanyProfile({ company, onBack }: Props) {
 
       <Separator className="my-6" />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/* Metrics — fixed section, now includes Tipo de Cliente */}
+      <div className={cn('grid gap-3', tipoClienteValue ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4')}>
         <MetricCard label={lastSales ? `Ventas ${lastSales.year} (COP)` : 'Ventas (COP)'} value={lastSales ? formatCOP(lastSales.value) : '—'} />
         <MetricCard label="Avg YoY" value={formatPercentage(avgYoY)} positive={avgYoY !== null ? avgYoY > 0 : null} />
         <MetricCard label="Último YoY" value={formatPercentage(lastYoY)} positive={lastYoY !== null ? lastYoY > 0 : null} />
         <MetricCard label="Exportaciones" value={company.exportsUSD > 0 ? formatUSD(company.exportsUSD) : '—'} />
+        {tipoClienteValue && <MetricCard label="Tipo de Cliente" value={tipoClienteValue} />}
       </div>
 
       <Separator className="my-6" />
 
-      {/* Contacts */}
+      {/* Contacts — fixed section */}
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Contactos</h2>
         {company.contacts.length === 0 ? (
@@ -161,7 +197,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
 
       <Separator className="my-6" />
 
-      {/* Metrics by year */}
+      {/* Sales by year — fixed section */}
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Métricas por año</h2>
         <SalesChart salesByYear={company.salesByYear} />
@@ -200,71 +236,45 @@ export default function CompanyProfile({ company, onBack }: Props) {
         )}
       </section>
 
-      {/* Custom sections & fields */}
-      {(() => {
-        const unsectionedFields = fields.filter(f => !f.sectionId);
-        const hasUnsectioned = unsectionedFields.some(f => getFieldValueDisplay(f.id));
-        const sectionsWithData = sections.filter(s => fields.filter(f => f.sectionId === s.id).some(f => getFieldValueDisplay(f.id)));
+      <Separator className="my-6" />
 
-        if (!hasUnsectioned && sectionsWithData.length === 0) return null;
-
-        return (
-          <>
-            {hasUnsectioned && (
-              <>
-                <Separator className="my-6" />
-                <section>
-                  <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Campos personalizados</h2>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {unsectionedFields.map(f => {
-                      const display = getFieldValueDisplay(f.id);
-                      if (!display) return null;
-                      return (
-                        <div key={f.id} className="rounded-lg border border-border/50 p-3">
-                          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{f.name}</p>
-                          <p className="mt-1 text-sm font-medium">{display}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              </>
-            )}
-
-            {sectionsWithData.map(section => (
-              <div key={section.id}>
-                <Separator className="my-6" />
-                <section>
-                  <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">{section.name}</h2>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {fields.filter(f => f.sectionId === section.id).map(f => {
-                      const display = getFieldValueDisplay(f.id);
-                      if (!display) return null;
-                      return (
-                        <div key={f.id} className="rounded-lg border border-border/50 p-3">
-                          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{f.name}</p>
-                          <p className="mt-1 text-sm font-medium">{display}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              </div>
+      {/* Tabbed sections */}
+      {tabItems.length > 0 && (
+        <Tabs defaultValue={defaultTab} className="w-full">
+          <TabsList className="mb-4 flex flex-wrap h-auto gap-1">
+            {tabItems.map(tab => (
+              <TabsTrigger key={tab.id} value={tab.id} className="text-xs">
+                {tab.label}
+              </TabsTrigger>
             ))}
-          </>
-        );
-      })()}
+          </TabsList>
 
-      <Separator className="my-6" />
-
-      <CompanyPipelineNotes companyId={company.id} />
-
-      <Separator className="my-6" />
-
-      <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Actividad</h2>
-        <ActivityTimeline company={company} />
-      </section>
+          {tabItems.map(tab => (
+            <TabsContent key={tab.id} value={tab.id}>
+              {tab.type === 'section' && tab.id === '__unsectioned' && (
+                <UnsectionedFieldsTab
+                  company={company}
+                  fields={fields.filter(f => !f.sectionId && f.id !== tipoClienteField?.id)}
+                  getFieldValueDisplay={getFieldValueDisplay}
+                />
+              )}
+              {tab.type === 'section' && tab.id !== '__unsectioned' && (
+                <SectionFieldsTab
+                  company={company}
+                  sectionFields={fields.filter(f => f.sectionId === tab.id)}
+                  getFieldValueDisplay={getFieldValueDisplay}
+                />
+              )}
+              {tab.type === 'pipeline' && (
+                <CompanyPipelineNotes companyId={company.id} />
+              )}
+              {tab.type === 'activity' && (
+                <ActivityTimeline company={company} />
+              )}
+            </TabsContent>
+          ))}
+        </Tabs>
+      )}
 
       <QuickActionDialog type={quickAction} companyId={company.id} onClose={() => setQuickAction(null)} />
       <CompanyForm open={editOpen} onClose={() => setEditOpen(false)} company={company} />
@@ -280,6 +290,40 @@ function MetricCard({ label, value, positive }: { label: string; value: string; 
       <p className={cn('mt-1 text-lg font-bold', positive === true && 'text-success', positive === false && 'text-destructive')}>
         {value}
       </p>
+    </div>
+  );
+}
+
+function UnsectionedFieldsTab({ fields, getFieldValueDisplay }: { company: Company; fields: any[]; getFieldValueDisplay: (id: string) => string | null }) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {fields.map(f => {
+        const display = getFieldValueDisplay(f.id);
+        if (!display) return null;
+        return (
+          <div key={f.id} className="rounded-lg border border-border/50 p-3">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{f.name}</p>
+            <p className="mt-1 text-sm font-medium">{display}</p>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function SectionFieldsTab({ sectionFields, getFieldValueDisplay }: { company: Company; sectionFields: any[]; getFieldValueDisplay: (id: string) => string | null }) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {sectionFields.map(f => {
+        const display = getFieldValueDisplay(f.id);
+        if (!display) return null;
+        return (
+          <div key={f.id} className="rounded-lg border border-border/50 p-3">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{f.name}</p>
+            <p className="mt-1 text-sm font-medium">{display}</p>
+          </div>
+        );
+      })}
     </div>
   );
 }
