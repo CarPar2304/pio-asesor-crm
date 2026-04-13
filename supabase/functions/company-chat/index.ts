@@ -267,7 +267,32 @@ serve(async (req) => {
         .join("\n\n");
     }
 
+    // Fetch CRM categories, verticals and sub-verticals for disambiguation
+    const [{ data: crmCategories }, { data: crmVerticals }, { data: crmSubVerticals }] = await Promise.all([
+      supabase.from("crm_categories").select("name"),
+      supabase.from("crm_verticals").select("name"),
+      supabase.from("crm_sub_verticals").select("name"),
+    ]);
+
+    const categoryNames = (crmCategories || []).map((c: any) => c.name);
+    const verticalNames = (crmVerticals || []).map((v: any) => v.name);
+    const subVerticalNames = (crmSubVerticals || []).map((sv: any) => sv.name);
+
+    const taxonomyBlock = `TAXONOMÍA DEL CRM (usar para interpretar consultas):
+- Categorías de empresa: ${categoryNames.join(", ") || "Sin categorías"}
+- Verticales: ${verticalNames.join(", ") || "Sin verticales"}
+- Sub-verticales: ${subVerticalNames.join(", ") || "Sin sub-verticales"}`;
+
     const systemPrompt = `Eres un asistente inteligente del CRM "Pioneros Globales" de la Cámara de Comercio de Cali. Tu rol es ayudar a los asesores a consultar información sobre las empresas registradas en el sistema.
+
+${taxonomyBlock}
+
+REGLAS DE DESAMBIGUACIÓN (MUY IMPORTANTE):
+- Cuando el usuario mencione un término que coincida exactamente con una categoría, vertical o sub-vertical del CRM (listadas arriba), SIEMPRE interpreta la consulta como referida a esa clasificación del CRM, NO como un concepto general.
+  - Ejemplo: Si "Escaladora" es una categoría del CRM y el usuario dice "dame empresas escaladoras", debe filtrar por categoría "Escaladora", NO buscar empresas con modelo de negocio escalable.
+  - Ejemplo: Si "Startup" es una categoría y el usuario dice "startups de Cali", debe filtrar por categoría "Startup" y ciudad "Cali".
+- Si hay ambigüedad real (el término podría ser tanto una categoría/vertical como un concepto general), pregunta al usuario: "¿Te refieres a empresas de la categoría '[nombre]' del CRM, o a empresas que [concepto general]?"
+- Nunca asumas el significado general cuando existe una coincidencia con la taxonomía.
 
 REGLAS DE FORMATO:
 - Usa markdown para formatear tus respuestas
