@@ -300,12 +300,13 @@ export default function PublicFormPage() {
             <CardHeader className="text-center">
               <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-12 mx-auto mb-2 object-contain" />
               <CardTitle className="text-lg">{formMeta?.public_title || 'Verificación de identidad'}</CardTitle>
-              <CardDescription>{formMeta?.public_subtitle || 'Ingresa tu NIT para continuar'}</CardDescription>
+              <CardDescription>{formMeta?.public_subtitle || (formMeta?.verification_key_field === 'legal_name' ? 'Ingresa tu razón social para continuar' : 'Ingresa tu NIT para continuar')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label>NIT de la empresa</Label>
-                <Input value={keyValue} onChange={e => setKeyValue(e.target.value)} placeholder="Ej: 900123456"
+                <Label>{formMeta?.verification_key_field === 'legal_name' ? 'Razón social de la empresa' : 'NIT de la empresa'}</Label>
+                <Input value={keyValue} onChange={e => setKeyValue(e.target.value)} 
+                  placeholder={formMeta?.verification_key_field === 'legal_name' ? 'Ej: Mi Empresa S.A.S.' : 'Ej: 900123456'}
                   onKeyDown={e => e.key === 'Enter' && handleIdentify()} />
               </div>
               {errorMsg && (

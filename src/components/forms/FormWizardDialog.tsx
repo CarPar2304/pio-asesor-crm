@@ -521,6 +521,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="nit">NIT</SelectItem>
+                      <SelectItem value="legal_name">Razón social</SelectItem>
                       <SelectItem value="email">Email</SelectItem>
                     </SelectContent>
                   </Select>

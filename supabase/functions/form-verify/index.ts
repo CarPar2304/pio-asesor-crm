@@ -85,10 +85,17 @@ Deno.serve(async (req) => {
       if (keyField === "nit") {
         const { data } = await supabaseAdmin.from("companies").select("id, trade_name, nit").eq("nit", key_value).maybeSingle();
         company = data;
+      } else if (keyField === "legal_name") {
+        // Case-insensitive search by legal name
+        const { data } = await supabaseAdmin.from("companies").select("id, trade_name, nit, legal_name").ilike("legal_name", key_value.trim()).maybeSingle();
+        company = data;
       }
 
       if (form.form_type !== "creation" && !company) {
-        return jsonRes({ error: "No se encontró una empresa con ese NIT. Verifica e intenta de nuevo." }, 404);
+        const msg = keyField === "legal_name" 
+          ? "No se encontró una empresa con esa razón social. Verifica e intenta de nuevo." 
+          : "No se encontró una empresa con ese NIT. Verifica e intenta de nuevo.";
+        return jsonRes({ error: msg }, 404);
       }
 
       // If no verification needed
