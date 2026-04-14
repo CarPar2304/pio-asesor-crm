@@ -567,6 +567,36 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
               </div>
             </div>
 
+            {/* Quick add from CRM - at top for visibility */}
+            <div className="rounded-md border p-3">
+              <p className="text-[11px] font-medium text-muted-foreground mb-2">Agregar campos del CRM</p>
+              <div className="flex flex-wrap gap-1">
+                {CRM_FIELD_MAPPINGS.map(m => (
+                  <Button key={`${m.table}_${m.column}`} variant="outline" size="sm" className="h-6 text-[10px] px-2"
+                    onClick={() => addCrmField(m)} disabled={formFields.some(f => f.field_key === `${m.table}_${m.column}`)}>
+                    {m.label}
+                  </Button>
+                ))}
+              </div>
+              {Object.keys(customFieldsBySection).length > 0 && (
+                <>
+                  {Object.entries(customFieldsBySection).map(([sId, { section, fields: sFields }]) => (
+                    <div key={sId}>
+                      <p className="text-[11px] font-medium text-muted-foreground mt-3 mb-2">{section.name}</p>
+                      <div className="flex flex-wrap gap-1">
+                        {sFields.map(cf => (
+                          <Button key={cf.id} variant="outline" size="sm" className="h-6 text-[10px] px-2"
+                            onClick={() => addCustomCrmField(cf)} disabled={formFields.some(f => f.field_key === `custom_${cf.id}`)}>
+                            {cf.name}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
+
             {/* New Section Dialog (inline) */}
             {showNewSectionDialog && (
               <div className="rounded-md border-2 border-primary/30 bg-primary/5 p-4 space-y-3">
@@ -638,36 +668,6 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                 </div>
               </div>
             )}
-
-            {/* Quick add from CRM */}
-            <div className="rounded-md border p-3">
-              <p className="text-[11px] font-medium text-muted-foreground mb-2">Agregar campos del CRM</p>
-              <div className="flex flex-wrap gap-1">
-                {CRM_FIELD_MAPPINGS.map(m => (
-                  <Button key={`${m.table}_${m.column}`} variant="outline" size="sm" className="h-6 text-[10px] px-2"
-                    onClick={() => addCrmField(m)} disabled={formFields.some(f => f.field_key === `${m.table}_${m.column}`)}>
-                    {m.label}
-                  </Button>
-                ))}
-              </div>
-              {Object.keys(customFieldsBySection).length > 0 && (
-                <>
-                  {Object.entries(customFieldsBySection).map(([sId, { section, fields: sFields }]) => (
-                    <div key={sId}>
-                      <p className="text-[11px] font-medium text-muted-foreground mt-3 mb-2">{section.name}</p>
-                      <div className="flex flex-wrap gap-1">
-                        {sFields.map(cf => (
-                          <Button key={cf.id} variant="outline" size="sm" className="h-6 text-[10px] px-2"
-                            onClick={() => addCustomCrmField(cf)} disabled={formFields.some(f => f.field_key === `custom_${cf.id}`)}>
-                            {cf.name}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
 
             {/* Field list with drag and drop + auto-scroll */}
             <div
