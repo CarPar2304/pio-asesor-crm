@@ -130,8 +130,7 @@ function SalesByYearField({ value, onChange }: { value: Record<string, number> |
   );
 }
 
-
-  const { slug } = useParams<{ slug: string }>();
+export default function PublicFormPage() {
   const [searchParams] = useSearchParams();
   const isTestMode = searchParams.get('test') === 'true';
   const testEmail = searchParams.get('test_email') || '';
