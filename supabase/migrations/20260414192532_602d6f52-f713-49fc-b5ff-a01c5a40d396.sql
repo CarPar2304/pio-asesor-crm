@@ -1,0 +1,2 @@
+ALTER TABLE public.external_form_fields DROP CONSTRAINT external_form_fields_field_type_check;
+ALTER TABLE public.external_form_fields ADD CONSTRAINT external_form_fields_field_type_check CHECK (field_type = ANY (ARRAY['short_text','long_text','number','email','phone','select','multiselect','date','checkbox','url','file','sales_by_year']));
