@@ -380,7 +380,23 @@ export default function PublicFormPage() {
                         {(() => {
                           const effectiveReadonly = field.is_readonly || (field.only_for_new && !isNewCompany);
                           return effectiveReadonly ? (
-                            <div className="rounded-md bg-muted px-3 py-2 text-sm">{formData[field.field_key] || '—'}</div>
+                            field.field_type === 'sales_by_year' ? (
+                              <div className="rounded-md bg-muted px-3 py-2 text-sm space-y-1">
+                                {Object.entries(formData[field.field_key] || {}).sort(([a],[b]) => Number(a) - Number(b)).map(([y, v]) => (
+                                  <div key={y} className="flex justify-between"><span>{y}</span><span>{new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(v))}</span></div>
+                                ))}
+                                {(!formData[field.field_key] || Object.keys(formData[field.field_key]).length === 0) && <span>—</span>}
+                              </div>
+                            ) : field.field_type === 'file' && formData[field.field_key] ? (
+                              <img src={formData[field.field_key]} alt="Logo" className="h-16 w-16 object-contain rounded-md border" />
+                            ) : (
+                              <div className="rounded-md bg-muted px-3 py-2 text-sm">{formData[field.field_key] || '—'}</div>
+                            )
+                          ) : field.field_type === 'sales_by_year' ? (
+                            <SalesByYearField
+                              value={formData[field.field_key] || null}
+                              onChange={(val) => updateFormData(field.field_key, val)}
+                            />
                           ) : field.field_type === 'long_text' ? (
                           <Textarea value={formData[field.field_key] || ''} onChange={e => updateFormData(field.field_key, e.target.value)}
                             placeholder={field.placeholder} rows={3} />
