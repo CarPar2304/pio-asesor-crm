@@ -252,7 +252,13 @@ Deno.serve(async (req) => {
         for (const field of fields) {
           if (!field.preload_from_crm) continue;
           if (field.crm_table === "companies" && field.crm_column && company) {
-            preloadedData[field.field_key] = (company as any)[field.crm_column] ?? "";
+            const val = (company as any)[field.crm_column];
+            // For sales_by_year, pass the JSON object directly
+            if (field.crm_column === "sales_by_year") {
+              preloadedData[field.field_key] = val || {};
+            } else {
+              preloadedData[field.field_key] = val ?? "";
+            }
           } else if (field.crm_table === "contacts" && field.crm_column) {
             const primary = contacts?.find((c: any) => c.is_primary) || contacts?.[0];
             if (primary) preloadedData[field.field_key] = (primary as any)[field.crm_column] ?? "";
@@ -311,7 +317,18 @@ Deno.serve(async (req) => {
 
           if (field.crm_table === "companies" && field.crm_column && company) {
             const oldVal = (company as any)[field.crm_column];
-            if (String(oldVal) !== String(newVal)) {
+            // For sales_by_year, handle as JSON merge
+            if (field.crm_column === "sales_by_year" && typeof newVal === "object") {
+              const merged = { ...(oldVal || {}), ...newVal };
+              if (JSON.stringify(oldVal || {}) !== JSON.stringify(merged)) {
+                companyUpdates[field.crm_column] = merged;
+                auditEntries.push({
+                  response_id: response!.id, company_id: companyId,
+                  field_key: field.field_key, field_label: field.label,
+                  old_value: JSON.stringify(oldVal || {}), new_value: JSON.stringify(merged)
+                });
+              }
+            } else if (String(oldVal ?? "") !== String(newVal)) {
               companyUpdates[field.crm_column] = newVal;
               auditEntries.push({
                 response_id: response!.id, company_id: companyId,

@@ -1,7 +1,7 @@
 export type FormType = 'update' | 'collection' | 'creation';
 export type FormStatus = 'draft' | 'active' | 'paused' | 'archived';
 export type VerificationMode = 'none' | 'key_only' | 'key_and_code';
-export type FormFieldType = 'short_text' | 'long_text' | 'number' | 'email' | 'phone' | 'select' | 'multiselect' | 'date' | 'checkbox' | 'url' | 'file';
+export type FormFieldType = 'short_text' | 'long_text' | 'number' | 'email' | 'phone' | 'select' | 'multiselect' | 'date' | 'checkbox' | 'url' | 'file' | 'sales_by_year';
 export type ResponseStatus = 'pending' | 'approved' | 'rejected' | 'applied';
 
 export const FORM_TYPE_LABELS: Record<FormType, string> = {
@@ -36,6 +36,7 @@ export const FIELD_TYPE_OPTIONS: { value: FormFieldType; label: string }[] = [
   { value: 'checkbox', label: 'Checkbox' },
   { value: 'url', label: 'URL' },
   { value: 'file', label: 'Archivo / Logo' },
+  { value: 'sales_by_year', label: 'Ventas por año' },
 ];
 
 export const CRM_FIELD_MAPPINGS = [
@@ -49,6 +50,8 @@ export const CRM_FIELD_MAPPINGS = [
   { table: 'companies', column: 'website', label: 'Sitio web' },
   { table: 'companies', column: 'exports_usd', label: 'Exportaciones USD' },
   { table: 'companies', column: 'category', label: 'Categoría' },
+  { table: 'companies', column: 'logo', label: 'Logo' },
+  { table: 'companies', column: 'sales_by_year', label: 'Ventas por año' },
   { table: 'contacts', column: 'name', label: 'Nombre contacto principal' },
   { table: 'contacts', column: 'email', label: 'Email contacto principal' },
   { table: 'contacts', column: 'phone', label: 'Teléfono contacto principal' },
