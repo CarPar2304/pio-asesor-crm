@@ -87,7 +87,50 @@ function FileUploadField({ value, onChange, placeholder }: { value: string | nul
   );
 }
 
-export default function PublicFormPage() {
+function SalesByYearField({ value, onChange }: { value: Record<string, number> | null; onChange: (v: Record<string, number>) => void }) {
+  const currentYear = new Date().getFullYear();
+  const data = value || {};
+  const years = Object.keys(data).map(Number).sort();
+  const allYears = years.length > 0 ? years : [currentYear - 2, currentYear - 1];
+  // Ensure we always show at least 3 recent years
+  const minYear = Math.min(...allYears, currentYear - 2);
+  const maxYear = Math.max(...allYears, currentYear - 1);
+  const displayYears: number[] = [];
+  for (let y = minYear; y <= maxYear; y++) displayYears.push(y);
+
+  const addYear = () => {
+    const next = displayYears.length > 0 ? Math.max(...displayYears) + 1 : currentYear;
+    onChange({ ...data, [next]: 0 });
+  };
+
+  const formatCOP = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
+
+  return (
+    <div className="space-y-2">
+      {displayYears.map(year => (
+        <div key={year} className="flex items-center gap-2">
+          <span className="text-xs font-medium w-12 text-right">{year}</span>
+          <Input
+            type="number"
+            className="flex-1"
+            placeholder="0"
+            value={data[year] || ''}
+            onChange={e => {
+              const v = e.target.value ? Number(e.target.value) : 0;
+              onChange({ ...data, [year]: v });
+            }}
+          />
+          {data[year] > 0 && <span className="text-[10px] text-muted-foreground w-28 truncate">{formatCOP(data[year])}</span>}
+        </div>
+      ))}
+      <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={addYear}>
+        + Agregar año
+      </Button>
+    </div>
+  );
+}
+
+
   const { slug } = useParams<{ slug: string }>();
   const [searchParams] = useSearchParams();
   const isTestMode = searchParams.get('test') === 'true';
