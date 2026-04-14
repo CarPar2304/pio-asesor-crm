@@ -221,8 +221,18 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
   const addCrmField = (mapping: typeof CRM_FIELD_MAPPINGS[0]) => {
     const key = `${mapping.table}_${mapping.column}`;
     if (formFields.find(f => f.field_key === key)) return;
+    // Auto-detect field type based on column
+    let fieldType: FormFieldType = 'short_text';
+    if (mapping.column === 'logo') fieldType = 'file';
+    else if (mapping.column === 'sales_by_year') fieldType = 'sales_by_year';
+    else if (mapping.column === 'exports_usd') fieldType = 'number';
+    else if (mapping.column === 'description') fieldType = 'long_text';
+    else if (mapping.column === 'website') fieldType = 'url';
+    else if (mapping.column === 'email') fieldType = 'email';
+    else if (mapping.column === 'phone') fieldType = 'phone';
+
     setFormFields(prev => [...prev, {
-      label: mapping.label, field_key: key, field_type: 'short_text', placeholder: '', help_text: '',
+      label: mapping.label, field_key: key, field_type: fieldType, placeholder: '', help_text: '',
       section_name: '', is_required: false, is_visible: true, is_editable: true, is_readonly: false,
       preload_from_crm: true, crm_table: mapping.table, crm_column: mapping.column, crm_field_id: null,
       options: [], display_order: prev.length,
