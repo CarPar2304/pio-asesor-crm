@@ -36,6 +36,7 @@ export const FIELD_TYPE_OPTIONS: { value: FormFieldType; label: string }[] = [
   { value: 'checkbox', label: 'Checkbox' },
   { value: 'url', label: 'URL' },
   { value: 'file', label: 'Archivo / Logo' },
+  { value: 'sales_by_year', label: 'Ventas por año' },
 ];
 
 export const CRM_FIELD_MAPPINGS = [
