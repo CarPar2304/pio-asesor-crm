@@ -50,6 +50,8 @@ export const CRM_FIELD_MAPPINGS = [
   { table: 'companies', column: 'website', label: 'Sitio web' },
   { table: 'companies', column: 'exports_usd', label: 'Exportaciones USD' },
   { table: 'companies', column: 'category', label: 'Categoría' },
+  { table: 'companies', column: 'logo', label: 'Logo' },
+  { table: 'companies', column: 'sales_by_year', label: 'Ventas por año' },
   { table: 'contacts', column: 'name', label: 'Nombre contacto principal' },
   { table: 'contacts', column: 'email', label: 'Email contacto principal' },
   { table: 'contacts', column: 'phone', label: 'Teléfono contacto principal' },
