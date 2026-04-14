@@ -1,7 +1,7 @@
 export type FormType = 'update' | 'collection' | 'creation';
 export type FormStatus = 'draft' | 'active' | 'paused' | 'archived';
 export type VerificationMode = 'none' | 'key_only' | 'key_and_code';
-export type FormFieldType = 'short_text' | 'long_text' | 'number' | 'email' | 'phone' | 'select' | 'multiselect' | 'date' | 'checkbox' | 'url' | 'file';
+export type FormFieldType = 'short_text' | 'long_text' | 'number' | 'email' | 'phone' | 'select' | 'multiselect' | 'date' | 'checkbox' | 'url' | 'file' | 'sales_by_year';
 export type ResponseStatus = 'pending' | 'approved' | 'rejected' | 'applied';
 
 export const FORM_TYPE_LABELS: Record<FormType, string> = {
