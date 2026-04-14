@@ -92,7 +92,10 @@ Deno.serve(async (req) => {
       }
 
       if (form.form_type !== "creation" && !company) {
-        return jsonRes({ error: "No se encontró una empresa con ese NIT. Verifica e intenta de nuevo." }, 404);
+        const msg = keyField === "legal_name" 
+          ? "No se encontró una empresa con esa razón social. Verifica e intenta de nuevo." 
+          : "No se encontró una empresa con ese NIT. Verifica e intenta de nuevo.";
+        return jsonRes({ error: msg }, 404);
       }
 
       // If no verification needed
