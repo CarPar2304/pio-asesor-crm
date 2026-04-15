@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle2, AlertCircle, ShieldCheck, FlaskConical, Upload, X } from 'lucide-react';
@@ -29,7 +30,7 @@ async function callFormApi(action: string, body?: any, params?: Record<string, s
   return res.json();
 }
 
-type Step = 'identify' | 'code' | 'form' | 'success' | 'error';
+type Step = 'identify' | 'select-contact' | 'code' | 'form' | 'success' | 'error';
 
 function FileUploadField({ value, onChange, placeholder }: { value: string | null; onChange: (v: string | null) => void; placeholder?: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -160,7 +161,9 @@ export default function PublicFormPage() {
   const [sessionToken, setSessionToken] = useState('');
   const [maskedEmail, setMaskedEmail] = useState('');
   const [companyName, setCompanyName] = useState('');
-  const [requiresCode, setRequiresCode] = useState(false);
+   const [requiresCode, setRequiresCode] = useState(false);
+   const [availableContacts, setAvailableContacts] = useState<{id: string; masked_email: string; position: string; is_primary: boolean}[]>([]);
+   const [selectedContactId, setSelectedContactId] = useState('');
 
   // Code
   const [code, setCode] = useState('');
@@ -209,7 +212,11 @@ export default function PublicFormPage() {
       if (data.error) { setErrorMsg(data.error); setLoading(false); return; }
 
       setSessionToken(data.session_token);
-      if (data.requires_code) {
+      if (data.requires_contact_selection) {
+        setAvailableContacts(data.contacts || []);
+        setCompanyName(data.company_name);
+        setStep('select-contact');
+      } else if (data.requires_code) {
         setRequiresCode(true);
         setMaskedEmail(data.masked_email);
         setCompanyName(data.company_name);
@@ -218,6 +225,23 @@ export default function PublicFormPage() {
         await loadForm(data.session_token);
       }
     } catch (e: any) {
+      setErrorMsg('Error de conexión');
+    }
+    setLoading(false);
+  };
+
+  const handleSelectContact = async () => {
+    if (!selectedContactId) { setErrorMsg('Selecciona un contacto'); return; }
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const data = await callFormApi('select-contact', { session_token: sessionToken, contact_id: selectedContactId });
+      if (data.error) { setErrorMsg(data.error); setLoading(false); return; }
+      setRequiresCode(true);
+      setMaskedEmail(data.masked_email);
+      setCompanyName(data.company_name);
+      setStep('code');
+    } catch {
       setErrorMsg('Error de conexión');
     }
     setLoading(false);
@@ -341,6 +365,44 @@ export default function PublicFormPage() {
                 style={{ backgroundColor: primaryColor }}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
                 Verificar
+              </Button>
+            </CardContent>
+          </>
+        )}
+
+        {/* Select contact step */}
+        {step === 'select-contact' && (
+          <>
+            <CardHeader className="text-center">
+              <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-12 mx-auto mb-2 object-contain" />
+              <CardTitle className="text-lg">Selecciona un contacto</CardTitle>
+              <CardDescription>
+                {companyName && <>Empresa: <strong>{companyName}</strong><br /></>}
+                Selecciona el correo electrónico donde deseas recibir el código de verificación
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <RadioGroup value={selectedContactId} onValueChange={setSelectedContactId} className="space-y-2">
+                {availableContacts.map((c) => (
+                  <label key={c.id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedContactId === c.id ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}>
+                    <RadioGroupItem value={c.id} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{c.masked_email}</p>
+                      {c.position && <p className="text-xs text-muted-foreground">{c.position}</p>}
+                    </div>
+                    {c.is_primary && <Badge variant="secondary" className="text-[10px] shrink-0">Principal</Badge>}
+                  </label>
+                ))}
+              </RadioGroup>
+              {errorMsg && (
+                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-950/30 rounded-md p-3">
+                  <AlertCircle className="h-4 w-4 shrink-0" /> {errorMsg}
+                </div>
+              )}
+              <Button className="w-full" onClick={handleSelectContact} disabled={loading || !selectedContactId}
+                style={{ backgroundColor: primaryColor }}>
+                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
+                Enviar código
               </Button>
             </CardContent>
           </>

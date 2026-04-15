@@ -132,21 +132,61 @@ Deno.serve(async (req) => {
       // Key + code verification
       if (!company) return jsonRes({ error: "Empresa no encontrada" }, 404);
 
-      // In test mode, use the test_email; otherwise get primary contact email
-      let email: string | undefined;
+      // In test mode, use test_email directly (skip contact selection)
       if (isTestMode) {
-        email = test_email;
-      } else {
-        const { data: contacts } = await supabaseAdmin.from("contacts").select("email").eq("company_id", company.id).eq("is_primary", true).limit(1);
-        email = contacts?.[0]?.email;
-        if (!email) {
-          const { data: allContacts } = await supabaseAdmin.from("contacts").select("email").eq("company_id", company.id).limit(1);
-          email = allContacts?.[0]?.email;
-        }
+        const email = test_email;
+        if (!email) return jsonRes({ error: "Se requiere test_email en modo prueba" }, 400);
+        // Create session and send code directly
+        const token = crypto.randomUUID();
+        const { data: session } = await supabaseAdmin.from("external_form_sessions").insert({
+          form_id, company_id: company.id, is_verified: false,
+          session_token: token, ip_address,
+          expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+        }).select("id").single();
+        const verCode = generateCode();
+        const codeHash = await hashCode(verCode);
+        const expiresAt = new Date(Date.now() + (form.code_expiration_minutes || 10) * 60 * 1000).toISOString();
+        await supabaseAdmin.from("external_form_verification_codes").insert({
+          session_id: session!.id, code_hash: codeHash, expires_at: expiresAt,
+          max_attempts: form.max_code_attempts || 5
+        });
+        let webhookUrl = N8N_WEBHOOK_URL_DEFAULT;
+        const { data: settings } = await supabaseAdmin.from("feature_settings").select("config").eq("feature_key", "external_forms").maybeSingle();
+        if (settings?.config && typeof settings.config === "object" && (settings.config as any).webhook_url) webhookUrl = (settings.config as any).webhook_url;
+        try { await fetch(webhookUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ company_id: company.id, company_name: company.trade_name, nit: company.nit, destination_email: email, masked_email: maskEmail(email), verification_code: verCode, form_id, form_name: form.name, test_mode: true }) }); } catch (e) { console.error("Webhook error:", e); }
+        return jsonRes({ success: true, session_token: token, requires_code: true, masked_email: maskEmail(email), company_name: company.trade_name, test_mode: true });
       }
-      if (!email) return jsonRes({ error: "La empresa no tiene un email registrado. Contacte al administrador." }, 400);
 
-      // Create session
+      // Get all contacts with email for this company
+      const { data: allContacts } = await supabaseAdmin.from("contacts").select("id, name, email, position, is_primary").eq("company_id", company.id);
+      const contactsWithEmail = (allContacts || []).filter((c: any) => c.email && c.email.trim());
+
+      if (contactsWithEmail.length === 0) return jsonRes({ error: "La empresa no tiene un email registrado. Contacte al administrador." }, 400);
+
+      // If multiple contacts, ask user to choose
+      if (contactsWithEmail.length > 1) {
+        // Create a pending session (not verified, no code yet) — we'll use it after contact selection
+        const token = crypto.randomUUID();
+        await supabaseAdmin.from("external_form_sessions").insert({
+          form_id, company_id: company.id, is_verified: false,
+          session_token: token, ip_address,
+          expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+        });
+        return jsonRes({
+          success: true, session_token: token,
+          requires_contact_selection: true,
+          company_name: company.trade_name,
+          contacts: contactsWithEmail.map((c: any) => ({
+            id: c.id,
+            masked_email: maskEmail(c.email),
+            position: c.position || '',
+            is_primary: c.is_primary
+          }))
+        });
+      }
+
+      // Single contact — send code directly
+      const email = contactsWithEmail[0].email;
       const token = crypto.randomUUID();
       const { data: session } = await supabaseAdmin.from("external_form_sessions").insert({
         form_id, company_id: company.id, is_verified: false,
@@ -154,48 +194,22 @@ Deno.serve(async (req) => {
         expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
       }).select("id").single();
 
-      // Generate and store code
-      const code = generateCode();
-      const codeHash = await hashCode(code);
+      const verCode = generateCode();
+      const codeHash = await hashCode(verCode);
       const expiresAt = new Date(Date.now() + (form.code_expiration_minutes || 10) * 60 * 1000).toISOString();
-
       await supabaseAdmin.from("external_form_verification_codes").insert({
         session_id: session!.id, code_hash: codeHash, expires_at: expiresAt,
         max_attempts: form.max_code_attempts || 5
       });
 
-      // Get webhook URL from feature_settings
       let webhookUrl = N8N_WEBHOOK_URL_DEFAULT;
       const { data: settings } = await supabaseAdmin.from("feature_settings").select("config").eq("feature_key", "external_forms").maybeSingle();
-      if (settings?.config && typeof settings.config === "object" && (settings.config as any).webhook_url) {
-        webhookUrl = (settings.config as any).webhook_url;
-      }
-
-      // Call n8n webhook — in test mode, destination goes to internal user
-      try {
-        await fetch(webhookUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            company_id: company.id,
-            company_name: company.trade_name,
-            nit: company.nit,
-            destination_email: email,
-            masked_email: isTestMode ? maskEmail(email) : maskEmail(email),
-            verification_code: code,
-            form_id: form_id,
-            form_name: form.name,
-            test_mode: isTestMode || false
-          })
-        });
-      } catch (e) {
-        console.error("Webhook error:", e);
-      }
+      if (settings?.config && typeof settings.config === "object" && (settings.config as any).webhook_url) webhookUrl = (settings.config as any).webhook_url;
+      try { await fetch(webhookUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ company_id: company.id, company_name: company.trade_name, nit: company.nit, destination_email: email, masked_email: maskEmail(email), verification_code: verCode, form_id, form_name: form.name, test_mode: false }) }); } catch (e) { console.error("Webhook error:", e); }
 
       return jsonRes({
         success: true, session_token: token, requires_code: true,
-        masked_email: maskEmail(email), company_name: company.trade_name,
-        test_mode: isTestMode
+        masked_email: maskEmail(email), company_name: company.trade_name
       });
     }
 
@@ -228,6 +242,47 @@ Deno.serve(async (req) => {
       if (form) await supabaseAdmin.from("external_forms").update({ started_count: (form.started_count || 0) + 1 }).eq("id", session.form_id);
 
       return jsonRes({ success: true });
+    }
+
+    // Select contact for OTP — called when company has multiple contacts
+    if (req.method === "POST" && action === "select-contact") {
+      const { session_token, contact_id } = await req.json();
+      if (!session_token || !contact_id) return jsonRes({ error: "Token y contacto son requeridos" }, 400);
+
+      const { data: session } = await supabaseAdmin.from("external_form_sessions").select("*").eq("session_token", session_token).single();
+      if (!session) return jsonRes({ error: "Sesión no encontrada" }, 404);
+      if (new Date(session.expires_at) < new Date()) return jsonRes({ error: "La sesión ha expirado" }, 410);
+      if (session.is_verified) return jsonRes({ error: "Sesión ya verificada" }, 400);
+
+      // Get the selected contact
+      const { data: contact } = await supabaseAdmin.from("contacts").select("id, email, name").eq("id", contact_id).eq("company_id", session.company_id).single();
+      if (!contact || !contact.email) return jsonRes({ error: "Contacto no válido" }, 400);
+
+      // Get form for config
+      const { data: form } = await supabaseAdmin.from("external_forms").select("code_expiration_minutes, max_code_attempts, name").eq("id", session.form_id).single();
+
+      // Generate and store code
+      const verCode = generateCode();
+      const codeHash = await hashCode(verCode);
+      const expiresAt = new Date(Date.now() + (form?.code_expiration_minutes || 10) * 60 * 1000).toISOString();
+      await supabaseAdmin.from("external_form_verification_codes").insert({
+        session_id: session.id, code_hash: codeHash, expires_at: expiresAt,
+        max_attempts: form?.max_code_attempts || 5
+      });
+
+      // Get company name
+      const { data: company } = await supabaseAdmin.from("companies").select("trade_name, nit").eq("id", session.company_id).single();
+
+      // Send code via webhook
+      let webhookUrl = N8N_WEBHOOK_URL_DEFAULT;
+      const { data: settings } = await supabaseAdmin.from("feature_settings").select("config").eq("feature_key", "external_forms").maybeSingle();
+      if (settings?.config && typeof settings.config === "object" && (settings.config as any).webhook_url) webhookUrl = (settings.config as any).webhook_url;
+      try { await fetch(webhookUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ company_id: session.company_id, company_name: company?.trade_name, nit: company?.nit, destination_email: contact.email, masked_email: maskEmail(contact.email), verification_code: verCode, form_id: session.form_id, form_name: form?.name, test_mode: false }) }); } catch (e) { console.error("Webhook error:", e); }
+
+      return jsonRes({
+        success: true, requires_code: true,
+        masked_email: maskEmail(contact.email), company_name: company?.trade_name
+      });
     }
 
     if (req.method === "GET" && action === "load-form") {
