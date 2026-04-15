@@ -4,6 +4,7 @@ import { OfferCategory, OfferType, PortfolioOffer, PipelineStage, PipelineEntry,
 import { showSuccess, showError } from '@/lib/toast';
 import { useAuth } from '@/hooks/useAuth';
 import { triggerVectorize } from '@/lib/vectorizeHelper';
+import { logHistory } from '@/lib/historyHelper';
 
 interface PortfolioContextValue {
   categories: OfferCategory[];
