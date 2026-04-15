@@ -74,6 +74,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
   // Step 2
   const [verificationMode, setVerificationMode] = useState<VerificationMode>('key_and_code');
   const [verificationKeyField, setVerificationKeyField] = useState('nit');
+  const [allowNameFallback, setAllowNameFallback] = useState(false);
   const [codeExpiration, setCodeExpiration] = useState(10);
   const [maxAttempts, setMaxAttempts] = useState(5);
 
@@ -131,6 +132,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       setStatus(editingForm.status);
       setVerificationMode(editingForm.verification_mode);
       setVerificationKeyField(editingForm.verification_key_field);
+      setAllowNameFallback((editingForm as any).allow_name_fallback || false);
       setCodeExpiration(editingForm.code_expiration_minutes);
       setMaxAttempts(editingForm.max_code_attempts);
       setPublicTitle(editingForm.public_title);
@@ -142,7 +144,6 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       setSavedFormId(editingForm.id);
       setLinkedOfferId(editingForm.linked_offer_id || null);
       setLinkedStageId(editingForm.linked_stage_id || null);
-      // Detect allowCreation from form_type
       setAllowCreation(editingForm.allow_creation || false);
       supabase.from('external_form_fields').select('*').eq('form_id', editingForm.id).order('display_order')
         .then(({ data }) => {
@@ -150,7 +151,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
         });
     } else {
       setName(''); setDescription(''); setFormType('update'); setStatus('draft');
-      setAllowCreation(false);
+      setAllowCreation(false); setAllowNameFallback(false);
       setVerificationMode('key_and_code'); setVerificationKeyField('nit');
       setCodeExpiration(10); setMaxAttempts(5); setFormFields([]);
       setPublicTitle(''); setPublicSubtitle(''); setSubmitButtonText('Enviar');
