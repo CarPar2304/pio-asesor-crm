@@ -8,11 +8,13 @@ import { VERTICALS, CITIES, CATEGORIES } from '@/types/crm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { FilterBadge } from '@/components/ui/filter-badge';
-import { Search, Check, X, SlidersHorizontal, Filter } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Search, Check, X, SlidersHorizontal, Filter, ListPlus, AlertCircle } from 'lucide-react';
 import { calculateGrowth } from '@/lib/calculations';
 
 interface Props {
@@ -54,6 +56,9 @@ export default function AddCompaniesToPipelineDialog({ open, onClose, offerId }:
   const [assignedTo, setAssignedTo] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
+  const [mode, setMode] = useState<'search' | 'bulk'>('search');
+  const [bulkInput, setBulkInput] = useState('');
+  const [bulkType, setBulkType] = useState<'nit' | 'email'>('nit');
 
   const stages = getStagesForOffer(offerId);
   const defaultStageId = stages[0]?.id ?? '';
@@ -149,6 +154,33 @@ export default function AddCompaniesToPipelineDialog({ open, onClose, offerId }:
   const hasFilters = activeChips.length > 0;
   const filterableFields = fields.filter(f => f.fieldType === 'text' || f.fieldType === 'select');
 
+  // Bulk mode: parse input and match companies
+  const bulkResults = useMemo(() => {
+    if (mode !== 'bulk' || !bulkInput.trim()) return { matched: [] as typeof companies, notFound: [] as string[] };
+    const values = bulkInput.split(/[,\n]+/).map(v => v.trim().toLowerCase()).filter(Boolean);
+    const matched: typeof companies = [];
+    const notFound: string[] = [];
+    for (const val of values) {
+      let found: typeof companies[0] | undefined;
+      if (bulkType === 'nit') {
+        found = companies.find(c => c.nit === val || c.nit === val.replace(/\D/g, ''));
+      } else {
+        found = companies.find(c => c.contacts.some(ct => ct.email.toLowerCase() === val));
+      }
+      if (found && !matched.some(m => m.id === found!.id)) {
+        matched.push(found);
+      } else if (!found) {
+        notFound.push(val);
+      }
+    }
+    return { matched, notFound };
+  }, [mode, bulkInput, bulkType, companies]);
+
+  const handleBulkSelectAll = () => {
+    const ids = bulkResults.matched.filter(c => !isCompanyInOffer(offerId, c.id)).map(c => c.id);
+    setSelectedIds(new Set(ids));
+  };
+
   const toggle = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
@@ -208,33 +240,43 @@ export default function AddCompaniesToPipelineDialog({ open, onClose, offerId }:
             </div>
           </div>
 
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input value={filters.search} onChange={e => update({ search: e.target.value })} placeholder="Buscar por nombre, razón social o NIT..." className="pl-9" />
-          </div>
+          {/* Mode tabs */}
+          <Tabs value={mode} onValueChange={v => { setMode(v as any); setSelectedIds(new Set()); }}>
+            <TabsList className="h-8">
+              <TabsTrigger value="search" className="text-xs gap-1.5 px-3"><Search className="h-3 w-3" />Buscar</TabsTrigger>
+              <TabsTrigger value="bulk" className="text-xs gap-1.5 px-3"><ListPlus className="h-3 w-3" />Masivo</TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-          {/* Inline filters */}
-          <div className="flex flex-wrap gap-1.5">
-            <Select value={filters.category || 'all'} onValueChange={v => update({ category: v === 'all' ? '' : v })}>
-              <SelectTrigger className="h-7 w-auto min-w-[90px] text-xs gap-1">
-                <SelectValue placeholder="Categoría" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Categoría</SelectItem>
-                {uniqueCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          {mode === 'search' && (
+            <>
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input value={filters.search} onChange={e => update({ search: e.target.value })} placeholder="Buscar por nombre, razón social o NIT..." className="pl-9" />
+              </div>
 
-            <Select value={filters.vertical || 'all'} onValueChange={v => update({ vertical: v === 'all' ? '' : v })}>
-              <SelectTrigger className="h-7 w-auto min-w-[90px] text-xs gap-1">
-                <SelectValue placeholder="Vertical" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Vertical</SelectItem>
-                {uniqueVerticals.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-              </SelectContent>
-            </Select>
+              {/* Inline filters */}
+              <div className="flex flex-wrap gap-1.5">
+                <Select value={filters.category || 'all'} onValueChange={v => update({ category: v === 'all' ? '' : v })}>
+                  <SelectTrigger className="h-7 w-auto min-w-[90px] text-xs gap-1">
+                    <SelectValue placeholder="Categoría" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Categoría</SelectItem>
+                    {uniqueCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+
+                <Select value={filters.vertical || 'all'} onValueChange={v => update({ vertical: v === 'all' ? '' : v })}>
+                  <SelectTrigger className="h-7 w-auto min-w-[90px] text-xs gap-1">
+                    <SelectValue placeholder="Vertical" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Vertical</SelectItem>
+                    {uniqueVerticals.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
 
             {uniqueSubVerticals.length > 0 && (
               <Select value={filters.subVertical || 'all'} onValueChange={v => update({ subVertical: v === 'all' ? '' : v })}>
@@ -340,64 +382,163 @@ export default function AddCompaniesToPipelineDialog({ open, onClose, offerId }:
                 <X className="h-3 w-3" /> Limpiar
               </Button>
             )}
-          </div>
+              </div>
 
-          {/* Active filter chips */}
-          {activeChips.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1">
-              <Filter className="h-3 w-3 text-muted-foreground" />
-              {activeChips.map((chip, i) => (
-                <FilterBadge key={i} variant="pill" label={chip.label} value={chip.value} onRemove={chip.clear} />
-              ))}
-            </div>
+              {/* Active filter chips */}
+              {activeChips.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1">
+                  <Filter className="h-3 w-3 text-muted-foreground" />
+                  {activeChips.map((chip, i) => (
+                    <FilterBadge key={i} variant="pill" label={chip.label} value={chip.value} onRemove={chip.clear} />
+                  ))}
+                </div>
+              )}
+
+              {/* Count */}
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>{filtered.length} empresa(s) encontrada(s)</span>
+                {selectedIds.size > 0 && <span className="font-medium text-foreground">{selectedIds.size} seleccionada(s)</span>}
+              </div>
+
+              {/* Company list */}
+              <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
+                {filtered.map(company => {
+                  const inOffer = isCompanyInOffer(offerId, company.id);
+                  const selected = selectedIds.has(company.id);
+                  return (
+                    <button
+                      key={company.id}
+                      onClick={() => !inOffer && toggle(company.id)}
+                      disabled={inOffer}
+                      className={`w-full flex items-center gap-3 rounded-lg border p-2.5 text-left transition-colors ${
+                        inOffer ? 'border-border/30 opacity-50 cursor-not-allowed bg-muted/30' :
+                        selected ? 'border-primary bg-primary/5' :
+                        'border-border/50 hover:border-primary/40 hover:bg-muted/30'
+                      }`}
+                    >
+                      <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors ${selected ? 'border-primary bg-primary' : 'border-border'}`}>
+                        {selected && <Check className="h-3 w-3 text-primary-foreground" />}
+                      </div>
+                      {company.logo ? (
+                        <img src={company.logo} alt="" className="h-8 w-8 shrink-0 rounded-md border border-border/40 object-contain bg-white p-0.5" />
+                      ) : (
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
+                          {company.tradeName.charAt(0)}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{company.tradeName}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {[company.category, company.vertical, company.city].filter(Boolean).join(' · ')}
+                        </p>
+                      </div>
+                      {inOffer && <Badge variant="secondary" className="shrink-0 text-[10px]">Ya en pipeline</Badge>}
+                    </button>
+                  );
+                })}
+                {filtered.length === 0 && (
+                  <div className="text-center py-8 text-sm text-muted-foreground">No se encontraron empresas</div>
+                )}
+              </div>
+            </>
           )}
 
-          {/* Count */}
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>{filtered.length} empresa(s) encontrada(s)</span>
-            {selectedIds.size > 0 && <span className="font-medium text-foreground">{selectedIds.size} seleccionada(s)</span>}
-          </div>
+          {mode === 'bulk' && (
+            <>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium">Buscar por:</label>
+                  <Select value={bulkType} onValueChange={v => setBulkType(v as any)}>
+                    <SelectTrigger className="h-8 w-32 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nit">NIT</SelectItem>
+                      <SelectItem value="email">Email de contacto</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Textarea
+                  value={bulkInput}
+                  onChange={e => setBulkInput(e.target.value)}
+                  placeholder={bulkType === 'nit'
+                    ? 'Ingresa los NITs separados por comas o salto de línea\nEj: 900123456, 900654321\n901234567'
+                    : 'Ingresa los emails separados por comas o salto de línea\nEj: contacto@empresa.com, info@otra.com'}
+                  className="min-h-[100px] text-sm font-mono"
+                />
+              </div>
 
-          {/* Company list */}
-          <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
-            {filtered.map(company => {
-              const inOffer = isCompanyInOffer(offerId, company.id);
-              const selected = selectedIds.has(company.id);
-              return (
-                <button
-                  key={company.id}
-                  onClick={() => !inOffer && toggle(company.id)}
-                  disabled={inOffer}
-                  className={`w-full flex items-center gap-3 rounded-lg border p-2.5 text-left transition-colors ${
-                    inOffer ? 'border-border/30 opacity-50 cursor-not-allowed bg-muted/30' :
-                    selected ? 'border-primary bg-primary/5' :
-                    'border-border/50 hover:border-primary/40 hover:bg-muted/30'
-                  }`}
-                >
-                  <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors ${selected ? 'border-primary bg-primary' : 'border-border'}`}>
-                    {selected && <Check className="h-3 w-3 text-primary-foreground" />}
+              {bulkInput.trim() && (
+                <>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>
+                      {bulkResults.matched.length} encontrada(s)
+                      {bulkResults.notFound.length > 0 && (
+                        <span className="text-destructive ml-2">{bulkResults.notFound.length} no encontrada(s)</span>
+                      )}
+                    </span>
+                    {bulkResults.matched.length > 0 && (
+                      <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={handleBulkSelectAll}>
+                        Seleccionar todas
+                      </Button>
+                    )}
                   </div>
-                  {company.logo ? (
-                    <img src={company.logo} alt="" className="h-8 w-8 shrink-0 rounded-md border border-border/40 object-contain bg-white p-0.5" />
-                  ) : (
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
-                      {company.tradeName.charAt(0)}
+
+                  {bulkResults.notFound.length > 0 && (
+                    <div className="flex items-start gap-2 text-xs bg-destructive/10 text-destructive rounded-md p-2">
+                      <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-medium mb-0.5">No encontrados:</p>
+                        <p className="break-all">{bulkResults.notFound.join(', ')}</p>
+                      </div>
                     </div>
                   )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{company.tradeName}</p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {[company.category, company.vertical, company.city].filter(Boolean).join(' · ')}
-                    </p>
+
+                  <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
+                    {bulkResults.matched.map(company => {
+                      const inOffer = isCompanyInOffer(offerId, company.id);
+                      const selected = selectedIds.has(company.id);
+                      return (
+                        <button
+                          key={company.id}
+                          onClick={() => !inOffer && toggle(company.id)}
+                          disabled={inOffer}
+                          className={`w-full flex items-center gap-3 rounded-lg border p-2.5 text-left transition-colors ${
+                            inOffer ? 'border-border/30 opacity-50 cursor-not-allowed bg-muted/30' :
+                            selected ? 'border-primary bg-primary/5' :
+                            'border-border/50 hover:border-primary/40 hover:bg-muted/30'
+                          }`}
+                        >
+                          <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors ${selected ? 'border-primary bg-primary' : 'border-border'}`}>
+                            {selected && <Check className="h-3 w-3 text-primary-foreground" />}
+                          </div>
+                          {company.logo ? (
+                            <img src={company.logo} alt="" className="h-8 w-8 shrink-0 rounded-md border border-border/40 object-contain bg-white p-0.5" />
+                          ) : (
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">
+                              {company.tradeName.charAt(0)}
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">{company.tradeName}</p>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {company.nit && <span>NIT: {company.nit} · </span>}
+                              {[company.category, company.city].filter(Boolean).join(' · ')}
+                            </p>
+                          </div>
+                          {inOffer && <Badge variant="secondary" className="shrink-0 text-[10px]">Ya en pipeline</Badge>}
+                        </button>
+                      );
+                    })}
                   </div>
-                  {inOffer && <Badge variant="secondary" className="shrink-0 text-[10px]">Ya en pipeline</Badge>}
-                </button>
-              );
-            })}
-            {filtered.length === 0 && (
-              <div className="text-center py-8 text-sm text-muted-foreground">No se encontraron empresas</div>
-            )}
-          </div>
+                </>
+              )}
+            </>
+          )}
+
+          {selectedIds.size > 0 && (
+            <div className="text-xs text-muted-foreground text-right font-medium">{selectedIds.size} seleccionada(s)</div>
+          )}
 
           <div className="flex justify-end gap-2 pt-1 border-t border-border/40">
             <Button variant="outline" onClick={onClose}>Cancelar</Button>
