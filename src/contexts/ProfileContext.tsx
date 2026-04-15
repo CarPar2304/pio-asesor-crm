@@ -209,11 +209,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ProfileContext.Provider value={{
-      profile, allProfiles, segments, notifications, unreadCount, loading, isAdmin,
+      profile, allProfiles, segments, notifications, unreadCount, loading, isAdmin, salesCurrency,
       updateProfile, addSegment, removeSegment,
       markNotificationRead, markAllRead,
       refreshNotifications: fetchNotifications,
       refreshProfiles: fetchProfiles,
+      updateSalesCurrency,
     }}>
       {children}
     </ProfileContext.Provider>
