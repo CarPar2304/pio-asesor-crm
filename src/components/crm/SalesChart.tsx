@@ -9,13 +9,14 @@ import {
   Tooltip,
 } from 'recharts';
 import { MetricByYear } from '@/types/crm';
-import { formatCOP, formatFullCOP } from '@/lib/calculations';
+import { formatSales, formatFullSales } from '@/lib/calculations';
 
 interface Props {
   salesByYear: MetricByYear;
+  currency?: string;
 }
 
-export default function SalesChart({ salesByYear }: Props) {
+export default function SalesChart({ salesByYear, currency = 'COP' }: Props) {
   const data = useMemo(() => {
     return Object.entries(salesByYear)
       .map(([year, value]) => ({ year: Number(year), sales: Number(value) || 0 }))
@@ -34,7 +35,7 @@ export default function SalesChart({ salesByYear }: Props) {
             className="fill-muted-foreground text-xs"
             tickLine={false}
             axisLine={false}
-            tickFormatter={(value: number) => formatCOP(value)}
+            tickFormatter={(value: number) => formatSales(value, currency)}
           />
           <Tooltip
             cursor={{ className: 'fill-muted/40' }}
@@ -44,7 +45,7 @@ export default function SalesChart({ salesByYear }: Props) {
               borderRadius: '0.5rem',
               color: 'hsl(var(--foreground))',
             }}
-            formatter={(value: number) => [formatFullCOP(value), 'Ventas']}
+            formatter={(value: number) => [formatFullSales(value, currency), 'Ventas']}
             labelFormatter={(label) => `Año ${label}`}
           />
           <Line

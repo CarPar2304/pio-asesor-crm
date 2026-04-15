@@ -215,7 +215,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
               <TableHeader>
                 <TableRow>
                   <TableHead className="text-xs">Año</TableHead>
-                  <TableHead className="text-xs">Ventas (COP)</TableHead>
+                  <TableHead className="text-xs">Ventas ({viewCurrency})</TableHead>
                   <TableHead className="text-xs">Crecimiento YoY</TableHead>
                 </TableRow>
               </TableHeader>
@@ -229,7 +229,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
                   return (
                     <TableRow key={year}>
                       <TableCell className="text-sm font-medium">{year}</TableCell>
-                      <TableCell className="text-sm">{formatCOP(company.salesByYear[year])}</TableCell>
+                      <TableCell className="text-sm">{formatSales(company.salesByYear[year], viewCurrency)}</TableCell>
                       <TableCell className={cn('text-sm font-medium', yoy !== null ? (yoy > 0 ? 'text-success' : 'text-destructive') : 'text-muted-foreground')}>
                         {yoy !== null ? formatPercentage(yoy) : '—'}
                       </TableCell>
