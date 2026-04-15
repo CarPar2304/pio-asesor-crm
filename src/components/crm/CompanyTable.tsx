@@ -1,9 +1,11 @@
-import { memo, useState } from 'react';
+import { memo, useState, useEffect } from 'react';
 import { Company } from '@/types/crm';
 import { calculateGrowth, getLastYearSales, formatSales, formatPercentage } from '@/lib/calculations';
+import { getUSDtoCOP, convertWithTRM } from '@/lib/exchangeRate';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ExternalLink, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/contexts/ProfileContext';
@@ -18,8 +20,17 @@ interface Props {
 function CompanyTable({ companies, onOpenProfile, activeYear, onDelete }: Props) {
   const { salesCurrency } = useProfile();
   const [viewCurrency, setViewCurrency] = useState<string>(salesCurrency.code);
+  const [trm, setTrm] = useState<number>(4200);
+
+  useEffect(() => {
+    getUSDtoCOP().then(setTrm);
+  }, []);
 
   const toggleCurrency = () => setViewCurrency(prev => prev === 'COP' ? 'USD' : 'COP');
+
+  const convertSales = (value: number, companyCurrency: string) => {
+    return convertWithTRM(value, companyCurrency, viewCurrency, trm);
+  };
 
   return (
     <div className="rounded-lg border border-border bg-card">
@@ -31,10 +42,19 @@ function CompanyTable({ companies, onOpenProfile, activeYear, onDelete }: Props)
             <TableHead className="whitespace-nowrap text-xs">Vertical</TableHead>
             <TableHead className="whitespace-nowrap text-xs">Ciudad</TableHead>
             <TableHead className="whitespace-nowrap text-xs">
-              <button onClick={toggleCurrency} className="flex items-center gap-1 hover:text-foreground transition-colors">
-                Ventas (último dato)
-                <Badge variant="outline" className="text-[9px] px-1 py-0 cursor-pointer hover:bg-accent">{viewCurrency}</Badge>
-              </button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button onClick={toggleCurrency} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                      Ventas (último dato)
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 cursor-pointer hover:bg-accent">{viewCurrency}</Badge>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent className="text-xs">
+                    TRM: ${trm.toLocaleString('es-CO')} COP/USD
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </TableHead>
             <TableHead className="whitespace-nowrap text-xs">Avg YoY</TableHead>
             <TableHead className="whitespace-nowrap text-xs">Último YoY</TableHead>
@@ -48,6 +68,7 @@ function CompanyTable({ companies, onOpenProfile, activeYear, onDelete }: Props)
             const lastSales = getLastYearSales(c.salesByYear);
             const pending = c.tasks.filter(t => t.status === 'pending').length;
             const overdue = c.tasks.filter(t => t.status === 'pending' && new Date(t.dueDate) < new Date()).length;
+            const companyCurrency = c.salesCurrency || 'COP';
             return (
               <TableRow key={c.id} className="cursor-pointer hover:bg-muted/60" onClick={() => onOpenProfile(c.id)}>
                 <TableCell>
@@ -61,7 +82,7 @@ function CompanyTable({ companies, onOpenProfile, activeYear, onDelete }: Props)
                 <TableCell className="text-sm">{c.city}</TableCell>
                 <TableCell className="text-sm font-medium">
                   {lastSales ? (
-                    <span>{formatSales(lastSales.value, viewCurrency)} <span className="text-[10px] text-muted-foreground">({lastSales.year})</span></span>
+                    <span>{formatSales(convertSales(lastSales.value, companyCurrency), viewCurrency)} <span className="text-[10px] text-muted-foreground">({lastSales.year})</span></span>
                   ) : '—'}
                 </TableCell>
                 <TableCell className={cn('text-sm font-medium', avgYoY !== null ? (avgYoY > 0 ? 'text-success' : 'text-destructive') : 'text-muted-foreground')}>

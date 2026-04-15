@@ -989,7 +989,16 @@ export default function CompanyForm({ open, onClose, company }: Props) {
 
             <Separator />
 
-            <Section title="Métricas — Ventas por año (COP)">
+            <Section title={`Métricas — Ventas por año (${form.salesCurrency})`}>
+              <Field label="Moneda principal de ventas">
+                <Select value={form.salesCurrency} onValueChange={v => setForm(f => ({ ...f, salesCurrency: v }))}>
+                  <SelectTrigger className="h-9 text-sm w-32"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="COP">COP</SelectItem>
+                    <SelectItem value="USD">USD</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
               <div className="grid grid-cols-3 gap-2">
                 {allYears.map(y => (
                   <Field key={y} label={String(y)}>
