@@ -325,6 +325,13 @@ export default function PipelineBoard({ offer, onBack }: Props) {
                                 <ClipboardList className="h-3 w-3" />
                               </button>
                               <button
+                                onClick={() => setMilestoneTarget({ companyId: company.id, companyName: company.tradeName })}
+                                className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                title="Registrar hito"
+                              >
+                                <Flag className="h-3 w-3" />
+                              </button>
+                              <button
                                 onClick={() => navigate(`/empresa/${company.id}`)}
                                 className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                                 title="Ver perfil"
