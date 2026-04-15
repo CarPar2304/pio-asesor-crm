@@ -200,6 +200,11 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
   }, [session]);
 
+  const updateSalesCurrency = useCallback(async (config: SalesCurrencyConfig) => {
+    await supabase.from('feature_settings').update({ config: config as any, updated_at: new Date().toISOString() }).eq('feature_key', 'sales_currency');
+    setSalesCurrency(config);
+  }, []);
+
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   return (
