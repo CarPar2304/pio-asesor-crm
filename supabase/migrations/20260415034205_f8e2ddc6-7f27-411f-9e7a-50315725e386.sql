@@ -1,0 +1,1 @@
+ALTER TABLE public.companies ADD COLUMN sales_currency text NOT NULL DEFAULT 'COP';

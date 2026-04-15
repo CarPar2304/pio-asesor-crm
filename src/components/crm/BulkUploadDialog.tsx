@@ -323,6 +323,7 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
           tasks: [],
           customProperties: [],
           fieldValues: [],
+          salesCurrency: 'COP',
           createdAt: new Date().toISOString().split('T')[0],
         };
         const newId = await addCompany(company);

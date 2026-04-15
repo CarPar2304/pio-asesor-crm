@@ -183,6 +183,7 @@ export type Database = {
           logo: string | null
           nit: string
           sales_by_year: Json
+          sales_currency: string
           trade_name: string
           updated_at: string
           vertical: string
@@ -200,6 +201,7 @@ export type Database = {
           logo?: string | null
           nit?: string
           sales_by_year?: Json
+          sales_currency?: string
           trade_name: string
           updated_at?: string
           vertical?: string
@@ -217,6 +219,7 @@ export type Database = {
           logo?: string | null
           nit?: string
           sales_by_year?: Json
+          sales_currency?: string
           trade_name?: string
           updated_at?: string
           vertical?: string

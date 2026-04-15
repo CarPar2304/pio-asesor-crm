@@ -409,7 +409,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
 
   const [form, setForm] = useState({
     tradeName: '', legalName: '', nit: '', category: 'Startup',
-    vertical: '', subVertical: '', description: '', city: '', customCity: '', exportsUSD: 0, website: '',
+    vertical: '', subVertical: '', description: '', city: '', customCity: '', exportsUSD: 0, website: '', salesCurrency: 'COP',
   });
   const [salesByYear, setSalesByYear] = useState<Record<number, string>>({});
   const [extraYears, setExtraYears] = useState<number[]>([]);
@@ -633,6 +633,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
         city: cityIsCustom ? 'Otra' : company.city,
         customCity: cityIsCustom ? company.city : '',
         exportsUSD: company.exportsUSD, website: company.website || '',
+        salesCurrency: company.salesCurrency || 'COP',
       });
       const sales: Record<number, string> = {};
       Object.entries(company.salesByYear).forEach(([y, v]) => { sales[Number(y)] = String(v); });
@@ -645,7 +646,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
       (company.fieldValues || []).forEach(v => { fv[v.fieldId] = v; });
       setFieldValues(fv);
     } else {
-      setForm({ tradeName: '', legalName: '', nit: '', category: 'Startup', vertical: '', subVertical: '', description: '', city: '', customCity: '', exportsUSD: 0, website: '' });
+      setForm({ tradeName: '', legalName: '', nit: '', category: 'Startup', vertical: '', subVertical: '', description: '', city: '', customCity: '', exportsUSD: 0, website: '', salesCurrency: 'COP' });
       setSalesByYear({});
       setContacts([emptyContact()]);
       setNotes('');
@@ -713,7 +714,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
       nit: form.nit,
       category: form.category,
       vertical: form.vertical,
-      economicActivity: form.subVertical, // sub-vertical stored in economicActivity column
+      economicActivity: form.subVertical,
       description: form.description,
       city: resolvedCity,
       salesByYear: parsedSales,
@@ -726,6 +727,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
       tasks: company?.tasks || [],
       customProperties: company?.customProperties || [],
       fieldValues: [],
+      salesCurrency: form.salesCurrency || 'COP',
       createdAt: company?.createdAt || new Date().toISOString().split('T')[0],
     };
 
@@ -987,7 +989,16 @@ export default function CompanyForm({ open, onClose, company }: Props) {
 
             <Separator />
 
-            <Section title="Métricas — Ventas por año (COP)">
+            <Section title={`Métricas — Ventas por año (${form.salesCurrency})`}>
+              <Field label="Moneda principal de ventas">
+                <Select value={form.salesCurrency} onValueChange={v => setForm(f => ({ ...f, salesCurrency: v }))}>
+                  <SelectTrigger className="h-9 text-sm w-32"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="COP">COP</SelectItem>
+                    <SelectItem value="USD">USD</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
               <div className="grid grid-cols-3 gap-2">
                 {allYears.map(y => (
                   <Field key={y} label={String(y)}>

@@ -113,6 +113,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       tasks: tasksByCompany.get(c.id) || [],
       customProperties: propsByCompany.get(c.id) || [],
       fieldValues: fieldValsByCompany.get(c.id) || [],
+      salesCurrency: c.sales_currency || 'COP',
       createdAt: c.created_at,
     }));
 
@@ -140,6 +141,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       exports_usd: company.exportsUSD,
       website: company.website || '',
       logo: company.logo,
+      sales_currency: company.salesCurrency || 'COP',
     } as any).select().single();
 
     if (error || !data) return null;
@@ -180,6 +182,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       exports_usd: company.exportsUSD,
       website: company.website || '',
       logo: company.logo,
+      sales_currency: company.salesCurrency || 'COP',
     } as any).eq('id', company.id);
 
     // Sync contacts: delete all and re-insert

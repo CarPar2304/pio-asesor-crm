@@ -124,6 +124,7 @@ export interface Company {
   tasks: CompanyTask[];
   customProperties: CustomProperty[];
   fieldValues: CustomFieldValue[];
+  salesCurrency: string;
   createdAt: string;
 }
 
