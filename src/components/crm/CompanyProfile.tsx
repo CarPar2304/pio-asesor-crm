@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Company, GENDER_LABELS } from '@/types/crm';
 import { calculateGrowth, formatSales, formatPercentage, formatUSD, formatFullSales, getLastYearSales } from '@/lib/calculations';
+import { getUSDtoCOP, convertWithTRM } from '@/lib/exchangeRate';
 import { useCRM } from '@/contexts/CRMContext';
 import { useProfile } from '@/contexts/ProfileContext';
 import { showSuccess } from '@/lib/toast';
@@ -31,9 +32,18 @@ export default function CompanyProfile({ company, onBack }: Props) {
   const [editOpen, setEditOpen] = useState(false);
   const [pipelineOpen, setPipelineOpen] = useState(false);
   const [viewCurrency, setViewCurrency] = useState<string>('COP');
+  const [trm, setTrm] = useState<number>(4200);
   const { sections, fields } = useCustomFields();
   const { deleteCompany } = useCRM();
   const { salesCurrency } = useProfile();
+
+  const companyCurrency = company.salesCurrency || 'COP';
+
+  useEffect(() => {
+    getUSDtoCOP().then(setTrm);
+  }, []);
+
+  const convert = (value: number) => convertWithTRM(value, companyCurrency, viewCurrency, trm);
 
   const handleDelete = async () => {
     if (confirm(`¿Eliminar "${company.tradeName}"? Esta acción no se puede deshacer.`)) {
@@ -157,15 +167,16 @@ export default function CompanyProfile({ company, onBack }: Props) {
 
       {/* Metrics — fixed section, now includes Tipo de Cliente */}
       <div className={cn('grid gap-3', tipoClienteValue ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4')}>
-        <MetricCard label={lastSales ? `Ventas ${lastSales.year} (${viewCurrency})` : `Ventas (${viewCurrency})`} value={lastSales ? formatSales(lastSales.value, viewCurrency) : '—'} />
+        <MetricCard label={lastSales ? `Ventas ${lastSales.year} (${viewCurrency})` : `Ventas (${viewCurrency})`} value={lastSales ? formatSales(convert(lastSales.value), viewCurrency) : '—'} />
         <MetricCard label="Avg YoY" value={formatPercentage(avgYoY)} positive={avgYoY !== null ? avgYoY > 0 : null} />
         <MetricCard label="Último YoY" value={formatPercentage(lastYoY)} positive={lastYoY !== null ? lastYoY > 0 : null} />
         <MetricCard label="Exportaciones" value={company.exportsUSD > 0 ? formatUSD(company.exportsUSD) : '—'} />
         {tipoClienteValue && <MetricCard label="Tipo de Cliente" value={tipoClienteValue} />}
       </div>
 
-      {/* Currency toggle */}
-      <div className="flex justify-end mt-1">
+      {/* Currency toggle with TRM info */}
+      <div className="flex justify-end mt-1 gap-2 items-center">
+        <span className="text-[10px] text-muted-foreground">TRM: ${trm.toLocaleString('es-CO')}</span>
         <button onClick={() => setViewCurrency(prev => prev === 'COP' ? 'USD' : 'COP')} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
           Ver en <Badge variant="outline" className="text-[9px] px-1 py-0 ml-1 cursor-pointer">{viewCurrency === 'COP' ? 'USD' : 'COP'}</Badge>
         </button>
