@@ -18,6 +18,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { showError, showSuccess } from '@/lib/toast';
 import { triggerVectorize } from '@/lib/vectorizeHelper';
+import { logHistory } from '@/lib/historyHelper';
 
 interface PipelineNote {
   id: string;
@@ -129,6 +130,10 @@ export default function PipelineNotesPanel({ offerId, open, onClose }: Props) {
       setSelectedStageId('none');
       showSuccess('Nota agregada');
       triggerVectorize('pipeline');
+      // Log history for each linked company
+      for (const cId of selectedCompanyIds) {
+        logHistory(cId, 'note', 'Nota de pipeline', newNote.trim().slice(0, 200), { offerId }, session.user.id);
+      }
       await fetchNotes();
     }
     setLoading(false);
