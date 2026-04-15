@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { Company, CompanyAction, Milestone, CompanyTask, Contact, SavedView, CustomProperty, CustomFieldValue, MetricByYear } from '@/types/crm';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { triggerVectorize } from '@/lib/vectorizeHelper';
 
 interface CRMContextType {
   companies: Company[];
@@ -159,6 +160,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     }
 
     await fetchAll();
+    triggerVectorize('companies', { companyIds: [data.id] });
     return data.id as string;
   }, [fetchAll]);
 
@@ -196,6 +198,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     }
 
     await fetchAll();
+    triggerVectorize('companies', { companyIds: [company.id] });
   }, [fetchAll]);
 
   const deleteCompany = useCallback(async (id: string) => {
@@ -251,6 +254,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     }
 
     await fetchAll();
+    triggerVectorize('companies', { companyIds: [companyId] });
   }, [fetchAll, session]);
 
   const updateTask = useCallback(async (companyId: string, taskId: string, updates: Partial<CompanyTask>) => {
@@ -279,6 +283,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     }
 
     await fetchAll();
+    triggerVectorize('companies', { companyIds: [companyId] });
   }, [fetchAll, session, companies]);
 
   const deleteTask = useCallback(async (taskId: string) => {

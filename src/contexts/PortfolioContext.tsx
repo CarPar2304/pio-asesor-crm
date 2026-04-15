@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { OfferCategory, OfferType, PortfolioOffer, PipelineStage, PipelineEntry, Ally, AllyContact, OfferAlly } from '@/types/portfolio';
 import { showSuccess, showError } from '@/lib/toast';
 import { useAuth } from '@/hooks/useAuth';
+import { triggerVectorize } from '@/lib/vectorizeHelper';
 
 interface PortfolioContextValue {
   categories: OfferCategory[];
@@ -205,6 +206,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
 
     setOffers(prev => [offer, ...prev]);
     showSuccess('Oferta creada', `"${offer.name}" fue creada con su pipeline`);
+    triggerVectorize('offers');
     return offer;
   };
 
@@ -218,6 +220,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     if (error) { showError('Error', 'No se pudo actualizar la oferta'); return; }
     setOffers(prev => prev.map(o => o.id === id ? { ...o, ...data } : o));
     showSuccess('Oferta actualizada', '');
+    triggerVectorize('offers');
   };
 
   const deleteOffer = async (id: string) => {
@@ -305,6 +308,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       createdAt: data.created_at,
     }]);
     showSuccess('Empresa agregada', 'La empresa fue agregada al pipeline');
+    triggerVectorize('pipeline');
   };
 
   const updateEntryAssignment = async (entryId: string, assignedTo: string | null) => {
@@ -315,12 +319,14 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const moveCompanyToStage = async (entryId: string, newStageId: string) => {
     await supabase.from('pipeline_entries').update({ stage_id: newStageId }).eq('id', entryId);
     setEntries(prev => prev.map(e => e.id === entryId ? { ...e, stageId: newStageId } : e));
+    triggerVectorize('pipeline');
   };
 
   const removeEntry = async (entryId: string) => {
     await supabase.from('pipeline_entries').delete().eq('id', entryId);
     setEntries(prev => prev.filter(e => e.id !== entryId));
     showSuccess('Empresa removida', '');
+    triggerVectorize('pipeline');
   };
 
   const isCompanyInOffer = (offerId: string, companyId: string) =>
@@ -333,12 +339,14 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     const ally: Ally = { id: (data as any).id, name: (data as any).name, logo: (data as any).logo, createdAt: (data as any).created_at };
     setAllies(prev => [...prev, ally]);
     showSuccess('Aliado creado', `"${ally.name}" fue creado`);
+    triggerVectorize('allies');
     return ally;
   };
 
   const updateAlly = async (id: string, data: Partial<Ally>) => {
     await supabase.from('allies').update({ name: data.name, logo: data.logo } as any).eq('id', id);
     setAllies(prev => prev.map(a => a.id === id ? { ...a, ...data } : a));
+    triggerVectorize('allies');
   };
 
   const deleteAlly = async (id: string) => {
