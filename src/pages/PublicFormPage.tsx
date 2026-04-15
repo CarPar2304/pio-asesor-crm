@@ -212,7 +212,11 @@ export default function PublicFormPage() {
       if (data.error) { setErrorMsg(data.error); setLoading(false); return; }
 
       setSessionToken(data.session_token);
-      if (data.requires_code) {
+      if (data.requires_contact_selection) {
+        setAvailableContacts(data.contacts || []);
+        setCompanyName(data.company_name);
+        setStep('select-contact');
+      } else if (data.requires_code) {
         setRequiresCode(true);
         setMaskedEmail(data.masked_email);
         setCompanyName(data.company_name);
