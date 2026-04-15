@@ -539,7 +539,6 @@ export default function AddCompaniesToPipelineDialog({ open, onClose, offerId }:
           {selectedIds.size > 0 && (
             <div className="text-xs text-muted-foreground text-right font-medium">{selectedIds.size} seleccionada(s)</div>
           )}
-          </div>
 
           <div className="flex justify-end gap-2 pt-1 border-t border-border/40">
             <Button variant="outline" onClick={onClose}>Cancelar</Button>
