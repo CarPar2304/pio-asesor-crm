@@ -370,6 +370,44 @@ export default function PublicFormPage() {
           </>
         )}
 
+        {/* Select contact step */}
+        {step === 'select-contact' && (
+          <>
+            <CardHeader className="text-center">
+              <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-12 mx-auto mb-2 object-contain" />
+              <CardTitle className="text-lg">Selecciona un contacto</CardTitle>
+              <CardDescription>
+                {companyName && <>Empresa: <strong>{companyName}</strong><br /></>}
+                Selecciona el correo electrónico donde deseas recibir el código de verificación
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <RadioGroup value={selectedContactId} onValueChange={setSelectedContactId} className="space-y-2">
+                {availableContacts.map((c) => (
+                  <label key={c.id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${selectedContactId === c.id ? 'border-primary bg-primary/5' : 'hover:bg-muted/50'}`}>
+                    <RadioGroupItem value={c.id} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium">{c.masked_email}</p>
+                      {c.position && <p className="text-xs text-muted-foreground">{c.position}</p>}
+                    </div>
+                    {c.is_primary && <Badge variant="secondary" className="text-[10px] shrink-0">Principal</Badge>}
+                  </label>
+                ))}
+              </RadioGroup>
+              {errorMsg && (
+                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-950/30 rounded-md p-3">
+                  <AlertCircle className="h-4 w-4 shrink-0" /> {errorMsg}
+                </div>
+              )}
+              <Button className="w-full" onClick={handleSelectContact} disabled={loading || !selectedContactId}
+                style={{ backgroundColor: primaryColor }}>
+                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
+                Enviar código
+              </Button>
+            </CardContent>
+          </>
+        )}
+
         {/* Code step */}
         {step === 'code' && (
           <>
