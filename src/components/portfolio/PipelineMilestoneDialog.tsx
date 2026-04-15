@@ -67,7 +67,7 @@ export default function PipelineMilestoneDialog({ open, onClose, companyId, comp
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-xs">Tipo</Label>
-              <Select value={type} onValueChange={setType}>
+              <Select value={type} onValueChange={v => setType(v as MilestoneType)}>
                 <SelectTrigger className="mt-1 h-9 text-xs">
                   <SelectValue />
                 </SelectTrigger>
