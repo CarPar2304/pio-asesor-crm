@@ -1013,6 +1013,7 @@ export type Database = {
         Row: {
           access_count: number
           allow_creation: boolean
+          allow_name_fallback: boolean
           code_expiration_minutes: number
           completed_count: number
           created_at: string
@@ -1044,6 +1045,7 @@ export type Database = {
         Insert: {
           access_count?: number
           allow_creation?: boolean
+          allow_name_fallback?: boolean
           code_expiration_minutes?: number
           completed_count?: number
           created_at?: string
@@ -1075,6 +1077,7 @@ export type Database = {
         Update: {
           access_count?: number
           allow_creation?: boolean
+          allow_name_fallback?: boolean
           code_expiration_minutes?: number
           completed_count?: number
           created_at?: string
