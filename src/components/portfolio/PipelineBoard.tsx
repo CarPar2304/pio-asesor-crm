@@ -272,7 +272,7 @@ export default function PipelineBoard({ offer, onBack }: Props) {
                               </div>
                             )}
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-medium">{company.tradeName}</p>
+                              <p className="text-xs font-medium break-words line-clamp-2">{company.tradeName}</p>
                               <p className="truncate text-[10px] text-muted-foreground">{company.vertical}</p>
                               {assignedToName && (
                                 <div className="flex items-center gap-1 mt-0.5">
