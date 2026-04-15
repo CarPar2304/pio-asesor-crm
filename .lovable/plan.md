@@ -1,82 +1,73 @@
 
 
-## Plan: Moneda dinámica en exports + Auto-vectorización
+## Plan: Timeline mejorado + Formularios en historial + Conversión de moneda en tiempo real
 
-### Parte 1: Moneda dinámica en exportaciones
+### 1. Timeline: Navegación temporal + barra de desplazamiento visible
 
-**`src/lib/exportExcel.ts`**
-- Recibir `currencyCode` como parámetro
-- Cambiar labels `(COP)` por la moneda dinámica usando `currencyLabel()`
+**`src/components/crm/CompanyTimeline.tsx`**
+- Agregar un control de navegación temporal arriba del timeline: un `Select` o `DatePicker` con los meses/años disponibles agrupados desde los eventos. Al seleccionar uno, hacer scroll programático hasta ese grupo.
+- Asegurar que el `ScrollBar` horizontal sea siempre visible (no solo al hover). Usar CSS `scrollbar-always-show` o forzar overflow-x visible.
+- Agregar un input tipo `month` (yyyy-MM) como alternativa rápida para saltar a una fecha específica.
 
-**`src/components/crm/ExportDialog.tsx`**
-- Pasar `currencyCode` desde el contexto de perfil al export
+### 2. Formularios en el historial
 
-**`src/lib/exportProfilePdf.ts`**
-- Recibir `currencyCode` como parámetro
-- Usar `formatSales()` y `formatFullSales()` en vez de `formatCOP()` hardcodeado
-- Cambiar labels de "Ventas (COP)" a moneda dinámica
+**`supabase/functions/form-verify/index.ts`**
+- En la acción `submit`, después de insertar la respuesta y aplicar los datos, insertar un registro en `company_history` con:
+  - `event_type`: `'form_submission'` (actualización), `'form_creation'` (creación de empresa), o `'form_update'` (nueva info)
+  - `title`: "Formulario: {nombre del form}"
+  - `description`: resumen de los campos actualizados o creados
+  - `metadata`: `{ form_id, form_name, fields_updated: [...], created_by_user: form.created_by }`
+  - `performed_by`: `form.created_by` (quien creó el formulario, ya que el respondiente es anónimo)
 
-**Componentes que llaman a estos exports** (CompanyProfile, etc.) — pasar la moneda del contexto.
+**`src/components/crm/CompanyTimeline.tsx`**
+- Agregar `form_submission` y `form_creation` al `EVENT_CONFIG` con un icono apropiado (e.g. `FileText`) y colores diferenciados.
 
----
+### 3. Conversión de moneda con TRM en tiempo real
 
-### Parte 2: Incluir pipeline_notes en vectorización de pipeline
+**Concepto**: Cada empresa almacena sus ventas en la moneda en que fueron cargadas (por defecto COP). Al alternar la vista COP/USD, se aplica la TRM actual para convertir. Se usa una API gratuita (exchangerate-api.com o frankfurter.app) para obtener la tasa.
 
-**`supabase/functions/vectorize-companies/index.ts`**
-- En `vectorizePipeline()`: hacer fetch de `pipeline_notes` y agregar el contenido de las notas al texto del pipeline por oferta
-- Agregar modo `tasks` que vectorice las tareas como parte de la información de empresas (re-vectoriza empresas afectadas)
+**Nuevo: `src/lib/exchangeRate.ts`**
+- Helper que consulta `https://api.frankfurter.app/latest?from=USD&to=COP` (gratuita, sin API key)
+- Cache en memoria (localStorage + timestamp) por 1 hora para no repetir llamadas
+- Exporta `getExchangeRate(from, to): Promise<number>` y `convertCurrency(value, from, to): Promise<number>`
 
----
+**`src/components/crm/CompanyTable.tsx`**
+- Al hacer toggle COP/USD, llamar al helper de tasa de cambio y multiplicar/dividir los valores de ventas antes de formatearlos
+- Mostrar un tooltip "TRM: $X,XXX" junto al badge de moneda para que el usuario sepa la tasa usada
 
-### Parte 3: Botón de vectorizar tareas en admin
+**`src/components/crm/CompanyProfile.tsx`**
+- Mismo comportamiento: al alternar moneda en el perfil, convertir valores usando la TRM
+- En la sección de ventas, agregar un selector "Moneda principal de esta empresa" (COP o USD) que se guarde como metadata en la empresa. Esto requiere:
 
-**`src/components/admin/ChatSettings.tsx`**
-- Agregar un 4to botón "Vectorizar Tareas" en la grid de portafolio
-- Este botón invoca `vectorize-companies` con `mode: 'companies'` (ya incluye tareas) o un nuevo modo `tasks` que re-vectorice solo empresas con tareas
+**DB migration**: Agregar columna `sales_currency text NOT NULL DEFAULT 'COP'` a la tabla `companies`.
 
----
+**`src/contexts/CRMContext.tsx`**  
+- Mapear `sales_currency` al cargar/guardar empresas
 
-### Parte 4: Auto-vectorización en cada mutación
+**`src/types/crm.ts`**
+- Agregar `salesCurrency: string` al tipo `Company`
 
-Crear un helper `triggerVectorize` reutilizable que invoque la edge function en background (fire-and-forget, sin bloquear UI).
+**`src/components/crm/CompanyForm.tsx`**
+- Agregar selector de "Moneda principal" (COP/USD) en el formulario de edición de empresa
 
-**`src/lib/vectorizeHelper.ts`** (nuevo)
-```typescript
-export function triggerVectorize(mode: string, extra?: object) {
-  supabase.functions.invoke('vectorize-companies', { 
-    body: { mode, ...extra } 
-  }).catch(console.error); // fire-and-forget
-}
-```
+**`src/components/crm/CRMFilters.tsx`**
+- Al filtrar por ventas min/max con una moneda seleccionada, convertir los valores de las empresas a esa moneda antes de comparar
 
-**`src/contexts/CRMContext.tsx`**
-- En `addCompany()`: después del insert exitoso, llamar `triggerVectorize('companies', { companyIds: [newId] })`
-- En `updateCompany()`: llamar `triggerVectorize('companies', { companyIds: [company.id] })`
-- En `addTask()`, `updateTask()`: llamar `triggerVectorize('companies', { companyIds: [companyId] })`
-
-**`src/contexts/PortfolioContext.tsx`**
-- En `createOffer()`: llamar `triggerVectorize('offers')`
-- En `updateOffer()`: llamar `triggerVectorize('offers')`
-- En `createAlly()`: llamar `triggerVectorize('allies')`
-- En `updateAlly()`: llamar `triggerVectorize('allies')`
-- En `addCompanyToStage()`: llamar `triggerVectorize('pipeline')`
-- En `moveCompanyToStage()`: llamar `triggerVectorize('pipeline')`
-- En `removeEntry()`: llamar `triggerVectorize('pipeline')`
-
-**`src/components/portfolio/PipelineNotesPanel.tsx`**
-- Después de insertar una nota: llamar `triggerVectorize('pipeline')`
-
----
+**`src/components/crm/SalesChart.tsx`**
+- Usar la moneda de vista para formatear el eje Y
 
 ### Archivos a modificar/crear
-1. `src/lib/exportExcel.ts` — moneda dinámica
-2. `src/lib/exportProfilePdf.ts` — moneda dinámica
-3. `src/components/crm/ExportDialog.tsx` — pasar moneda
-4. `src/lib/vectorizeHelper.ts` (nuevo) — helper fire-and-forget
-5. `supabase/functions/vectorize-companies/index.ts` — incluir pipeline_notes en vectorización
-6. `src/contexts/CRMContext.tsx` — auto-vectorize en add/update company y tasks
-7. `src/contexts/PortfolioContext.tsx` — auto-vectorize en create/update offer, ally, pipeline moves
-8. `src/components/portfolio/PipelineNotesPanel.tsx` — auto-vectorize al crear nota
-9. `src/components/admin/ChatSettings.tsx` — botón "Vectorizar Tareas"
-10. Componentes que invocan PDF export — pasar currencyCode
+
+1. `supabase/migrations/` — columna `sales_currency` en `companies`
+2. `src/lib/exchangeRate.ts` (nuevo) — helper de TRM con cache
+3. `src/components/crm/CompanyTimeline.tsx` — navegación temporal + event types de formularios
+4. `supabase/functions/form-verify/index.ts` — insertar history al submit
+5. `src/types/crm.ts` — `salesCurrency` en Company
+6. `src/contexts/CRMContext.tsx` — mapear sales_currency
+7. `src/components/crm/CompanyForm.tsx` — selector moneda principal
+8. `src/components/crm/CompanyTable.tsx` — conversión con TRM
+9. `src/components/crm/CompanyProfile.tsx` — conversión con TRM + selector moneda empresa
+10. `src/components/crm/CRMFilters.tsx` — conversión en filtros
+11. `src/components/crm/SalesChart.tsx` — formato dinámico con conversión
+12. `src/lib/calculations.ts` — helper `convertAndFormat`
 
