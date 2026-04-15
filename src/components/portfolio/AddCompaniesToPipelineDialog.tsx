@@ -240,33 +240,43 @@ export default function AddCompaniesToPipelineDialog({ open, onClose, offerId }:
             </div>
           </div>
 
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input value={filters.search} onChange={e => update({ search: e.target.value })} placeholder="Buscar por nombre, razón social o NIT..." className="pl-9" />
-          </div>
+          {/* Mode tabs */}
+          <Tabs value={mode} onValueChange={v => { setMode(v as any); setSelectedIds(new Set()); }}>
+            <TabsList className="h-8">
+              <TabsTrigger value="search" className="text-xs gap-1.5 px-3"><Search className="h-3 w-3" />Buscar</TabsTrigger>
+              <TabsTrigger value="bulk" className="text-xs gap-1.5 px-3"><ListPlus className="h-3 w-3" />Masivo</TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-          {/* Inline filters */}
-          <div className="flex flex-wrap gap-1.5">
-            <Select value={filters.category || 'all'} onValueChange={v => update({ category: v === 'all' ? '' : v })}>
-              <SelectTrigger className="h-7 w-auto min-w-[90px] text-xs gap-1">
-                <SelectValue placeholder="Categoría" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Categoría</SelectItem>
-                {uniqueCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          {mode === 'search' && (
+            <>
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input value={filters.search} onChange={e => update({ search: e.target.value })} placeholder="Buscar por nombre, razón social o NIT..." className="pl-9" />
+              </div>
 
-            <Select value={filters.vertical || 'all'} onValueChange={v => update({ vertical: v === 'all' ? '' : v })}>
-              <SelectTrigger className="h-7 w-auto min-w-[90px] text-xs gap-1">
-                <SelectValue placeholder="Vertical" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Vertical</SelectItem>
-                {uniqueVerticals.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
-              </SelectContent>
-            </Select>
+              {/* Inline filters */}
+              <div className="flex flex-wrap gap-1.5">
+                <Select value={filters.category || 'all'} onValueChange={v => update({ category: v === 'all' ? '' : v })}>
+                  <SelectTrigger className="h-7 w-auto min-w-[90px] text-xs gap-1">
+                    <SelectValue placeholder="Categoría" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Categoría</SelectItem>
+                    {uniqueCategories.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+
+                <Select value={filters.vertical || 'all'} onValueChange={v => update({ vertical: v === 'all' ? '' : v })}>
+                  <SelectTrigger className="h-7 w-auto min-w-[90px] text-xs gap-1">
+                    <SelectValue placeholder="Vertical" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Vertical</SelectItem>
+                    {uniqueVerticals.map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}
+                  </SelectContent>
+                </Select>
 
             {uniqueSubVerticals.length > 0 && (
               <Select value={filters.subVertical || 'all'} onValueChange={v => update({ subVertical: v === 'all' ? '' : v })}>
