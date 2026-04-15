@@ -161,7 +161,9 @@ export default function PublicFormPage() {
   const [sessionToken, setSessionToken] = useState('');
   const [maskedEmail, setMaskedEmail] = useState('');
   const [companyName, setCompanyName] = useState('');
-  const [requiresCode, setRequiresCode] = useState(false);
+   const [requiresCode, setRequiresCode] = useState(false);
+   const [availableContacts, setAvailableContacts] = useState<{id: string; masked_email: string; position: string; is_primary: boolean}[]>([]);
+   const [selectedContactId, setSelectedContactId] = useState('');
 
   // Code
   const [code, setCode] = useState('');
