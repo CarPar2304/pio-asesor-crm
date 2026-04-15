@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Settings, Plus, ArrowLeft, Building2, X, ExternalLink, GripVertical, User, Mail, Upload, Search, ClipboardList, UserCog, StickyNote } from 'lucide-react';
+import { Settings, Plus, ArrowLeft, Building2, X, ExternalLink, GripVertical, User, Mail, Upload, Search, ClipboardList, UserCog, StickyNote, Flag } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import StageManagerDialog from './StageManagerDialog';
 import AddCompaniesToPipelineDialog from './AddCompaniesToPipelineDialog';
@@ -17,6 +17,7 @@ import BulkAddToPipelineDialog from './BulkAddToPipelineDialog';
 import PipelineNotificationDialog from './PipelineNotificationDialog';
 import PipelineTaskDialog from './PipelineTaskDialog';
 import PipelineNotesPanel from './PipelineNotesPanel';
+import PipelineMilestoneDialog from './PipelineMilestoneDialog';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -41,6 +42,7 @@ export default function PipelineBoard({ offer, onBack }: Props) {
   const [notesOpen, setNotesOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [taskTarget, setTaskTarget] = useState<{ companyId: string; companyName: string } | null>(null);
+  const [milestoneTarget, setMilestoneTarget] = useState<{ companyId: string; companyName: string } | null>(null);
 
   const [draggedEntry, setDraggedEntry] = useState<PipelineEntry | null>(null);
   const [dragOverStageId, setDragOverStageId] = useState<string | null>(null);
@@ -270,7 +272,7 @@ export default function PipelineBoard({ offer, onBack }: Props) {
                               </div>
                             )}
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-medium">{company.tradeName}</p>
+                              <p className="text-xs font-medium break-words line-clamp-2">{company.tradeName}</p>
                               <p className="truncate text-[10px] text-muted-foreground">{company.vertical}</p>
                               {assignedToName && (
                                 <div className="flex items-center gap-1 mt-0.5">
@@ -323,6 +325,13 @@ export default function PipelineBoard({ offer, onBack }: Props) {
                                 <ClipboardList className="h-3 w-3" />
                               </button>
                               <button
+                                onClick={() => setMilestoneTarget({ companyId: company.id, companyName: company.tradeName })}
+                                className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                title="Registrar hito"
+                              >
+                                <Flag className="h-3 w-3" />
+                              </button>
+                              <button
                                 onClick={() => navigate(`/empresa/${company.id}`)}
                                 className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
                                 title="Ver perfil"
@@ -370,6 +379,14 @@ export default function PipelineBoard({ offer, onBack }: Props) {
           companyId={taskTarget.companyId}
           companyName={taskTarget.companyName}
           offerId={offer.id}
+        />
+      )}
+      {milestoneTarget && (
+        <PipelineMilestoneDialog
+          open={!!milestoneTarget}
+          onClose={() => setMilestoneTarget(null)}
+          companyId={milestoneTarget.companyId}
+          companyName={milestoneTarget.companyName}
         />
       )}
     </div>
