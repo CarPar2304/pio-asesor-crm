@@ -8,11 +8,13 @@ import { VERTICALS, CITIES, CATEGORIES } from '@/types/crm';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { FilterBadge } from '@/components/ui/filter-badge';
-import { Search, Check, X, SlidersHorizontal, Filter } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Search, Check, X, SlidersHorizontal, Filter, ListPlus, AlertCircle } from 'lucide-react';
 import { calculateGrowth } from '@/lib/calculations';
 
 interface Props {
