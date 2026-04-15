@@ -10,18 +10,24 @@ import {
 } from 'recharts';
 import { MetricByYear } from '@/types/crm';
 import { formatSales, formatFullSales } from '@/lib/calculations';
+import { convertWithTRM } from '@/lib/exchangeRate';
 
 interface Props {
   salesByYear: MetricByYear;
   currency?: string;
+  sourceCurrency?: string;
+  trm?: number;
 }
 
-export default function SalesChart({ salesByYear, currency = 'COP' }: Props) {
+export default function SalesChart({ salesByYear, currency = 'COP', sourceCurrency = 'COP', trm = 4200 }: Props) {
   const data = useMemo(() => {
     return Object.entries(salesByYear)
-      .map(([year, value]) => ({ year: Number(year), sales: Number(value) || 0 }))
+      .map(([year, value]) => ({
+        year: Number(year),
+        sales: convertWithTRM(Number(value) || 0, sourceCurrency, currency, trm),
+      }))
       .sort((a, b) => a.year - b.year);
-  }, [salesByYear]);
+  }, [salesByYear, currency, sourceCurrency, trm]);
 
   if (data.length < 2) return null;
 

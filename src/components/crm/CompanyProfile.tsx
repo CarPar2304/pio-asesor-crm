@@ -242,7 +242,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
                   return (
                     <TableRow key={year}>
                       <TableCell className="text-sm font-medium">{year}</TableCell>
-                      <TableCell className="text-sm">{formatSales(company.salesByYear[year], viewCurrency)}</TableCell>
+                      <TableCell className="text-sm">{formatSales(convert(company.salesByYear[year]), viewCurrency)}</TableCell>
                       <TableCell className={cn('text-sm font-medium', yoy !== null ? (yoy > 0 ? 'text-success' : 'text-destructive') : 'text-muted-foreground')}>
                         {yoy !== null ? formatPercentage(yoy) : '—'}
                       </TableCell>
