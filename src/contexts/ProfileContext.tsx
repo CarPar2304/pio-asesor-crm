@@ -132,6 +132,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     setIsAdmin((data || []).some((r: any) => r.role === 'admin'));
   }, [session]);
 
+  const fetchSalesCurrency = useCallback(async () => {
+    const { data } = await supabase.from('feature_settings').select('config').eq('feature_key', 'sales_currency').maybeSingle();
+    if (data?.config && typeof data.config === 'object') {
+      const cfg = data.config as any;
+      setSalesCurrency({ code: cfg.code || 'COP', symbol: cfg.symbol || '$', locale: cfg.locale || 'es-CO' });
+    }
+  }, []);
+
   useEffect(() => {
     if (!session) {
       setProfile(null);
@@ -142,8 +150,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       return;
     }
-    Promise.all([fetchProfiles(), fetchSegments(), fetchNotifications(), fetchAdminStatus()]).then(() => setLoading(false));
-  }, [session, fetchProfiles, fetchSegments, fetchNotifications, fetchAdminStatus]);
+    Promise.all([fetchProfiles(), fetchSegments(), fetchNotifications(), fetchAdminStatus(), fetchSalesCurrency()]).then(() => setLoading(false));
+  }, [session, fetchProfiles, fetchSegments, fetchNotifications, fetchAdminStatus, fetchSalesCurrency]);
 
   // Real-time notifications
   useEffect(() => {
