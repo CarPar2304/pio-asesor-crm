@@ -362,6 +362,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
         linked_offer_id: linkedOfferId || null,
         linked_stage_id: linkedStageId || null,
         allow_creation: allowCreation,
+        allow_name_fallback: allowNameFallback,
       };
 
       let formId: string;
@@ -528,6 +529,15 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                   </Select>
                   <p className="text-[11px] text-muted-foreground mt-1">La empresa usará este campo para identificarse</p>
                 </div>
+                {verificationKeyField === 'nit' && (
+                  <div className="flex items-center gap-2 rounded-md border p-3 bg-muted/30">
+                    <Checkbox checked={allowNameFallback} onCheckedChange={v => setAllowNameFallback(!!v)} id="allow-name-fallback" />
+                    <div>
+                      <label htmlFor="allow-name-fallback" className="text-sm font-medium cursor-pointer">Permitir identificarse sin NIT</label>
+                      <p className="text-[11px] text-muted-foreground">Muestra un checkbox "No tengo NIT" en el formulario público. La empresa podrá identificarse por razón social o nombre comercial.</p>
+                    </div>
+                  </div>
+                )}
                 {verificationMode === 'key_and_code' && (
                   <>
                     <div className="grid grid-cols-2 gap-4">
