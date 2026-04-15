@@ -156,7 +156,7 @@ serve(async (req) => {
     const wantsAll = /\btodas?\b|\btodos?\b|\bcada\b|\blistado\b|\bcompleto\b|\bgeneral\b/i.test(retrievalQuery);
     const isContactLookup = /\bcelulares?\b|\bteléfonos?\b|\btelefonos?\b|\bcontactos?\b|\bcorreos?\b|\bemails?\b/i.test(retrievalQuery);
     const isFollowUp = /\besta?s?\b|\besa?s?\b|\besto\b|\bagrega(?:le|r)?\b|\bañade(?:le|r)?\b|\bactualiza(?:r)?\b|\bcompleta(?:r)?\b|\bincluye(?:r)?\b|\btabla\b/i.test(lastUserMessage) && recentMessages.length > 1;
-    const isPortfolioQuery = /\boferta\b|\bportafolio\b|\bpipeline\b|\betapa\b|\baliado\b|\balianza\b|\bgestor\b/i.test(retrievalQuery);
+    const isPortfolioQuery = /\boferta\b|\bportafolio\b|\bpipeline\b|\betapa\b|\baliado\b|\balianza\b|\bgestor\b|\bhistórico\b|\bhistorico\b|\btimeline\b|\bgesti[oó]n\b|\bqué se ha hecho\b|\bque se ha hecho\b/i.test(retrievalQuery);
     const matchCount = wantsAll ? 100 : isContactLookup || isFollowUp ? 40 : 15;
     const matchThreshold = wantsAll ? 0.15 : isContactLookup || isFollowUp ? 0.18 : 0.25;
 
