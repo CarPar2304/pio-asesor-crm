@@ -409,7 +409,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
 
   const [form, setForm] = useState({
     tradeName: '', legalName: '', nit: '', category: 'Startup',
-    vertical: '', subVertical: '', description: '', city: '', customCity: '', exportsUSD: 0, website: '',
+    vertical: '', subVertical: '', description: '', city: '', customCity: '', exportsUSD: 0, website: '', salesCurrency: 'COP',
   });
   const [salesByYear, setSalesByYear] = useState<Record<number, string>>({});
   const [extraYears, setExtraYears] = useState<number[]>([]);
@@ -633,6 +633,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
         city: cityIsCustom ? 'Otra' : company.city,
         customCity: cityIsCustom ? company.city : '',
         exportsUSD: company.exportsUSD, website: company.website || '',
+        salesCurrency: company.salesCurrency || 'COP',
       });
       const sales: Record<number, string> = {};
       Object.entries(company.salesByYear).forEach(([y, v]) => { sales[Number(y)] = String(v); });
@@ -645,7 +646,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
       (company.fieldValues || []).forEach(v => { fv[v.fieldId] = v; });
       setFieldValues(fv);
     } else {
-      setForm({ tradeName: '', legalName: '', nit: '', category: 'Startup', vertical: '', subVertical: '', description: '', city: '', customCity: '', exportsUSD: 0, website: '' });
+      setForm({ tradeName: '', legalName: '', nit: '', category: 'Startup', vertical: '', subVertical: '', description: '', city: '', customCity: '', exportsUSD: 0, website: '', salesCurrency: 'COP' });
       setSalesByYear({});
       setContacts([emptyContact()]);
       setNotes('');
