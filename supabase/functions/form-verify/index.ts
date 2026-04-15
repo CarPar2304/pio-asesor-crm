@@ -421,6 +421,25 @@ Deno.serve(async (req) => {
         completed_count: (form.completed_count || 0) + 1
       }).eq("id", form_id);
 
+      // Log to company_history
+      if (companyId) {
+        const { data: fields } = await supabaseAdmin.from("external_form_fields").select("field_key, label").eq("form_id", form_id);
+        const fieldsUpdated = (fields || []).filter(f => response_data[f.field_key] !== undefined).map(f => f.label);
+        const eventType = form.form_type === "creation" ? "form_creation" : "form_submission";
+        const description = fieldsUpdated.length > 0
+          ? `Campos: ${fieldsUpdated.slice(0, 5).join(", ")}${fieldsUpdated.length > 5 ? ` (+${fieldsUpdated.length - 5})` : ""}`
+          : "";
+
+        await supabaseAdmin.from("company_history").insert({
+          company_id: companyId,
+          event_type: eventType,
+          title: `Formulario: ${form.name}`,
+          description,
+          metadata: { form_id: form.id, form_name: form.name, fields_updated: fieldsUpdated, created_by_user: form.created_by },
+          performed_by: form.created_by || null,
+        });
+      }
+
       return jsonRes({ success: true, response_id: response!.id });
     }
 
