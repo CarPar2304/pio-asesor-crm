@@ -4,6 +4,7 @@ import { OfferCategory, OfferType, PortfolioOffer, PipelineStage, PipelineEntry,
 import { showSuccess, showError } from '@/lib/toast';
 import { useAuth } from '@/hooks/useAuth';
 import { triggerVectorize } from '@/lib/vectorizeHelper';
+import { logHistory } from '@/lib/historyHelper';
 
 interface PortfolioContextValue {
   categories: OfferCategory[];
@@ -309,6 +310,9 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     }]);
     showSuccess('Empresa agregada', 'La empresa fue agregada al pipeline');
     triggerVectorize('pipeline');
+    const stageName = stages.find(s => s.id === stageId)?.name || '';
+    const offerName = offers.find(o => o.id === offerId)?.name || '';
+    logHistory(companyId, 'pipeline_add', `Agregada a pipeline: ${offerName}`, `Etapa: ${stageName}`, { offerId, stageId }, userId);
   };
 
   const updateEntryAssignment = async (entryId: string, assignedTo: string | null) => {
@@ -317,16 +321,28 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   };
 
   const moveCompanyToStage = async (entryId: string, newStageId: string) => {
+    const entry = entries.find(e => e.id === entryId);
     await supabase.from('pipeline_entries').update({ stage_id: newStageId }).eq('id', entryId);
     setEntries(prev => prev.map(e => e.id === entryId ? { ...e, stageId: newStageId } : e));
     triggerVectorize('pipeline');
+    if (entry) {
+      const oldStageName = stages.find(s => s.id === entry.stageId)?.name || '';
+      const newStageName = stages.find(s => s.id === newStageId)?.name || '';
+      const offerName = offers.find(o => o.id === entry.offerId)?.name || '';
+      logHistory(entry.companyId, 'pipeline_move', `Movida en ${offerName}`, `${oldStageName} → ${newStageName}`, { offerId: entry.offerId, fromStageId: entry.stageId, toStageId: newStageId }, session?.user?.id);
+    }
   };
 
   const removeEntry = async (entryId: string) => {
+    const entry = entries.find(e => e.id === entryId);
     await supabase.from('pipeline_entries').delete().eq('id', entryId);
     setEntries(prev => prev.filter(e => e.id !== entryId));
     showSuccess('Empresa removida', '');
     triggerVectorize('pipeline');
+    if (entry) {
+      const offerName = offers.find(o => o.id === entry.offerId)?.name || '';
+      logHistory(entry.companyId, 'pipeline_remove', `Removida de ${offerName}`, '', { offerId: entry.offerId }, session?.user?.id);
+    }
   };
 
   const isCompanyInOffer = (offerId: string, companyId: string) =>

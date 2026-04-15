@@ -351,6 +351,47 @@ export type Database = {
         }
         Relationships: []
       }
+      company_history: {
+        Row: {
+          company_id: string
+          created_at: string
+          description: string
+          event_type: string
+          id: string
+          metadata: Json | null
+          performed_by: string | null
+          title: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          description?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          performed_by?: string | null
+          title: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          description?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          performed_by?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_tasks: {
         Row: {
           assigned_to: string | null

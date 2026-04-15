@@ -73,6 +73,7 @@ serve(async (req) => {
       { data: pipelineStages },
       { data: offers },
       { data: profiles },
+      { data: history },
     ] = await Promise.all([
       supabase.from("contacts").select("*").in("company_id", companyIdsList),
       supabase.from("custom_properties").select("*").in("company_id", companyIdsList),
@@ -83,6 +84,7 @@ serve(async (req) => {
       supabase.from("pipeline_stages").select("*"),
       supabase.from("portfolio_offers").select("id, name, product, status"),
       supabase.from("profiles").select("user_id, name"),
+      supabase.from("company_history").select("*").in("company_id", companyIdsList).order("created_at", { ascending: false }).limit(500),
     ]);
 
     const stageMap = new Map((pipelineStages || []).map((s) => [s.id, s]));
@@ -171,6 +173,18 @@ serve(async (req) => {
           })
           .join("; ");
         parts.push(`Pipeline / Portafolio: ${pipelineText}`);
+      }
+
+      // History / Timeline
+      const compHistory = (history || []).filter((h: any) => h.company_id === company.id).slice(0, 15);
+      if (compHistory.length > 0) {
+        const historyText = compHistory
+          .map((h: any) => {
+            const performer = h.performed_by ? (profileMap.get(h.performed_by) || "Usuario") : "Sistema";
+            return `${h.created_at?.split("T")[0]} - [${h.event_type}] ${h.title}${h.description ? `: ${h.description}` : ""} (por: ${performer})`;
+          })
+          .join("; ");
+        parts.push(`Histórico / Timeline: ${historyText}`);
       }
 
       companyTexts.push({ companyId: company.id, content: parts.join("\n") });
