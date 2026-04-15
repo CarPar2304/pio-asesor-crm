@@ -87,12 +87,11 @@ function FileUploadField({ value, onChange, placeholder }: { value: string | nul
   );
 }
 
-function SalesByYearField({ value, onChange }: { value: Record<string, number> | null; onChange: (v: Record<string, number>) => void }) {
+function SalesByYearField({ value, onChange, currencyKey, onCurrencyChange }: { value: Record<string, number> | null; onChange: (v: Record<string, number>) => void; currencyKey?: string; onCurrencyChange?: (c: string) => void }) {
   const currentYear = new Date().getFullYear();
   const data = value || {};
   const years = Object.keys(data).map(Number).sort();
   const allYears = years.length > 0 ? years : [currentYear - 2, currentYear - 1];
-  // Ensure we always show at least 3 recent years
   const minYear = Math.min(...allYears, currentYear - 2);
   const maxYear = Math.max(...allYears, currentYear - 1);
   const displayYears: number[] = [];
@@ -103,10 +102,26 @@ function SalesByYearField({ value, onChange }: { value: Record<string, number> |
     onChange({ ...data, [next]: 0 });
   };
 
-  const formatCOP = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
+  const cur = currencyKey || 'COP';
+  const formatPreview = (n: number) => {
+    const locale = cur === 'USD' ? 'en-US' : 'es-CO';
+    return new Intl.NumberFormat(locale, { style: 'currency', currency: cur, maximumFractionDigits: 0 }).format(n);
+  };
 
   return (
     <div className="space-y-2">
+      {onCurrencyChange && (
+        <div className="flex items-center gap-2 mb-1">
+          <Label className="text-xs text-muted-foreground">Moneda:</Label>
+          <Select value={cur} onValueChange={v => onCurrencyChange(v)}>
+            <SelectTrigger className="h-7 w-24 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="COP">COP</SelectItem>
+              <SelectItem value="USD">USD</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       {displayYears.map(year => (
         <div key={year} className="flex items-center gap-2">
           <span className="text-xs font-medium w-12 text-right">{year}</span>
@@ -120,7 +135,7 @@ function SalesByYearField({ value, onChange }: { value: Record<string, number> |
               onChange({ ...data, [year]: v });
             }}
           />
-          {data[year] > 0 && <span className="text-[10px] text-muted-foreground w-28 truncate">{formatCOP(data[year])}</span>}
+          {data[year] > 0 && <span className="text-[10px] text-muted-foreground w-28 truncate">{formatPreview(data[year])}</span>}
         </div>
       ))}
       <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={addYear}>
@@ -141,6 +156,7 @@ export default function PublicFormPage() {
 
   // Identify
   const [keyValue, setKeyValue] = useState('');
+  const [useNameFallback, setUseNameFallback] = useState(false);
   const [sessionToken, setSessionToken] = useState('');
   const [maskedEmail, setMaskedEmail] = useState('');
   const [companyName, setCompanyName] = useState('');
@@ -178,13 +194,14 @@ export default function PublicFormPage() {
   }, [slug, isTestMode]);
 
   const handleIdentify = async () => {
-    if (!keyValue.trim()) { setErrorMsg('Ingresa el NIT'); return; }
+    if (!keyValue.trim()) { setErrorMsg(useNameFallback ? 'Ingresa el nombre de la empresa' : 'Ingresa el NIT'); return; }
     setLoading(true);
     setErrorMsg('');
     try {
       const data = await callFormApi('identify', {
         form_id: formMeta?.id,
         key_value: keyValue.trim(),
+        use_name_fallback: useNameFallback,
         ip_address: '',
         test_mode: isTestMode,
         test_email: isTestMode ? testEmail : undefined
@@ -300,13 +317,19 @@ export default function PublicFormPage() {
             <CardHeader className="text-center">
               <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-12 mx-auto mb-2 object-contain" />
               <CardTitle className="text-lg">{formMeta?.public_title || 'Verificación de identidad'}</CardTitle>
-              <CardDescription>{formMeta?.public_subtitle || (formMeta?.verification_key_field === 'legal_name' ? 'Ingresa tu razón social para continuar' : 'Ingresa tu NIT para continuar')}</CardDescription>
+              <CardDescription>{formMeta?.public_subtitle || (useNameFallback ? 'Ingresa el nombre de tu empresa para continuar' : formMeta?.verification_key_field === 'legal_name' ? 'Ingresa tu razón social para continuar' : 'Ingresa tu NIT para continuar')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {formMeta?.allow_name_fallback && formMeta?.verification_key_field === 'nit' && (
+                <div className="flex items-center gap-2">
+                  <Checkbox checked={useNameFallback} onCheckedChange={v => { setUseNameFallback(!!v); setKeyValue(''); setErrorMsg(''); }} id="no-nit" />
+                  <label htmlFor="no-nit" className="text-sm cursor-pointer">No tengo NIT</label>
+                </div>
+              )}
               <div>
-                <Label>{formMeta?.verification_key_field === 'legal_name' ? 'Razón social de la empresa' : 'NIT de la empresa'}</Label>
+                <Label>{useNameFallback ? 'Razón social o Nombre comercial' : formMeta?.verification_key_field === 'legal_name' ? 'Razón social de la empresa' : 'NIT de la empresa'}</Label>
                 <Input value={keyValue} onChange={e => setKeyValue(e.target.value)} 
-                  placeholder={formMeta?.verification_key_field === 'legal_name' ? 'Ej: Mi Empresa S.A.S.' : 'Ej: 900123456'}
+                  placeholder={useNameFallback ? 'Ej: Mi Empresa S.A.S.' : formMeta?.verification_key_field === 'legal_name' ? 'Ej: Mi Empresa S.A.S.' : 'Ej: 900123456'}
                   onKeyDown={e => e.key === 'Enter' && handleIdentify()} />
               </div>
               {errorMsg && (
@@ -397,6 +420,8 @@ export default function PublicFormPage() {
                             <SalesByYearField
                               value={formData[field.field_key] || null}
                               onChange={(val) => updateFormData(field.field_key, val)}
+                              currencyKey={formData[`${field.field_key}_currency`] || 'COP'}
+                              onCurrencyChange={(c) => updateFormData(`${field.field_key}_currency`, c)}
                             />
                           ) : field.field_type === 'long_text' ? (
                           <Textarea value={formData[field.field_key] || ''} onChange={e => updateFormData(field.field_key, e.target.value)}

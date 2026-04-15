@@ -1,11 +1,12 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Company } from '@/types/crm';
-import { calculateGrowth, getLastYearSales, formatCOP, formatPercentage } from '@/lib/calculations';
+import { calculateGrowth, getLastYearSales, formatSales, formatPercentage } from '@/lib/calculations';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useProfile } from '@/contexts/ProfileContext';
 
 interface Props {
   companies: Company[];
@@ -15,6 +16,11 @@ interface Props {
 }
 
 function CompanyTable({ companies, onOpenProfile, activeYear, onDelete }: Props) {
+  const { salesCurrency } = useProfile();
+  const [viewCurrency, setViewCurrency] = useState<string>(salesCurrency.code);
+
+  const toggleCurrency = () => setViewCurrency(prev => prev === 'COP' ? 'USD' : 'COP');
+
   return (
     <div className="rounded-lg border border-border bg-card">
       <Table>
@@ -24,7 +30,12 @@ function CompanyTable({ companies, onOpenProfile, activeYear, onDelete }: Props)
             <TableHead className="whitespace-nowrap text-xs">Categoría</TableHead>
             <TableHead className="whitespace-nowrap text-xs">Vertical</TableHead>
             <TableHead className="whitespace-nowrap text-xs">Ciudad</TableHead>
-            <TableHead className="whitespace-nowrap text-xs">Ventas (último dato)</TableHead>
+            <TableHead className="whitespace-nowrap text-xs">
+              <button onClick={toggleCurrency} className="flex items-center gap-1 hover:text-foreground transition-colors">
+                Ventas (último dato)
+                <Badge variant="outline" className="text-[9px] px-1 py-0 cursor-pointer hover:bg-accent">{viewCurrency}</Badge>
+              </button>
+            </TableHead>
             <TableHead className="whitespace-nowrap text-xs">Avg YoY</TableHead>
             <TableHead className="whitespace-nowrap text-xs">Último YoY</TableHead>
             <TableHead className="whitespace-nowrap text-xs">Tareas</TableHead>
@@ -50,7 +61,7 @@ function CompanyTable({ companies, onOpenProfile, activeYear, onDelete }: Props)
                 <TableCell className="text-sm">{c.city}</TableCell>
                 <TableCell className="text-sm font-medium">
                   {lastSales ? (
-                    <span>{formatCOP(lastSales.value)} <span className="text-[10px] text-muted-foreground">({lastSales.year})</span></span>
+                    <span>{formatSales(lastSales.value, viewCurrency)} <span className="text-[10px] text-muted-foreground">({lastSales.year})</span></span>
                   ) : '—'}
                 </TableCell>
                 <TableCell className={cn('text-sm font-medium', avgYoY !== null ? (avgYoY > 0 ? 'text-success' : 'text-destructive') : 'text-muted-foreground')}>

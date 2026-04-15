@@ -54,3 +54,20 @@ export function formatPercentage(value: number | null): string {
 export function formatFullCOP(value: number): string {
   return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(value);
 }
+
+/** Dynamic currency formatter — short format for cards/tables */
+export function formatSales(value: number, currencyCode: string = 'COP'): string {
+  if (currencyCode === 'USD') return formatUSD(value);
+  return formatCOP(value);
+}
+
+/** Dynamic currency formatter — full format for tooltips/details */
+export function formatFullSales(value: number, currencyCode: string = 'COP'): string {
+  const locale = currencyCode === 'USD' ? 'en-US' : 'es-CO';
+  return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode, maximumFractionDigits: 0 }).format(value);
+}
+
+/** Currency label for display */
+export function currencyLabel(currencyCode: string = 'COP'): string {
+  return currencyCode;
+}

@@ -335,13 +335,23 @@ export default function CRMFilters({ filters, onChange }: Props) {
           </PopoverTrigger>
           <PopoverContent className="w-72 space-y-3 p-4" align="end">
             <p className="text-sm font-medium text-foreground">Filtros avanzados</p>
+            <div>
+              <label className="text-xs text-muted-foreground">Moneda para filtro de ventas</label>
+              <Select value={filters.salesFilterCurrency || 'COP'} onValueChange={v => update({ salesFilterCurrency: v as 'COP' | 'USD' })}>
+                <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="COP">COP</SelectItem>
+                  <SelectItem value="USD">USD</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-xs text-muted-foreground">Ventas mín (M)</label>
+                <label className="text-xs text-muted-foreground">Ventas mín (M) {filters.salesFilterCurrency || 'COP'}</label>
                 <Input className="mt-1 h-8 text-sm bg-background/80" type="number" value={filters.salesMin} onChange={e => update({ salesMin: e.target.value })} placeholder="0" />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground">Ventas máx (M)</label>
+                <label className="text-xs text-muted-foreground">Ventas máx (M) {filters.salesFilterCurrency || 'COP'}</label>
                 <Input className="mt-1 h-8 text-sm bg-background/80" type="number" value={filters.salesMax} onChange={e => update({ salesMax: e.target.value })} placeholder="∞" />
               </div>
             </div>

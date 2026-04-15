@@ -144,9 +144,10 @@ export interface FilterState {
   lastYoYMax: string;
   activeYear: number;
   nitFilter: '' | 'has' | 'no';
-  customFieldFilters: Record<string, string | string[]>; // fieldId -> value or values array
-  offerFilter: string[]; // offer IDs
-  stageFilter: string[]; // stage IDs
+  customFieldFilters: Record<string, string | string[]>;
+  offerFilter: string[];
+  stageFilter: string[];
+  salesFilterCurrency: 'COP' | 'USD';
   sortField: SortField;
   sortDirection: SortDirection;
 }
@@ -201,6 +202,7 @@ export const DEFAULT_FILTERS: FilterState = {
   customFieldFilters: {},
   offerFilter: [],
   stageFilter: [],
+  salesFilterCurrency: 'COP',
   sortField: 'tradeName',
   sortDirection: 'asc',
 };

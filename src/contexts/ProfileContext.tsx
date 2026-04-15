@@ -29,6 +29,12 @@ export interface AppNotification {
   createdAt: string;
 }
 
+export interface SalesCurrencyConfig {
+  code: string;
+  symbol: string;
+  locale: string;
+}
+
 interface ProfileContextType {
   profile: UserProfile | null;
   allProfiles: UserProfile[];
@@ -37,6 +43,7 @@ interface ProfileContextType {
   unreadCount: number;
   loading: boolean;
   isAdmin: boolean;
+  salesCurrency: SalesCurrencyConfig;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
   addSegment: (name: string) => Promise<void>;
   removeSegment: (id: string) => Promise<void>;
@@ -44,6 +51,7 @@ interface ProfileContextType {
   markAllRead: () => Promise<void>;
   refreshNotifications: () => Promise<void>;
   refreshProfiles: () => Promise<void>;
+  updateSalesCurrency: (config: SalesCurrencyConfig) => Promise<void>;
 }
 
 const ProfileContext = createContext<ProfileContextType | null>(null);
@@ -56,6 +64,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [salesCurrency, setSalesCurrency] = useState<SalesCurrencyConfig>({ code: 'COP', symbol: '$', locale: 'es-CO' });
 
   const fetchProfiles = useCallback(async () => {
     if (!session) return;
@@ -123,6 +132,14 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     setIsAdmin((data || []).some((r: any) => r.role === 'admin'));
   }, [session]);
 
+  const fetchSalesCurrency = useCallback(async () => {
+    const { data } = await supabase.from('feature_settings').select('config').eq('feature_key', 'sales_currency').maybeSingle();
+    if (data?.config && typeof data.config === 'object') {
+      const cfg = data.config as any;
+      setSalesCurrency({ code: cfg.code || 'COP', symbol: cfg.symbol || '$', locale: cfg.locale || 'es-CO' });
+    }
+  }, []);
+
   useEffect(() => {
     if (!session) {
       setProfile(null);
@@ -133,8 +150,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       return;
     }
-    Promise.all([fetchProfiles(), fetchSegments(), fetchNotifications(), fetchAdminStatus()]).then(() => setLoading(false));
-  }, [session, fetchProfiles, fetchSegments, fetchNotifications, fetchAdminStatus]);
+    Promise.all([fetchProfiles(), fetchSegments(), fetchNotifications(), fetchAdminStatus(), fetchSalesCurrency()]).then(() => setLoading(false));
+  }, [session, fetchProfiles, fetchSegments, fetchNotifications, fetchAdminStatus, fetchSalesCurrency]);
 
   // Real-time notifications
   useEffect(() => {
@@ -183,15 +200,21 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
   }, [session]);
 
+  const updateSalesCurrency = useCallback(async (config: SalesCurrencyConfig) => {
+    await supabase.from('feature_settings').update({ config: config as any, updated_at: new Date().toISOString() }).eq('feature_key', 'sales_currency');
+    setSalesCurrency(config);
+  }, []);
+
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   return (
     <ProfileContext.Provider value={{
-      profile, allProfiles, segments, notifications, unreadCount, loading, isAdmin,
+      profile, allProfiles, segments, notifications, unreadCount, loading, isAdmin, salesCurrency,
       updateProfile, addSegment, removeSegment,
       markNotificationRead, markAllRead,
       refreshNotifications: fetchNotifications,
       refreshProfiles: fetchProfiles,
+      updateSalesCurrency,
     }}>
       {children}
     </ProfileContext.Provider>
