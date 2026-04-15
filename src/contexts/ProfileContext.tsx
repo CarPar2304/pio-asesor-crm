@@ -29,6 +29,12 @@ export interface AppNotification {
   createdAt: string;
 }
 
+export interface SalesCurrencyConfig {
+  code: string;
+  symbol: string;
+  locale: string;
+}
+
 interface ProfileContextType {
   profile: UserProfile | null;
   allProfiles: UserProfile[];
@@ -37,6 +43,7 @@ interface ProfileContextType {
   unreadCount: number;
   loading: boolean;
   isAdmin: boolean;
+  salesCurrency: SalesCurrencyConfig;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
   addSegment: (name: string) => Promise<void>;
   removeSegment: (id: string) => Promise<void>;
@@ -44,6 +51,7 @@ interface ProfileContextType {
   markAllRead: () => Promise<void>;
   refreshNotifications: () => Promise<void>;
   refreshProfiles: () => Promise<void>;
+  updateSalesCurrency: (config: SalesCurrencyConfig) => Promise<void>;
 }
 
 const ProfileContext = createContext<ProfileContextType | null>(null);
@@ -56,6 +64,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [salesCurrency, setSalesCurrency] = useState<SalesCurrencyConfig>({ code: 'COP', symbol: '$', locale: 'es-CO' });
 
   const fetchProfiles = useCallback(async () => {
     if (!session) return;
