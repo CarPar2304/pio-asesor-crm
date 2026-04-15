@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { Company, GENDER_LABELS } from '@/types/crm';
-import { calculateGrowth, formatCOP, formatPercentage, formatUSD, getLastYearSales } from '@/lib/calculations';
+import { calculateGrowth, formatSales, formatPercentage, formatUSD, formatFullSales, getLastYearSales } from '@/lib/calculations';
 import { useCRM } from '@/contexts/CRMContext';
+import { useProfile } from '@/contexts/ProfileContext';
 import { showSuccess } from '@/lib/toast';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { Badge } from '@/components/ui/badge';
@@ -28,8 +29,10 @@ export default function CompanyProfile({ company, onBack }: Props) {
   const [quickAction, setQuickAction] = useState<'action' | 'task' | 'milestone' | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [pipelineOpen, setPipelineOpen] = useState(false);
+  const [viewCurrency, setViewCurrency] = useState<string>('COP');
   const { sections, fields } = useCustomFields();
   const { deleteCompany } = useCRM();
+  const { salesCurrency } = useProfile();
 
   const handleDelete = async () => {
     if (confirm(`¿Eliminar "${company.tradeName}"? Esta acción no se puede deshacer.`)) {
@@ -51,7 +54,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
     if (field.fieldType === 'metric_by_year') {
       const entries = Object.entries(val.yearValues || {}).filter(([_, v]) => v > 0);
       if (entries.length === 0) return null;
-      return entries.sort(([a], [b]) => Number(a) - Number(b)).map(([y, v]) => `${y}: ${formatCOP(v)}`).join(' · ');
+      return entries.sort(([a], [b]) => Number(a) - Number(b)).map(([y, v]) => `${y}: ${formatSales(v, viewCurrency)}`).join(' · ');
     }
     if (field.fieldType === 'number') return val.numberValue !== null ? String(val.numberValue) : null;
     return val.textValue || null;
@@ -152,11 +155,18 @@ export default function CompanyProfile({ company, onBack }: Props) {
 
       {/* Metrics — fixed section, now includes Tipo de Cliente */}
       <div className={cn('grid gap-3', tipoClienteValue ? 'grid-cols-2 sm:grid-cols-5' : 'grid-cols-2 sm:grid-cols-4')}>
-        <MetricCard label={lastSales ? `Ventas ${lastSales.year} (COP)` : 'Ventas (COP)'} value={lastSales ? formatCOP(lastSales.value) : '—'} />
+        <MetricCard label={lastSales ? `Ventas ${lastSales.year} (${viewCurrency})` : `Ventas (${viewCurrency})`} value={lastSales ? formatSales(lastSales.value, viewCurrency) : '—'} />
         <MetricCard label="Avg YoY" value={formatPercentage(avgYoY)} positive={avgYoY !== null ? avgYoY > 0 : null} />
         <MetricCard label="Último YoY" value={formatPercentage(lastYoY)} positive={lastYoY !== null ? lastYoY > 0 : null} />
         <MetricCard label="Exportaciones" value={company.exportsUSD > 0 ? formatUSD(company.exportsUSD) : '—'} />
         {tipoClienteValue && <MetricCard label="Tipo de Cliente" value={tipoClienteValue} />}
+      </div>
+
+      {/* Currency toggle */}
+      <div className="flex justify-end mt-1">
+        <button onClick={() => setViewCurrency(prev => prev === 'COP' ? 'USD' : 'COP')} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+          Ver en <Badge variant="outline" className="text-[9px] px-1 py-0 ml-1 cursor-pointer">{viewCurrency === 'COP' ? 'USD' : 'COP'}</Badge>
+        </button>
       </div>
 
       <Separator className="my-6" />
