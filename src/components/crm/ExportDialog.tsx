@@ -2,7 +2,8 @@ import { useState } from 'react';
 import FieldSelectorDialog, { FieldOption } from './FieldSelectorDialog';
 import { Company } from '@/types/crm';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
-import { calculateGrowth } from '@/lib/calculations';
+import { useProfile } from '@/contexts/ProfileContext';
+import { calculateGrowth, currencyLabel } from '@/lib/calculations';
 import * as XLSX from 'xlsx';
 
 interface Props {
@@ -14,6 +15,8 @@ interface Props {
 
 export default function ExportDialog({ open, onClose, companies, activeYear }: Props) {
   const { fields } = useCustomFields();
+  const { salesCurrency } = useProfile();
+  const currency = salesCurrency?.code || 'COP';
 
   const handleExport = (selectedFields: FieldOption[]) => {
     const rows = companies.map(company => {
@@ -64,7 +67,7 @@ export default function ExportDialog({ open, onClose, companies, activeYear }: P
     const ws = XLSX.utils.json_to_sheet(rows);
     ws['!cols'] = selectedFields.map(() => ({ wch: 20 }));
     XLSX.utils.book_append_sheet(wb, ws, 'Empresas');
-    XLSX.writeFile(wb, `empresas-export-${activeYear}.xlsx`);
+    XLSX.writeFile(wb, `empresas-export-${activeYear}-${currency}.xlsx`);
   };
 
   return (

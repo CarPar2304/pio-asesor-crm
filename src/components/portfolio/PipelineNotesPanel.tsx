@@ -17,6 +17,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { showError, showSuccess } from '@/lib/toast';
+import { triggerVectorize } from '@/lib/vectorizeHelper';
 
 interface PipelineNote {
   id: string;
@@ -127,6 +128,7 @@ export default function PipelineNotesPanel({ offerId, open, onClose }: Props) {
       setSelectedCompanyIds([]);
       setSelectedStageId('none');
       showSuccess('Nota agregada');
+      triggerVectorize('pipeline');
       await fetchNotes();
     }
     setLoading(false);

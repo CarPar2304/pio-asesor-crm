@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 import { Company } from '@/types/crm';
-import { calculateGrowth } from '@/lib/calculations';
+import { calculateGrowth, currencyLabel } from '@/lib/calculations';
 
 function getSalesYears(companies: Company[]) {
   return Array.from(
@@ -10,7 +10,7 @@ function getSalesYears(companies: Company[]) {
   ).sort((a, b) => a - b);
 }
 
-export function exportCompaniesToExcel(companies: Company[], activeYear: number) {
+export function exportCompaniesToExcel(companies: Company[], activeYear: number, currencyCode: string = 'COP') {
   const years = getSalesYears(companies);
 
   const rows = companies.map((company) => {
@@ -28,7 +28,7 @@ export function exportCompaniesToExcel(companies: Company[], activeYear: number)
       Sitio: company.website,
       Descripción: company.description,
       'Exportaciones USD': Number(company.exportsUSD) || 0,
-      'Ventas año activo (COP)': company.salesByYear[activeYear] || 0,
+      [`Ventas año activo (${currencyLabel(currencyCode)})`]: company.salesByYear[activeYear] || 0,
       'Promedio YoY %': avgYoY !== null ? Number(avgYoY.toFixed(2)) : '',
       'Último YoY %': lastYoY !== null ? Number(lastYoY.toFixed(2)) : '',
       'Contacto principal': primaryContact?.name || '',
@@ -39,7 +39,7 @@ export function exportCompaniesToExcel(companies: Company[], activeYear: number)
     };
 
     years.forEach((year) => {
-      baseRow[`Ventas ${year} (COP)`] = company.salesByYear[year] || 0;
+      baseRow[`Ventas ${year} (${currencyLabel(currencyCode)})`] = company.salesByYear[year] || 0;
     });
 
     return baseRow;

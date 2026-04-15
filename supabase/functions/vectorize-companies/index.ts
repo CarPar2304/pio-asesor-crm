@@ -304,12 +304,14 @@ async function vectorizePipeline(supabase: any, openai: OpenAI, embeddingModel: 
     { data: stages },
     { data: companies },
     { data: profiles },
+    { data: pipelineNotes },
   ] = await Promise.all([
     supabase.from("portfolio_offers").select("id, name, product"),
     supabase.from("pipeline_entries").select("*"),
     supabase.from("pipeline_stages").select("*").order("display_order"),
     supabase.from("companies").select("id, trade_name, nit, category, vertical, city"),
     supabase.from("profiles").select("user_id, name"),
+    supabase.from("pipeline_notes").select("*").order("created_at", { ascending: false }),
   ]);
 
   if (!offers?.length) {
@@ -340,6 +342,19 @@ async function vectorizePipeline(supabase: any, openai: OpenAI, embeddingModel: 
         return `${company?.trade_name || "Desconocida"}${assignedName ? ` (Gestor: ${assignedName})` : ""}`;
       });
       parts.push(`\nEtapa "${stage.name}" (${stageEntries.length} empresas): ${companyNames.join(", ")}`);
+    }
+
+    // Include pipeline notes
+    const offerNotes = (pipelineNotes || []).filter((n: any) => n.offer_id === offer.id).slice(0, 20);
+    if (offerNotes.length > 0) {
+      const notesText = offerNotes.map((n: any) => {
+        const authorName = n.created_by ? (profileMap.get(n.created_by) || "Desconocido") : "Anónimo";
+        const linkedCompanies = (Array.isArray(n.company_ids) ? n.company_ids : n.company_id ? [n.company_id] : [])
+          .map((id: string) => companyMap.get(id)?.trade_name).filter(Boolean).join(", ");
+        const stageName = n.stage_id ? (stageMap.get(n.stage_id)?.name || "") : "";
+        return `[${n.created_at?.substring(0, 10)}] ${authorName}: ${n.content}${linkedCompanies ? ` (Empresas: ${linkedCompanies})` : ""}${stageName ? ` (Etapa: ${stageName})` : ""}`;
+      }).join("; ");
+      parts.push(`\nNotas del pipeline: ${notesText}`);
     }
 
     return { id: offer.id, content: parts.join("\n") };

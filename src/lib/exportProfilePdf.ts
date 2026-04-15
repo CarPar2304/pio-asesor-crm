@@ -1,5 +1,5 @@
 import { Company, GENDER_LABELS, ACTION_TYPE_LABELS, MILESTONE_TYPE_LABELS } from '@/types/crm';
-import { calculateGrowth, formatCOP, formatPercentage, formatUSD, getLastYearSales } from '@/lib/calculations';
+import { calculateGrowth, formatSales, formatPercentage, formatUSD, getLastYearSales, currencyLabel } from '@/lib/calculations';
 import { CustomField, CustomSection } from '@/types/crm';
 
 function loadImage(url: string): Promise<HTMLImageElement> {
@@ -16,6 +16,7 @@ export async function exportProfileToPdf(
   company: Company,
   sections: CustomSection[],
   fields: CustomField[],
+  currencyCode: string = 'COP',
 ) {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -138,7 +139,7 @@ export async function exportProfileToPdf(
 
   checkPage(14);
   const metrics = [
-    { label: lastSales ? `Ventas ${lastSales.year}` : 'Ventas', value: lastSales ? formatCOP(lastSales.value) : '—' },
+    { label: lastSales ? `Ventas ${lastSales.year} (${currencyLabel(currencyCode)})` : 'Ventas', value: lastSales ? formatSales(lastSales.value, currencyCode) : '—' },
     { label: 'Avg YoY', value: formatPercentage(avgYoY) },
     { label: 'Último YoY', value: formatPercentage(lastYoY) },
     { label: 'Exportaciones', value: company.exportsUSD > 0 ? formatUSD(company.exportsUSD) : '—' },
@@ -174,7 +175,7 @@ export async function exportProfileToPdf(
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(255, 255, 255);
     doc.text('Año', margin + 2, y + 4);
-    doc.text('Ventas (COP)', margin + colW + 2, y + 4);
+    doc.text(`Ventas (${currencyLabel(currencyCode)})`, margin + colW + 2, y + 4);
     doc.text('Crecimiento YoY', margin + colW * 2 + 2, y + 4);
     y += 6;
 
@@ -195,7 +196,7 @@ export async function exportProfileToPdf(
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(...colors.dark);
       doc.text(String(year), margin + 2, y + 4);
-      doc.text(formatCOP(company.salesByYear[year]), margin + colW + 2, y + 4);
+      doc.text(formatSales(company.salesByYear[year], currencyCode), margin + colW + 2, y + 4);
 
       if (yoy !== null) {
         doc.setTextColor(...(yoy > 0 ? colors.success : colors.destructive));
@@ -245,7 +246,7 @@ export async function exportProfileToPdf(
     if (field.fieldType === 'metric_by_year') {
       const entries = Object.entries(val.yearValues || {}).filter(([_, v]) => v > 0);
       if (entries.length === 0) return null;
-      return entries.sort(([a], [b]) => Number(a) - Number(b)).map(([yr, v]) => `${yr}: ${formatCOP(v as number)}`).join(' · ');
+      return entries.sort(([a], [b]) => Number(a) - Number(b)).map(([yr, v]) => `${yr}: ${formatSales(v as number, currencyCode)}`).join(' · ');
     }
     if (field.fieldType === 'number') return val.numberValue !== null ? String(val.numberValue) : null;
     return val.textValue || null;

@@ -133,7 +133,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
           <Button size="sm" className="gap-1.5 text-xs" onClick={() => setEditOpen(true)}>
             <Pencil className="h-3.5 w-3.5" /> Editar
           </Button>
-          <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => exportProfileToPdf(company, sections, fields)}>
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => exportProfileToPdf(company, sections, fields, viewCurrency)}>
             <FileDown className="h-3.5 w-3.5" /> PDF
           </Button>
           <Button size="sm" variant="outline" className="gap-1.5 text-xs text-destructive hover:text-destructive" onClick={handleDelete}>
