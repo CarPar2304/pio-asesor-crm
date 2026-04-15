@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ArrowLeft, Phone, CheckSquare, Flag, Pencil, Mail, User, Star, Globe, Trash2, GitBranch, FileDown } from 'lucide-react';
 import { exportProfileToPdf } from '@/lib/exportProfilePdf';
 import ActivityTimeline from './ActivityTimeline';
+import CompanyTimeline from './CompanyTimeline';
 import QuickActionDialog from './QuickActionDialog';
 import CompanyForm from './CompanyForm';
 import SalesChart from './SalesChart';
@@ -83,6 +84,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
     });
 
     items.push({ id: '__activity', label: 'Actividad', type: 'activity' });
+    items.push({ id: '__timeline', label: 'Timeline', type: 'activity' });
 
     return items;
   }, [company, sections, fields]);
@@ -271,8 +273,11 @@ export default function CompanyProfile({ company, onBack }: Props) {
                   getFieldValueDisplay={getFieldValueDisplay}
                 />
               )}
-              {tab.type === 'activity' && (
+              {tab.type === 'activity' && tab.id === '__activity' && (
                 <ActivityTimeline company={company} />
+              )}
+              {tab.type === 'activity' && tab.id === '__timeline' && (
+                <CompanyTimeline companyId={company.id} />
               )}
             </TabsContent>
           ))}
