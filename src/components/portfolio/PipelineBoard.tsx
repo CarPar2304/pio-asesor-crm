@@ -381,6 +381,14 @@ export default function PipelineBoard({ offer, onBack }: Props) {
           offerId={offer.id}
         />
       )}
+      {milestoneTarget && (
+        <PipelineMilestoneDialog
+          open={!!milestoneTarget}
+          onClose={() => setMilestoneTarget(null)}
+          companyId={milestoneTarget.companyId}
+          companyName={milestoneTarget.companyName}
+        />
+      )}
     </div>
   );
 }
