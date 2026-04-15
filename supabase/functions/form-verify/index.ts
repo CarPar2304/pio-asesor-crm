@@ -244,6 +244,47 @@ Deno.serve(async (req) => {
       return jsonRes({ success: true });
     }
 
+    // Select contact for OTP — called when company has multiple contacts
+    if (req.method === "POST" && action === "select-contact") {
+      const { session_token, contact_id } = await req.json();
+      if (!session_token || !contact_id) return jsonRes({ error: "Token y contacto son requeridos" }, 400);
+
+      const { data: session } = await supabaseAdmin.from("external_form_sessions").select("*").eq("session_token", session_token).single();
+      if (!session) return jsonRes({ error: "Sesión no encontrada" }, 404);
+      if (new Date(session.expires_at) < new Date()) return jsonRes({ error: "La sesión ha expirado" }, 410);
+      if (session.is_verified) return jsonRes({ error: "Sesión ya verificada" }, 400);
+
+      // Get the selected contact
+      const { data: contact } = await supabaseAdmin.from("contacts").select("id, email, name").eq("id", contact_id).eq("company_id", session.company_id).single();
+      if (!contact || !contact.email) return jsonRes({ error: "Contacto no válido" }, 400);
+
+      // Get form for config
+      const { data: form } = await supabaseAdmin.from("external_forms").select("code_expiration_minutes, max_code_attempts, name").eq("id", session.form_id).single();
+
+      // Generate and store code
+      const verCode = generateCode();
+      const codeHash = await hashCode(verCode);
+      const expiresAt = new Date(Date.now() + (form?.code_expiration_minutes || 10) * 60 * 1000).toISOString();
+      await supabaseAdmin.from("external_form_verification_codes").insert({
+        session_id: session.id, code_hash: codeHash, expires_at: expiresAt,
+        max_attempts: form?.max_code_attempts || 5
+      });
+
+      // Get company name
+      const { data: company } = await supabaseAdmin.from("companies").select("trade_name, nit").eq("id", session.company_id).single();
+
+      // Send code via webhook
+      let webhookUrl = N8N_WEBHOOK_URL_DEFAULT;
+      const { data: settings } = await supabaseAdmin.from("feature_settings").select("config").eq("feature_key", "external_forms").maybeSingle();
+      if (settings?.config && typeof settings.config === "object" && (settings.config as any).webhook_url) webhookUrl = (settings.config as any).webhook_url;
+      try { await fetch(webhookUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ company_id: session.company_id, company_name: company?.trade_name, nit: company?.nit, destination_email: contact.email, masked_email: maskEmail(contact.email), verification_code: verCode, form_id: session.form_id, form_name: form?.name, test_mode: false }) }); } catch (e) { console.error("Webhook error:", e); }
+
+      return jsonRes({
+        success: true, requires_code: true,
+        masked_email: maskEmail(contact.email), company_name: company?.trade_name
+      });
+    }
+
     if (req.method === "GET" && action === "load-form") {
       const sessionToken = url.searchParams.get("session_token");
       const slug = url.searchParams.get("slug");
