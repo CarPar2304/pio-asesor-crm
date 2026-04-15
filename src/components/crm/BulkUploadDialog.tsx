@@ -329,11 +329,11 @@ export default function BulkUploadDialog({ open, onClose }: Props) {
         const newId = await addCompany(company);
         if (!newId) { failed++; continue; }
 
-        // Save contact if provided
-        if (r.contactName) {
+        // Save contact if any contact data provided
+        if (r.contactName || r.contactEmail || r.contactPhone) {
           await addContact(newId, {
             id: crypto.randomUUID(),
-            name: r.contactName,
+            name: r.contactName || r.contactEmail || 'Sin nombre',
             position: r.contactPosition,
             email: r.contactEmail,
             phone: r.contactPhone,
