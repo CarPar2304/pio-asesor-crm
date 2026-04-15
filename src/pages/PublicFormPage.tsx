@@ -156,6 +156,7 @@ export default function PublicFormPage() {
 
   // Identify
   const [keyValue, setKeyValue] = useState('');
+  const [useNameFallback, setUseNameFallback] = useState(false);
   const [sessionToken, setSessionToken] = useState('');
   const [maskedEmail, setMaskedEmail] = useState('');
   const [companyName, setCompanyName] = useState('');
@@ -193,13 +194,14 @@ export default function PublicFormPage() {
   }, [slug, isTestMode]);
 
   const handleIdentify = async () => {
-    if (!keyValue.trim()) { setErrorMsg('Ingresa el NIT'); return; }
+    if (!keyValue.trim()) { setErrorMsg(useNameFallback ? 'Ingresa el nombre de la empresa' : 'Ingresa el NIT'); return; }
     setLoading(true);
     setErrorMsg('');
     try {
       const data = await callFormApi('identify', {
         form_id: formMeta?.id,
         key_value: keyValue.trim(),
+        use_name_fallback: useNameFallback,
         ip_address: '',
         test_mode: isTestMode,
         test_email: isTestMode ? testEmail : undefined
@@ -315,13 +317,19 @@ export default function PublicFormPage() {
             <CardHeader className="text-center">
               <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-12 mx-auto mb-2 object-contain" />
               <CardTitle className="text-lg">{formMeta?.public_title || 'Verificación de identidad'}</CardTitle>
-              <CardDescription>{formMeta?.public_subtitle || (formMeta?.verification_key_field === 'legal_name' ? 'Ingresa tu razón social para continuar' : 'Ingresa tu NIT para continuar')}</CardDescription>
+              <CardDescription>{formMeta?.public_subtitle || (useNameFallback ? 'Ingresa el nombre de tu empresa para continuar' : formMeta?.verification_key_field === 'legal_name' ? 'Ingresa tu razón social para continuar' : 'Ingresa tu NIT para continuar')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {formMeta?.allow_name_fallback && formMeta?.verification_key_field === 'nit' && (
+                <div className="flex items-center gap-2">
+                  <Checkbox checked={useNameFallback} onCheckedChange={v => { setUseNameFallback(!!v); setKeyValue(''); setErrorMsg(''); }} id="no-nit" />
+                  <label htmlFor="no-nit" className="text-sm cursor-pointer">No tengo NIT</label>
+                </div>
+              )}
               <div>
-                <Label>{formMeta?.verification_key_field === 'legal_name' ? 'Razón social de la empresa' : 'NIT de la empresa'}</Label>
+                <Label>{useNameFallback ? 'Razón social o Nombre comercial' : formMeta?.verification_key_field === 'legal_name' ? 'Razón social de la empresa' : 'NIT de la empresa'}</Label>
                 <Input value={keyValue} onChange={e => setKeyValue(e.target.value)} 
-                  placeholder={formMeta?.verification_key_field === 'legal_name' ? 'Ej: Mi Empresa S.A.S.' : 'Ej: 900123456'}
+                  placeholder={useNameFallback ? 'Ej: Mi Empresa S.A.S.' : formMeta?.verification_key_field === 'legal_name' ? 'Ej: Mi Empresa S.A.S.' : 'Ej: 900123456'}
                   onKeyDown={e => e.key === 'Enter' && handleIdentify()} />
               </div>
               {errorMsg && (
@@ -412,6 +420,8 @@ export default function PublicFormPage() {
                             <SalesByYearField
                               value={formData[field.field_key] || null}
                               onChange={(val) => updateFormData(field.field_key, val)}
+                              currencyKey={formData[`${field.field_key}_currency`] || 'COP'}
+                              onCurrencyChange={(c) => updateFormData(`${field.field_key}_currency`, c)}
                             />
                           ) : field.field_type === 'long_text' ? (
                           <Textarea value={formData[field.field_key] || ''} onChange={e => updateFormData(field.field_key, e.target.value)}

@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
     const action = url.searchParams.get("action");
 
     if (req.method === "POST" && action === "identify") {
-      const { form_id, key_value, ip_address, test_mode, test_email } = await req.json();
+      const { form_id, key_value, ip_address, test_mode, test_email, use_name_fallback } = await req.json();
       if (!form_id || !key_value) return jsonRes({ error: "form_id y key_value son requeridos" }, 400);
 
       const isTestMode = test_mode === true && !!test_email;
@@ -82,11 +82,19 @@ Deno.serve(async (req) => {
 
       // Look up company
       let company: any = null;
-      if (keyField === "nit") {
+      if (use_name_fallback && form.allow_name_fallback) {
+        // Search by trade_name OR legal_name (case-insensitive)
+        const { data: byTrade } = await supabaseAdmin.from("companies").select("id, trade_name, nit, legal_name").ilike("trade_name", key_value.trim()).limit(1);
+        if (byTrade && byTrade.length > 0) {
+          company = byTrade[0];
+        } else {
+          const { data: byLegal } = await supabaseAdmin.from("companies").select("id, trade_name, nit, legal_name").ilike("legal_name", key_value.trim()).limit(1);
+          company = byLegal?.[0] || null;
+        }
+      } else if (keyField === "nit") {
         const { data } = await supabaseAdmin.from("companies").select("id, trade_name, nit").eq("nit", key_value).maybeSingle();
         company = data;
       } else if (keyField === "legal_name") {
-        // Case-insensitive search by legal name
         const { data } = await supabaseAdmin.from("companies").select("id, trade_name, nit, legal_name").ilike("legal_name", key_value.trim()).maybeSingle();
         company = data;
       }
