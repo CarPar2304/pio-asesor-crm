@@ -197,7 +197,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
                   {c.isPrimary ? <Star className="h-4 w-4 text-gold" /> : <User className="h-4 w-4 text-muted-foreground" />}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium">{c.name}</p>
+                  <p className="text-sm font-medium">{c.name || c.email || 'Sin nombre'}</p>
                   <p className="text-xs text-muted-foreground">
                     {c.position}
                     {c.gender && GENDER_LABELS[c.gender] ? ` · ${GENDER_LABELS[c.gender]}` : ''}
