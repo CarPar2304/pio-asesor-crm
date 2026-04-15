@@ -34,19 +34,16 @@ export default function PipelineMilestoneDialog({ open, onClose, companyId, comp
     try {
       const milestone: Milestone = {
         id: crypto.randomUUID(),
-        companyId,
         title: title.trim(),
         description: description.trim(),
         date,
         type,
-        createdAt: new Date().toISOString(),
-        createdBy: null,
       };
       await addMilestone(companyId, milestone);
       showSuccess('Hito registrado', `"${title}" guardado para ${companyName}`);
       setTitle('');
       setDescription('');
-      setType('logro');
+      setType('capital');
       setDate(format(new Date(), 'yyyy-MM-dd'));
       onClose();
     } catch {
