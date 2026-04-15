@@ -290,6 +290,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     if (updates.status === 'completed') {
       logHistory(companyId, 'task_completed', `Tarea completada: ${updates.title || oldTask?.title}`, '', {}, session?.user.id);
     }
+  }, [fetchAll, session, companies]);
 
   const deleteTask = useCallback(async (taskId: string) => {
     await supabase.from('company_tasks').delete().eq('id', taskId);
