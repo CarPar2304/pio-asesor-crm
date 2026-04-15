@@ -154,6 +154,33 @@ export default function AddCompaniesToPipelineDialog({ open, onClose, offerId }:
   const hasFilters = activeChips.length > 0;
   const filterableFields = fields.filter(f => f.fieldType === 'text' || f.fieldType === 'select');
 
+  // Bulk mode: parse input and match companies
+  const bulkResults = useMemo(() => {
+    if (mode !== 'bulk' || !bulkInput.trim()) return { matched: [] as typeof companies, notFound: [] as string[] };
+    const values = bulkInput.split(/[,\n]+/).map(v => v.trim().toLowerCase()).filter(Boolean);
+    const matched: typeof companies = [];
+    const notFound: string[] = [];
+    for (const val of values) {
+      let found: typeof companies[0] | undefined;
+      if (bulkType === 'nit') {
+        found = companies.find(c => c.nit === val || c.nit === val.replace(/\D/g, ''));
+      } else {
+        found = companies.find(c => c.contacts.some(ct => ct.email.toLowerCase() === val));
+      }
+      if (found && !matched.some(m => m.id === found!.id)) {
+        matched.push(found);
+      } else if (!found) {
+        notFound.push(val);
+      }
+    }
+    return { matched, notFound };
+  }, [mode, bulkInput, bulkType, companies]);
+
+  const handleBulkSelectAll = () => {
+    const ids = bulkResults.matched.filter(c => !isCompanyInOffer(offerId, c.id)).map(c => c.id);
+    setSelectedIds(new Set(ids));
+  };
+
   const toggle = (id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
