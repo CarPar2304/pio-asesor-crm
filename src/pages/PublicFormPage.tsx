@@ -230,6 +230,23 @@ export default function PublicFormPage() {
     setLoading(false);
   };
 
+  const handleSelectContact = async () => {
+    if (!selectedContactId) { setErrorMsg('Selecciona un contacto'); return; }
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const data = await callFormApi('select-contact', { session_token: sessionToken, contact_id: selectedContactId });
+      if (data.error) { setErrorMsg(data.error); setLoading(false); return; }
+      setRequiresCode(true);
+      setMaskedEmail(data.masked_email);
+      setCompanyName(data.company_name);
+      setStep('code');
+    } catch {
+      setErrorMsg('Error de conexión');
+    }
+    setLoading(false);
+  };
+
   const handleVerifyCode = async () => {
     if (!code.trim()) { setErrorMsg('Ingresa el código'); return; }
     setLoading(true);
