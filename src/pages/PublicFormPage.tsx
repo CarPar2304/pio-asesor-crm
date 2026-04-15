@@ -87,12 +87,11 @@ function FileUploadField({ value, onChange, placeholder }: { value: string | nul
   );
 }
 
-function SalesByYearField({ value, onChange }: { value: Record<string, number> | null; onChange: (v: Record<string, number>) => void }) {
+function SalesByYearField({ value, onChange, currencyKey, onCurrencyChange }: { value: Record<string, number> | null; onChange: (v: Record<string, number>) => void; currencyKey?: string; onCurrencyChange?: (c: string) => void }) {
   const currentYear = new Date().getFullYear();
   const data = value || {};
   const years = Object.keys(data).map(Number).sort();
   const allYears = years.length > 0 ? years : [currentYear - 2, currentYear - 1];
-  // Ensure we always show at least 3 recent years
   const minYear = Math.min(...allYears, currentYear - 2);
   const maxYear = Math.max(...allYears, currentYear - 1);
   const displayYears: number[] = [];
@@ -103,10 +102,26 @@ function SalesByYearField({ value, onChange }: { value: Record<string, number> |
     onChange({ ...data, [next]: 0 });
   };
 
-  const formatCOP = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
+  const cur = currencyKey || 'COP';
+  const formatPreview = (n: number) => {
+    const locale = cur === 'USD' ? 'en-US' : 'es-CO';
+    return new Intl.NumberFormat(locale, { style: 'currency', currency: cur, maximumFractionDigits: 0 }).format(n);
+  };
 
   return (
     <div className="space-y-2">
+      {onCurrencyChange && (
+        <div className="flex items-center gap-2 mb-1">
+          <Label className="text-xs text-muted-foreground">Moneda:</Label>
+          <Select value={cur} onValueChange={v => onCurrencyChange(v)}>
+            <SelectTrigger className="h-7 w-24 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="COP">COP</SelectItem>
+              <SelectItem value="USD">USD</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       {displayYears.map(year => (
         <div key={year} className="flex items-center gap-2">
           <span className="text-xs font-medium w-12 text-right">{year}</span>
@@ -120,7 +135,7 @@ function SalesByYearField({ value, onChange }: { value: Record<string, number> |
               onChange({ ...data, [year]: v });
             }}
           />
-          {data[year] > 0 && <span className="text-[10px] text-muted-foreground w-28 truncate">{formatCOP(data[year])}</span>}
+          {data[year] > 0 && <span className="text-[10px] text-muted-foreground w-28 truncate">{formatPreview(data[year])}</span>}
         </div>
       ))}
       <Button type="button" variant="outline" size="sm" className="h-7 text-xs" onClick={addYear}>
