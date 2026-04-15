@@ -3,6 +3,7 @@ import { Company, CompanyAction, Milestone, CompanyTask, Contact, SavedView, Cus
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { triggerVectorize } from '@/lib/vectorizeHelper';
+import { logHistory } from '@/lib/historyHelper';
 
 interface CRMContextType {
   companies: Company[];
@@ -161,6 +162,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
 
     await fetchAll();
     triggerVectorize('companies', { companyIds: [data.id] });
+    logHistory(data.id, 'company_created', `Empresa creada: ${company.tradeName}`, '', {}, session?.user.id);
     return data.id as string;
   }, [fetchAll]);
 
@@ -199,6 +201,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
 
     await fetchAll();
     triggerVectorize('companies', { companyIds: [company.id] });
+    logHistory(company.id, 'company_updated', `Perfil actualizado: ${company.tradeName}`, '', {}, session?.user.id);
   }, [fetchAll]);
 
   const deleteCompany = useCallback(async (id: string) => {
@@ -216,7 +219,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       created_by: session?.user.id,
     });
     await fetchAll();
-  }, [fetchAll, session]);
+    logHistory(companyId, 'action', `Acción: ${action.type}`, action.description, { type: action.type, notes: action.notes }, session?.user.id);
 
   const addMilestone = useCallback(async (companyId: string, milestone: Milestone) => {
     await supabase.from('milestones').insert({
@@ -228,7 +231,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       created_by: session?.user.id,
     });
     await fetchAll();
-  }, [fetchAll, session]);
+    logHistory(companyId, 'milestone', `Hito: ${milestone.title}`, milestone.description || '', { type: milestone.type }, session?.user.id);
 
   const addTask = useCallback(async (companyId: string, task: CompanyTask) => {
     const { data } = await supabase.from('company_tasks').insert({
@@ -255,7 +258,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
 
     await fetchAll();
     triggerVectorize('companies', { companyIds: [companyId] });
-  }, [fetchAll, session]);
+    logHistory(companyId, 'task_created', `Tarea: ${task.title}`, task.description || '', { offerId: task.offerId }, session?.user.id);
 
   const updateTask = useCallback(async (companyId: string, taskId: string, updates: Partial<CompanyTask>) => {
     const mapped: any = {};
@@ -284,7 +287,9 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
 
     await fetchAll();
     triggerVectorize('companies', { companyIds: [companyId] });
-  }, [fetchAll, session, companies]);
+    if (updates.status === 'completed') {
+      logHistory(companyId, 'task_completed', `Tarea completada: ${updates.title || oldTask?.title}`, '', {}, session?.user.id);
+    }
 
   const deleteTask = useCallback(async (taskId: string) => {
     await supabase.from('company_tasks').delete().eq('id', taskId);
