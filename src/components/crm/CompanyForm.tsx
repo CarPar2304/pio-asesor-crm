@@ -713,7 +713,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
       nit: form.nit,
       category: form.category,
       vertical: form.vertical,
-      economicActivity: form.subVertical, // sub-vertical stored in economicActivity column
+      economicActivity: form.subVertical,
       description: form.description,
       city: resolvedCity,
       salesByYear: parsedSales,
@@ -726,6 +726,7 @@ export default function CompanyForm({ open, onClose, company }: Props) {
       tasks: company?.tasks || [],
       customProperties: company?.customProperties || [],
       fieldValues: [],
+      salesCurrency: form.salesCurrency || 'COP',
       createdAt: company?.createdAt || new Date().toISOString().split('T')[0],
     };
 
