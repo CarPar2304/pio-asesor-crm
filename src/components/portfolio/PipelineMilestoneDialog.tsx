@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCRM } from '@/contexts/CRMContext';
-import { Milestone } from '@/types/crm';
+import { Milestone, MilestoneType, MILESTONE_TYPE_LABELS } from '@/types/crm';
 import { showSuccess, showError } from '@/lib/toast';
 import { format } from 'date-fns';
 
@@ -17,12 +17,7 @@ interface Props {
   companyName: string;
 }
 
-const MILESTONE_TYPES = [
-  { value: 'logro', label: 'Logro' },
-  { value: 'evento', label: 'Evento' },
-  { value: 'premio', label: 'Premio' },
-  { value: 'otro', label: 'Otro' },
-];
+const MILESTONE_TYPES = Object.entries(MILESTONE_TYPE_LABELS).map(([value, label]) => ({ value: value as MilestoneType, label }));
 
 export default function PipelineMilestoneDialog({ open, onClose, companyId, companyName }: Props) {
   const { addMilestone } = useCRM();
@@ -30,7 +25,7 @@ export default function PipelineMilestoneDialog({ open, onClose, companyId, comp
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [type, setType] = useState('logro');
+  const [type, setType] = useState<MilestoneType>('capital');
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
