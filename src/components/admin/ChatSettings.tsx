@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Save, RefreshCw, Loader2, Database, Zap, Package, GitBranch, Users } from 'lucide-react';
+import { Save, RefreshCw, Loader2, Database, Zap, Package, GitBranch, Users, ListChecks } from 'lucide-react';
 
 interface ChatConfig {
   model: string;
@@ -169,7 +169,7 @@ export default function ChatSettings() {
         <h3 className="text-sm font-semibold flex items-center gap-2"><Package className="h-4 w-4" />Base vectorial - Portafolio</h3>
         <p className="text-xs text-muted-foreground">Vectoriza ofertas, pipeline y aliados para que el chat pueda consultar información del portafolio</p>
 
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-4">
           <div className="rounded-lg border border-border/50 p-3 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium flex items-center gap-1.5"><Package className="h-3.5 w-3.5" /> Oferta</span>
@@ -212,6 +212,19 @@ export default function ChatSettings() {
               onClick={() => handleVectorizeMode('allies', setVectorizingAllies, 'lastAllyVectorizedAt', 'aliados')}>
               {vectorizingAllies ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
               Vectorizar Aliados
+            </Button>
+          </div>
+
+          <div className="rounded-lg border border-border/50 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium flex items-center gap-1.5"><ListChecks className="h-3.5 w-3.5" /> Tareas</span>
+              <Badge variant="outline" className="text-[10px]">{embeddingCount}</Badge>
+            </div>
+            <p className="text-[10px] text-muted-foreground">Re-vectoriza empresas con tareas actualizadas</p>
+            <Button size="sm" variant="outline" className="w-full gap-1.5" disabled={vectorizing}
+              onClick={handleVectorize}>
+              {vectorizing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+              Vectorizar Tareas
             </Button>
           </div>
         </div>
