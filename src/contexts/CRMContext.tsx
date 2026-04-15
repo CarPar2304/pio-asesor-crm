@@ -149,7 +149,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     // Insert contacts
     if (company.contacts.length > 0) {
       await supabase.from('contacts').insert(
-        company.contacts.filter(c => c.name.trim()).map(c => ({
+        company.contacts.filter(c => c.name.trim() || c.email.trim() || c.phone.trim()).map(c => ({
           company_id: data.id,
           name: c.name,
           position: c.position,
@@ -189,7 +189,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
     await supabase.from('contacts').delete().eq('company_id', company.id);
     if (company.contacts.length > 0) {
       await supabase.from('contacts').insert(
-        company.contacts.filter(c => c.name.trim()).map(c => ({
+        company.contacts.filter(c => c.name.trim() || c.email.trim() || c.phone.trim()).map(c => ({
           company_id: company.id,
           name: c.name,
           position: c.position,
