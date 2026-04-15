@@ -206,7 +206,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
       {/* Sales by year — fixed section */}
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Métricas por año</h2>
-        <SalesChart salesByYear={company.salesByYear} />
+        <SalesChart salesByYear={company.salesByYear} currency={viewCurrency} />
         {salesYears.length === 0 ? (
           <p className="text-sm text-muted-foreground">Sin datos de ventas</p>
         ) : (
