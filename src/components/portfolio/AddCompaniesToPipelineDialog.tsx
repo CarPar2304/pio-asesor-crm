@@ -56,6 +56,9 @@ export default function AddCompaniesToPipelineDialog({ open, onClose, offerId }:
   const [assignedTo, setAssignedTo] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
+  const [mode, setMode] = useState<'search' | 'bulk'>('search');
+  const [bulkInput, setBulkInput] = useState('');
+  const [bulkType, setBulkType] = useState<'nit' | 'email'>('nit');
 
   const stages = getStagesForOffer(offerId);
   const defaultStageId = stages[0]?.id ?? '';
