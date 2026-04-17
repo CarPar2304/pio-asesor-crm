@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Settings, Plus, ArrowLeft, Building2, X, ExternalLink, GripVertical, User, Mail, Upload, Search, ClipboardList, UserCog, StickyNote, Flag } from 'lucide-react';
+import { Settings, Plus, ArrowLeft, Building2, X, ExternalLink, GripVertical, User, Mail, Upload, Search, ClipboardList, UserCog, StickyNote, Flag, Layers } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import StageManagerDialog from './StageManagerDialog';
 import AddCompaniesToPipelineDialog from './AddCompaniesToPipelineDialog';
@@ -18,6 +18,7 @@ import PipelineNotificationDialog from './PipelineNotificationDialog';
 import PipelineTaskDialog from './PipelineTaskDialog';
 import PipelineNotesPanel from './PipelineNotesPanel';
 import PipelineMilestoneDialog from './PipelineMilestoneDialog';
+import PipelineBulkActionsDialog from './PipelineBulkActionsDialog';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -40,6 +41,8 @@ export default function PipelineBoard({ offer, onBack }: Props) {
   const [bulkAddOpen, setBulkAddOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
+  const [milestoneHeaderOpen, setMilestoneHeaderOpen] = useState(false);
+  const [bulkActionsOpen, setBulkActionsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [taskTarget, setTaskTarget] = useState<{ companyId: string; companyName: string } | null>(null);
   const [milestoneTarget, setMilestoneTarget] = useState<{ companyId: string; companyName: string } | null>(null);
@@ -141,6 +144,12 @@ export default function PipelineBoard({ offer, onBack }: Props) {
           </Button>
           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setNotificationOpen(true)}>
             <Mail className="h-3.5 w-3.5" /> Notificar
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setMilestoneHeaderOpen(true)}>
+            <Flag className="h-3.5 w-3.5" /> Hito
+          </Button>
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setBulkActionsOpen(true)}>
+            <Layers className="h-3.5 w-3.5" /> Acciones masivas
           </Button>
           <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setStageManagerOpen(true)}>
             <Settings className="h-3.5 w-3.5" /> Etapas
@@ -389,6 +398,16 @@ export default function PipelineBoard({ offer, onBack }: Props) {
           companyName={milestoneTarget.companyName}
         />
       )}
+      <PipelineMilestoneDialog
+        open={milestoneHeaderOpen}
+        onClose={() => setMilestoneHeaderOpen(false)}
+        offerId={offer.id}
+      />
+      <PipelineBulkActionsDialog
+        open={bulkActionsOpen}
+        onClose={() => setBulkActionsOpen(false)}
+        offerId={offer.id}
+      />
     </div>
   );
 }
