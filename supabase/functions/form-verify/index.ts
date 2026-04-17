@@ -493,9 +493,15 @@ Deno.serve(async (req) => {
       if (companyId) {
         const { data: fields } = await supabaseAdmin.from("external_form_fields").select("field_key, label").eq("form_id", form_id);
         const fieldsUpdated = (fields || []).filter(f => response_data[f.field_key] !== undefined).map(f => f.label);
+        // If user picked a currency for sales, add it to the summary
+        const currencyKeys = Object.keys(response_data).filter(k => k.endsWith("_currency") && response_data[k]);
+        for (const ck of currencyKeys) {
+          const val = response_data[ck];
+          if (val) fieldsUpdated.push(`Moneda: ${val}`);
+        }
         const eventType = form.form_type === "creation" ? "form_creation" : "form_submission";
         const description = fieldsUpdated.length > 0
-          ? `Campos: ${fieldsUpdated.slice(0, 5).join(", ")}${fieldsUpdated.length > 5 ? ` (+${fieldsUpdated.length - 5})` : ""}`
+          ? `Campos: ${fieldsUpdated.slice(0, 6).join(", ")}${fieldsUpdated.length > 6 ? ` (+${fieldsUpdated.length - 6})` : ""}`
           : "";
 
         await supabaseAdmin.from("company_history").insert({
