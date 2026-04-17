@@ -216,9 +216,9 @@ export default function FormsPage() {
           {filtered.map(form => (
             <Card key={form.id} className="hover:shadow-sm transition-shadow">
               <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start justify-between gap-4 mb-3">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <h3 className="font-medium text-sm truncate">{form.name}</h3>
                       <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${FORM_STATUS_COLORS[form.status]}`}>
                         {FORM_STATUS_LABELS[form.status]}
@@ -228,13 +228,6 @@ export default function FormsPage() {
                       </Badge>
                     </div>
                     {form.description && <p className="text-xs text-muted-foreground line-clamp-1">{form.description}</p>}
-                    <div className="flex items-center gap-4 mt-2 text-[11px] text-muted-foreground">
-                      <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{form.access_count} accesos</span>
-                      <span className="flex items-center gap-1"><BarChart3 className="h-3 w-3" />{form.submitted_count} envíos</span>
-                      {form.access_count > 0 && (
-                        <span>{Math.round((form.completed_count / form.access_count) * 100)}% conversión</span>
-                      )}
-                    </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     {form.status !== 'archived' && (
@@ -285,6 +278,29 @@ export default function FormsPage() {
                     )}
                   </div>
                 </div>
+
+                {(() => {
+                  const conversion = form.access_count > 0 ? Math.round((form.completed_count / form.access_count) * 100) : 0;
+                  const startedRate = form.access_count > 0 ? Math.round((form.started_count / form.access_count) * 100) : 0;
+                  const submitRate = form.started_count > 0 ? Math.round((form.submitted_count / form.started_count) * 100) : 0;
+                  return (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-3 border-t border-border/60">
+                      <StatTile icon={Eye} label="Accesos" value={form.access_count} tone="slate" />
+                      <StatTile icon={MousePointerClick} label="Iniciados" value={form.started_count} sub={form.access_count > 0 ? `${startedRate}%` : undefined} tone="indigo" />
+                      <StatTile icon={Send} label="Enviados" value={form.submitted_count} sub={form.started_count > 0 ? `${submitRate}%` : undefined} tone="violet" />
+                      <StatTile icon={CheckCircle2} label="Completados" value={form.completed_count} sub={form.access_count > 0 ? `${conversion}%` : undefined} tone="emerald" />
+                      {form.access_count > 0 && (
+                        <div className="col-span-2 md:col-span-4 mt-1">
+                          <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+                            <span className="flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Tasa de conversión global</span>
+                            <span className="font-semibold text-foreground">{conversion}%</span>
+                          </div>
+                          <Progress value={conversion} className="h-1.5" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
           ))}
