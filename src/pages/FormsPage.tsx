@@ -7,13 +7,36 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Plus, Copy, Pencil, Archive, Play, Pause, Eye, BarChart3, FileText, Search, FlaskConical, Trash2 } from 'lucide-react';
+import { Plus, Copy, Pencil, Archive, Play, Pause, Eye, BarChart3, FileText, Search, FlaskConical, Trash2, MousePointerClick, Send, CheckCircle2, TrendingUp } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
 import FormWizardDialog from '@/components/forms/FormWizardDialog';
 import FormResponsesDialog from '@/components/forms/FormResponsesDialog';
 import { useAuth } from '@/hooks/useAuth';
 
 interface OfferInfo { id: string; name: string; product: string; category_id: string | null; }
 interface CategoryInfo { id: string; name: string; }
+
+const TONE_CLASSES: Record<string, string> = {
+  slate: 'bg-muted/50 text-foreground',
+  indigo: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300',
+  violet: 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300',
+  emerald: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300',
+};
+
+function StatTile({ icon: Icon, label, value, sub, tone = 'slate' }: { icon: any; label: string; value: number; sub?: string; tone?: string }) {
+  return (
+    <div className={`rounded-md px-2.5 py-2 ${TONE_CLASSES[tone] || TONE_CLASSES.slate}`}>
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide opacity-75 font-medium">
+        <Icon className="h-3 w-3" />
+        <span>{label}</span>
+      </div>
+      <div className="flex items-baseline gap-1.5 mt-0.5">
+        <span className="text-base font-semibold tabular-nums leading-none">{value}</span>
+        {sub && <span className="text-[10px] opacity-70 font-medium">{sub}</span>}
+      </div>
+    </div>
+  );
+}
 
 export default function FormsPage() {
   const { session } = useAuth();
@@ -215,9 +238,9 @@ export default function FormsPage() {
           {filtered.map(form => (
             <Card key={form.id} className="hover:shadow-sm transition-shadow">
               <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex items-start justify-between gap-4 mb-3">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <h3 className="font-medium text-sm truncate">{form.name}</h3>
                       <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${FORM_STATUS_COLORS[form.status]}`}>
                         {FORM_STATUS_LABELS[form.status]}
@@ -227,13 +250,6 @@ export default function FormsPage() {
                       </Badge>
                     </div>
                     {form.description && <p className="text-xs text-muted-foreground line-clamp-1">{form.description}</p>}
-                    <div className="flex items-center gap-4 mt-2 text-[11px] text-muted-foreground">
-                      <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{form.access_count} accesos</span>
-                      <span className="flex items-center gap-1"><BarChart3 className="h-3 w-3" />{form.submitted_count} envíos</span>
-                      {form.access_count > 0 && (
-                        <span>{Math.round((form.completed_count / form.access_count) * 100)}% conversión</span>
-                      )}
-                    </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     {form.status !== 'archived' && (
@@ -284,6 +300,29 @@ export default function FormsPage() {
                     )}
                   </div>
                 </div>
+
+                {(() => {
+                  const conversion = form.access_count > 0 ? Math.round((form.completed_count / form.access_count) * 100) : 0;
+                  const startedRate = form.access_count > 0 ? Math.round((form.started_count / form.access_count) * 100) : 0;
+                  const submitRate = form.started_count > 0 ? Math.round((form.submitted_count / form.started_count) * 100) : 0;
+                  return (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-3 border-t border-border/60">
+                      <StatTile icon={Eye} label="Accesos" value={form.access_count} tone="slate" />
+                      <StatTile icon={MousePointerClick} label="Iniciados" value={form.started_count} sub={form.access_count > 0 ? `${startedRate}%` : undefined} tone="indigo" />
+                      <StatTile icon={Send} label="Enviados" value={form.submitted_count} sub={form.started_count > 0 ? `${submitRate}%` : undefined} tone="violet" />
+                      <StatTile icon={CheckCircle2} label="Completados" value={form.completed_count} sub={form.access_count > 0 ? `${conversion}%` : undefined} tone="emerald" />
+                      {form.access_count > 0 && (
+                        <div className="col-span-2 md:col-span-4 mt-1">
+                          <div className="flex items-center justify-between text-[10px] text-muted-foreground mb-1">
+                            <span className="flex items-center gap-1"><TrendingUp className="h-3 w-3" /> Tasa de conversión global</span>
+                            <span className="font-semibold text-foreground">{conversion}%</span>
+                          </div>
+                          <Progress value={conversion} className="h-1.5" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </CardContent>
             </Card>
           ))}
