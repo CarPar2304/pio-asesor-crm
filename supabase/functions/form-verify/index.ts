@@ -387,7 +387,7 @@ Deno.serve(async (req) => {
 
           if (field.crm_table === "companies" && field.crm_column && company) {
             const oldVal = (company as any)[field.crm_column];
-            // For sales_by_year, handle as JSON merge
+            // For sales_by_year, handle as JSON merge AND persist the chosen currency
             if (field.crm_column === "sales_by_year" && typeof newVal === "object") {
               const merged = { ...(oldVal || {}), ...newVal };
               if (JSON.stringify(oldVal || {}) !== JSON.stringify(merged)) {
@@ -397,6 +397,19 @@ Deno.serve(async (req) => {
                   field_key: field.field_key, field_label: field.label,
                   old_value: JSON.stringify(oldVal || {}), new_value: JSON.stringify(merged)
                 });
+              }
+              // Capture the sibling "<field_key>_currency" sent by the public form
+              const currencyVal = response_data[`${field.field_key}_currency`];
+              if (currencyVal && (currencyVal === "COP" || currencyVal === "USD")) {
+                const oldCurrency = (company as any).sales_currency || "COP";
+                if (oldCurrency !== currencyVal) {
+                  companyUpdates.sales_currency = currencyVal;
+                  auditEntries.push({
+                    response_id: response!.id, company_id: companyId,
+                    field_key: `${field.field_key}_currency`, field_label: `${field.label} — Moneda`,
+                    old_value: String(oldCurrency), new_value: String(currencyVal)
+                  });
+                }
               }
             } else if (String(oldVal ?? "") !== String(newVal)) {
               companyUpdates[field.crm_column] = newVal;
@@ -480,9 +493,15 @@ Deno.serve(async (req) => {
       if (companyId) {
         const { data: fields } = await supabaseAdmin.from("external_form_fields").select("field_key, label").eq("form_id", form_id);
         const fieldsUpdated = (fields || []).filter(f => response_data[f.field_key] !== undefined).map(f => f.label);
+        // If user picked a currency for sales, add it to the summary
+        const currencyKeys = Object.keys(response_data).filter(k => k.endsWith("_currency") && response_data[k]);
+        for (const ck of currencyKeys) {
+          const val = response_data[ck];
+          if (val) fieldsUpdated.push(`Moneda: ${val}`);
+        }
         const eventType = form.form_type === "creation" ? "form_creation" : "form_submission";
         const description = fieldsUpdated.length > 0
-          ? `Campos: ${fieldsUpdated.slice(0, 5).join(", ")}${fieldsUpdated.length > 5 ? ` (+${fieldsUpdated.length - 5})` : ""}`
+          ? `Campos: ${fieldsUpdated.slice(0, 6).join(", ")}${fieldsUpdated.length > 6 ? ` (+${fieldsUpdated.length - 6})` : ""}`
           : "";
 
         await supabaseAdmin.from("company_history").insert({
