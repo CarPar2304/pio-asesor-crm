@@ -16,6 +16,28 @@ import { useAuth } from '@/hooks/useAuth';
 interface OfferInfo { id: string; name: string; product: string; category_id: string | null; }
 interface CategoryInfo { id: string; name: string; }
 
+const TONE_CLASSES: Record<string, string> = {
+  slate: 'bg-muted/50 text-foreground',
+  indigo: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300',
+  violet: 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300',
+  emerald: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300',
+};
+
+function StatTile({ icon: Icon, label, value, sub, tone = 'slate' }: { icon: any; label: string; value: number; sub?: string; tone?: string }) {
+  return (
+    <div className={`rounded-md px-2.5 py-2 ${TONE_CLASSES[tone] || TONE_CLASSES.slate}`}>
+      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide opacity-75 font-medium">
+        <Icon className="h-3 w-3" />
+        <span>{label}</span>
+      </div>
+      <div className="flex items-baseline gap-1.5 mt-0.5">
+        <span className="text-base font-semibold tabular-nums leading-none">{value}</span>
+        {sub && <span className="text-[10px] opacity-70 font-medium">{sub}</span>}
+      </div>
+    </div>
+  );
+}
+
 export default function FormsPage() {
   const { session } = useAuth();
   const [forms, setForms] = useState<ExternalForm[]>([]);
