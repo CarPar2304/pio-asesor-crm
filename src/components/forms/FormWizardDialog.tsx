@@ -888,6 +888,9 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                       </label>
                     </div>
                   )}
+                      </>
+                    );
+                  })()}
                   {/* Conditional logic */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
