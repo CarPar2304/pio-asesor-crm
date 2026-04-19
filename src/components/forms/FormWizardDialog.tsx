@@ -806,7 +806,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                     <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
                       <div>
                         <Label className="text-[11px]">Respuesta por defecto</Label>
-                        {field.field_type === 'select' && field.options.length > 0 ? (
+                        {(field.field_type === 'select' || field.field_type === 'multiselect' || field.field_type === 'short_text') && field.options.length > 0 ? (
                           <Select
                             value={field.default_value || '__none'}
                             onValueChange={v => updateField(idx, { default_value: v === '__none' ? '' : v })}
