@@ -313,8 +313,13 @@ Deno.serve(async (req) => {
 
       // Refresh taxonomy-driven options on a field list (in place)
       const refreshTaxonomyOptions = (fields: any[], taxonomy: any) => {
+        const taxonomyCols = new Set(["category", "vertical", "economic_activity", "city"]);
         for (const f of fields) {
           if (f.crm_table !== "companies") continue;
+          if (taxonomyCols.has(f.crm_column)) {
+            // Force select rendering even if legacy field_type is short_text
+            f.field_type = "select";
+          }
           if (f.crm_column === "category") f.options = taxonomy.categories;
           else if (f.crm_column === "vertical") f.options = taxonomy.verticals.map((v: any) => v.name);
           else if (f.crm_column === "economic_activity") f.options = taxonomy.subVerticals.map((sv: any) => sv.name);
