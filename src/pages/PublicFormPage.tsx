@@ -321,6 +321,61 @@ export default function PublicFormPage() {
     return String(sourceValue || '') === String(field.condition_value || '');
   };
 
+  // Get effective options for a field — applies CRM taxonomy hierarchy filtering
+  const getFieldOptions = (field: any): string[] => {
+    const baseOpts: string[] = field.options || [];
+    if (field.crm_table !== 'companies') return baseOpts;
+    const verticals = (taxonomy.verticals || []) as { id: string; name: string }[];
+    const subVerticals = (taxonomy.subVerticals || []) as { id: string; name: string }[];
+    const categoryLinks = (taxonomy.categoryLinks || []) as { category: string; vertical_id: string }[];
+    const vsvLinks = (taxonomy.vsvLinks || []) as { vertical_id: string; sub_vertical_id: string }[];
+
+    if (field.crm_column === 'vertical') {
+      // Filter by selected category if a category field exists in this form
+      const catField = fields.find(f => f.crm_table === 'companies' && f.crm_column === 'category');
+      const selectedCat = catField ? formData[catField.field_key] : null;
+      if (!selectedCat) return baseOpts;
+      const linkedVIds = new Set(categoryLinks.filter(l => l.category === selectedCat).map(l => l.vertical_id));
+      if (linkedVIds.size === 0) return baseOpts; // no links → show all
+      return verticals.filter(v => linkedVIds.has(v.id)).map(v => v.name);
+    }
+    if (field.crm_column === 'economic_activity') {
+      // Filter by selected vertical if a vertical field exists in this form
+      const verField = fields.find(f => f.crm_table === 'companies' && f.crm_column === 'vertical');
+      const selectedVer = verField ? formData[verField.field_key] : null;
+      if (!selectedVer) return baseOpts;
+      const v = verticals.find(vv => vv.name === selectedVer);
+      if (!v) return baseOpts;
+      const linkedSvIds = new Set(vsvLinks.filter(l => l.vertical_id === v.id).map(l => l.sub_vertical_id));
+      if (linkedSvIds.size === 0) return [];
+      return subVerticals.filter(sv => linkedSvIds.has(sv.id)).map(sv => sv.name);
+    }
+    return baseOpts;
+  };
+
+  // When category changes, reset vertical/sub-vertical if they no longer match
+  const updateFormDataWithCascade = (key: string, value: any) => {
+    const changedField = fields.find(f => f.field_key === key);
+    setFormData(prev => {
+      const next = { ...prev, [key]: value };
+      if (changedField?.crm_table === 'companies' && changedField?.crm_column === 'category') {
+        // Reset vertical and sub-vertical
+        for (const f of fields) {
+          if (f.crm_table === 'companies' && (f.crm_column === 'vertical' || f.crm_column === 'economic_activity')) {
+            next[f.field_key] = '';
+          }
+        }
+      } else if (changedField?.crm_table === 'companies' && changedField?.crm_column === 'vertical') {
+        for (const f of fields) {
+          if (f.crm_table === 'companies' && f.crm_column === 'economic_activity') {
+            next[f.field_key] = '';
+          }
+        }
+      }
+      return next;
+    });
+  };
+
   const primaryColor = form?.primary_color || formMeta?.primary_color || '#4f46e5';
 
   // Multi-page support: when pages exist, show fields page-by-page; otherwise group by section_name as before.
