@@ -110,6 +110,9 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
   const [successMessage, setSuccessMessage] = useState('Tu información ha sido enviada exitosamente.');
   const [primaryColor, setPrimaryColor] = useState('#4f46e5');
 
+  // Pages (sections of questions for multi-page rendering)
+  const [pages, setPages] = useState<PageDraft[]>([]);
+
   // Step 6
   const [savedSlug, setSavedSlug] = useState('');
   const [savedFormId, setSavedFormId] = useState<string | null>(null);
