@@ -595,10 +595,10 @@ export default function PublicFormPage() {
                           <Textarea value={formData[field.field_key] || ''} onChange={e => updateFormData(field.field_key, e.target.value)}
                             placeholder={field.placeholder} rows={3} />
                         ) : field.field_type === 'select' ? (
-                          <Select value={formData[field.field_key] || ''} onValueChange={v => updateFormData(field.field_key, v)}>
+                          <Select value={formData[field.field_key] || ''} onValueChange={v => updateFormDataWithCascade(field.field_key, v)}>
                             <SelectTrigger><SelectValue placeholder={field.placeholder || 'Seleccionar...'} /></SelectTrigger>
                             <SelectContent>
-                              {(field.options || []).map((o: string) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                              {getFieldOptions(field).map((o: string) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
                             </SelectContent>
                           </Select>
                         ) : field.field_type === 'checkbox' ? (
