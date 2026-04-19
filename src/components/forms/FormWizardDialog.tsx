@@ -430,6 +430,8 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
           condition_value: f.condition_value || null,
           only_for_new: f.only_for_new || false,
           page_id: f.page_id ? (localToPersistedPageId[f.page_id] || f.page_id) : null,
+          default_value: f.default_value ?? '',
+          default_value_editable: f.default_value_editable ?? true,
         }));
         const { error } = await supabase.from('external_form_fields').insert(fieldsToInsert as any);
         if (error) throw error;
