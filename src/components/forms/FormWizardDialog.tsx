@@ -807,13 +807,24 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                       </Select>
                     </div>
                   </div>
-                  {(field.field_type === 'select' || field.field_type === 'multiselect') && (
-                    <div>
-                      <Label className="text-[11px]">Opciones (separadas por coma)</Label>
-                      <Input className="h-8 text-xs" value={field.options.join(', ')}
-                        onChange={e => updateField(idx, { options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
-                    </div>
-                  )}
+                  {(field.field_type === 'select' || field.field_type === 'multiselect') && (() => {
+                    const isTaxonomy = field.crm_table === 'companies' &&
+                      (field.crm_column === 'category' || field.crm_column === 'vertical' || field.crm_column === 'economic_activity');
+                    if (isTaxonomy) {
+                      return (
+                        <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-2 text-[10px] text-blue-700 dark:text-blue-300">
+                          Opciones sincronizadas automáticamente desde la taxonomía del CRM ({field.options.length} valores). Se actualizan al cargar el formulario.
+                        </div>
+                      );
+                    }
+                    return (
+                      <div>
+                        <Label className="text-[11px]">Opciones (separadas por coma)</Label>
+                        <Input className="h-8 text-xs" value={field.options.join(', ')}
+                          onChange={e => updateField(idx, { options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
+                      </div>
+                    );
+                  })()}
                   {field.field_type === 'file' && (
                     <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-2 text-[10px] text-blue-700 dark:text-blue-300">
                       El campo de archivo permite al usuario subir un archivo o pegar una imagen con Ctrl+V (ideal para logos).
