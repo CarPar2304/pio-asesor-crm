@@ -312,6 +312,7 @@ Deno.serve(async (req) => {
       if (!form) return jsonRes({ error: "Formulario no encontrado" }, 404);
 
       const { data: fields } = await supabaseAdmin.from("external_form_fields").select("*").eq("form_id", form.id).order("display_order");
+      const { data: pages } = await supabaseAdmin.from("external_form_pages").select("*").eq("form_id", form.id).order("display_order");
 
       // Preload data from CRM
       let preloadedData: Record<string, any> = {};
