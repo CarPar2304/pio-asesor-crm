@@ -391,12 +391,25 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
         if (error) throw error;
         formId = savedFormId;
         await supabase.from('external_form_fields').delete().eq('form_id', formId);
+        await (supabase.from as any)('external_form_pages').delete().eq('form_id', formId);
       } else {
         const { data, error } = await supabase.from('external_forms').insert(formData).select('id, slug').single();
         if (error) throw error;
         formId = data!.id;
         setSavedSlug(data!.slug);
         setSavedFormId(formId);
+      }
+
+      // Persist pages first so we can map local IDs -> persisted IDs for fields
+      const localToPersistedPageId: Record<string, string> = {};
+      if (pages.length > 0) {
+        const pagesToInsert = pages.map((p, i) => ({
+          form_id: formId, title: p.title, description: p.description, display_order: i,
+        }));
+        const { data: insertedPages, error: pagesErr } = await (supabase.from as any)('external_form_pages')
+          .insert(pagesToInsert).select('id');
+        if (pagesErr) throw pagesErr;
+        pages.forEach((p, i) => { localToPersistedPageId[p.id] = (insertedPages as any[])[i].id; });
       }
 
       if (formFields.length > 0) {
@@ -409,6 +422,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
           condition_field_key: f.condition_field_key || null,
           condition_value: f.condition_value || null,
           only_for_new: f.only_for_new || false,
+          page_id: f.page_id ? (localToPersistedPageId[f.page_id] || f.page_id) : null,
         }));
         const { error } = await supabase.from('external_form_fields').insert(fieldsToInsert as any);
         if (error) throw error;
