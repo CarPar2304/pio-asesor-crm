@@ -307,7 +307,8 @@ Deno.serve(async (req) => {
         // Default categories from app constants (mirror src/types/crm.ts CATEGORIES)
         const baseCats = ["EBT", "Startup"];
         const allCats = Array.from(new Set([...baseCats, ...dbCats, ...categoryLinks.map(l => l.category)])).sort();
-        return { verticals, subVerticals, categoryLinks, vsvLinks, categories: allCats };
+        const cities = ["Cali","Palmira","Yumbo","Jamundí","Buenaventura","Buga","Tuluá","Cartago","Otra"];
+        return { verticals, subVerticals, categoryLinks, vsvLinks, categories: allCats, cities };
       };
 
       // Refresh taxonomy-driven options on a field list (in place)
@@ -317,6 +318,7 @@ Deno.serve(async (req) => {
           if (f.crm_column === "category") f.options = taxonomy.categories;
           else if (f.crm_column === "vertical") f.options = taxonomy.verticals.map((v: any) => v.name);
           else if (f.crm_column === "economic_activity") f.options = taxonomy.subVerticals.map((sv: any) => sv.name);
+          else if (f.crm_column === "city") f.options = taxonomy.cities;
         }
       };
 

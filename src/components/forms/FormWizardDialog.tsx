@@ -246,6 +246,23 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
     }]);
   };
 
+  // Live options for taxonomy/CRM-driven fields. Always recomputed so the wizard
+  // reflects the current CRM taxonomy regardless of when the field was added.
+  const getLiveCrmOptions = (table: string | null, column: string | null): string[] | null => {
+    if (table !== 'companies') return null;
+    if (column === 'category') {
+      const opts = taxonomy.allCategories || [];
+      return opts.length > 0 ? opts : [...CATEGORIES];
+    }
+    if (column === 'vertical') return taxonomy.getAllVerticalNames();
+    if (column === 'economic_activity') return taxonomy.getAllSubVerticalNames();
+    if (column === 'city') return [...CITIES];
+    return null;
+  };
+
+  const isTaxonomyDriven = (table: string | null, column: string | null) =>
+    table === 'companies' && (column === 'category' || column === 'vertical' || column === 'economic_activity' || column === 'city');
+
   const addCrmField = (mapping: typeof CRM_FIELD_MAPPINGS[0]) => {
     const key = `${mapping.table}_${mapping.column}`;
     if (formFields.find(f => f.field_key === key)) return;
@@ -260,18 +277,10 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
     else if (mapping.column === 'email') fieldType = 'email';
     else if (mapping.column === 'phone') fieldType = 'phone';
     // Taxonomy-driven selects (mirror CRM CompanyForm behavior)
-    else if (mapping.table === 'companies' && mapping.column === 'category') {
+    const liveOpts = getLiveCrmOptions(mapping.table, mapping.column);
+    if (liveOpts) {
       fieldType = 'select';
-      options = taxonomy.allCategories.length > 0 ? taxonomy.allCategories : [...CATEGORIES];
-    } else if (mapping.table === 'companies' && mapping.column === 'vertical') {
-      fieldType = 'select';
-      options = taxonomy.getAllVerticalNames();
-    } else if (mapping.table === 'companies' && mapping.column === 'economic_activity') {
-      fieldType = 'select';
-      options = taxonomy.getAllSubVerticalNames();
-    } else if (mapping.table === 'companies' && mapping.column === 'city') {
-      fieldType = 'select';
-      options = [...CITIES];
+      options = liveOpts;
     }
 
     setFormFields(prev => [...prev, {
@@ -443,7 +452,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
           field_type: f.field_type, placeholder: f.placeholder, help_text: f.help_text, section_name: f.section_name,
           is_required: f.is_required, is_visible: f.is_visible, is_editable: f.is_editable, is_readonly: f.is_readonly,
           preload_from_crm: f.preload_from_crm, crm_table: f.crm_table, crm_column: f.crm_column,
-          crm_field_id: f.crm_field_id, options: f.options, display_order: i,
+          crm_field_id: f.crm_field_id, options: getLiveCrmOptions(f.crm_table, f.crm_column) ?? f.options, display_order: i,
           condition_field_key: f.condition_field_key || null,
           condition_value: f.condition_value || null,
           only_for_new: f.only_for_new || false,
@@ -807,46 +816,47 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                       </Select>
                     </div>
                   </div>
-                  {(field.field_type === 'select' || field.field_type === 'multiselect') && (() => {
-                    const isTaxonomy = field.crm_table === 'companies' &&
-                      (field.crm_column === 'category' || field.crm_column === 'vertical' || field.crm_column === 'economic_activity');
-                    if (isTaxonomy) {
-                      return (
-                        <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-2 text-[10px] text-blue-700 dark:text-blue-300">
-                          Opciones sincronizadas automáticamente desde la taxonomía del CRM ({field.options.length} valores). Se actualizan al cargar el formulario.
-                        </div>
-                      );
-                    }
+                  {(() => {
+                    const liveCrmOpts = getLiveCrmOptions(field.crm_table, field.crm_column);
+                    const effectiveOptions = liveCrmOpts ?? field.options;
+                    const isTaxonomy = !!liveCrmOpts;
                     return (
-                      <div>
-                        <Label className="text-[11px]">Opciones (separadas por coma)</Label>
-                        <Input className="h-8 text-xs" value={field.options.join(', ')}
-                          onChange={e => updateField(idx, { options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
-                      </div>
-                    );
-                  })()}
-                  {field.field_type === 'file' && (
-                    <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-2 text-[10px] text-blue-700 dark:text-blue-300">
-                      El campo de archivo permite al usuario subir un archivo o pegar una imagen con Ctrl+V (ideal para logos).
-                    </div>
-                  )}
-                  {/* Default value */}
-                  {field.field_type !== 'file' && field.field_type !== 'sales_by_year' && (
-                    <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
-                      <div>
-                        <Label className="text-[11px]">Respuesta por defecto</Label>
-                        {(field.field_type === 'select' || field.field_type === 'multiselect' || field.field_type === 'short_text') && field.options.length > 0 ? (
-                          <Select
-                            value={field.default_value || '__none'}
-                            onValueChange={v => updateField(idx, { default_value: v === '__none' ? '' : v })}
-                          >
-                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin valor" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__none">Sin valor</SelectItem>
-                              {field.options.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        ) : field.field_type === 'checkbox' ? (
+                      <>
+                        {(field.field_type === 'select' || field.field_type === 'multiselect') && (
+                          isTaxonomy ? (
+                            <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-2 text-[10px] text-blue-700 dark:text-blue-300">
+                              Opciones sincronizadas automáticamente desde {field.crm_column === 'city' ? 'la lista de ciudades' : 'la taxonomía'} del CRM ({effectiveOptions.length} valores). Se actualizan al cargar el formulario.
+                            </div>
+                          ) : (
+                            <div>
+                              <Label className="text-[11px]">Opciones (separadas por coma)</Label>
+                              <Input className="h-8 text-xs" value={field.options.join(', ')}
+                                onChange={e => updateField(idx, { options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
+                            </div>
+                          )
+                        )}
+                        {field.field_type === 'file' && (
+                          <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-2 text-[10px] text-blue-700 dark:text-blue-300">
+                            El campo de archivo permite al usuario subir un archivo o pegar una imagen con Ctrl+V (ideal para logos).
+                          </div>
+                        )}
+                        {/* Default value */}
+                        {field.field_type !== 'file' && field.field_type !== 'sales_by_year' && (
+                          <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
+                            <div>
+                              <Label className="text-[11px]">Respuesta por defecto</Label>
+                              {(field.field_type === 'select' || field.field_type === 'multiselect' || field.field_type === 'short_text') && effectiveOptions.length > 0 ? (
+                                <Select
+                                  value={field.default_value || '__none'}
+                                  onValueChange={v => updateField(idx, { default_value: v === '__none' ? '' : v })}
+                                >
+                                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin valor" /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="__none">Sin valor</SelectItem>
+                                    {effectiveOptions.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              ) : field.field_type === 'checkbox' ? (
                           <Select
                             value={field.default_value || '__none'}
                             onValueChange={v => updateField(idx, { default_value: v === '__none' ? '' : v })}
@@ -878,6 +888,9 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                       </label>
                     </div>
                   )}
+                      </>
+                    );
+                  })()}
                   {/* Conditional logic */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>

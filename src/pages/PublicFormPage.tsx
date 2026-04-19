@@ -10,6 +10,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle2, AlertCircle, ShieldCheck, FlaskConical, Upload, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { SearchableCombobox } from '@/components/forms/SearchableCombobox';
 import logoCCC from '@/assets/logo-ccc.png';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -594,14 +595,38 @@ export default function PublicFormPage() {
                           ) : field.field_type === 'long_text' ? (
                           <Textarea value={formData[field.field_key] || ''} onChange={e => updateFormData(field.field_key, e.target.value)}
                             placeholder={field.placeholder} rows={3} />
-                        ) : field.field_type === 'select' ? (
-                          <Select value={formData[field.field_key] || ''} onValueChange={v => updateFormDataWithCascade(field.field_key, v)}>
-                            <SelectTrigger><SelectValue placeholder={field.placeholder || 'Seleccionar...'} /></SelectTrigger>
-                            <SelectContent>
-                              {getFieldOptions(field).map((o: string) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        ) : field.field_type === 'checkbox' ? (
+                        ) : field.field_type === 'select' ? (() => {
+                          const isCrmTaxonomyField = field.crm_table === 'companies' &&
+                            (field.crm_column === 'category' || field.crm_column === 'vertical' || field.crm_column === 'economic_activity' || field.crm_column === 'city');
+                          const allowCreate = field.crm_table === 'companies' &&
+                            (field.crm_column === 'vertical' || field.crm_column === 'economic_activity');
+                          const baseOpts = getFieldOptions(field);
+                          const currentValue: string = formData[field.field_key] || '';
+                          const opts = currentValue && !baseOpts.includes(currentValue)
+                            ? [currentValue, ...baseOpts]
+                            : baseOpts;
+                          if (isCrmTaxonomyField) {
+                            return (
+                              <SearchableCombobox
+                                value={currentValue}
+                                onChange={v => updateFormDataWithCascade(field.field_key, v)}
+                                options={opts}
+                                placeholder={field.placeholder || 'Seleccionar...'}
+                                allowCreate={allowCreate}
+                                emptyText={allowCreate ? 'Escribe para agregar un valor nuevo' : 'Sin resultados'}
+                              />
+                            );
+                          }
+                          return (
+                            <Select value={currentValue} onValueChange={v => updateFormDataWithCascade(field.field_key, v)}>
+                              <SelectTrigger><SelectValue placeholder={field.placeholder || 'Seleccionar...'} /></SelectTrigger>
+                              <SelectContent>
+                                {opts.map((o: string) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          );
+                        })()
+                        : field.field_type === 'checkbox' ? (
                           <div className="flex items-center gap-2">
                             <Checkbox checked={!!formData[field.field_key]}
                               onCheckedChange={v => updateFormData(field.field_key, !!v)} />
