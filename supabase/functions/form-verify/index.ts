@@ -341,6 +341,25 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Apply default_value for any field without a preloaded value
+      if (fields) {
+        for (const field of fields) {
+          const cur = preloadedData[field.field_key];
+          const isEmpty = cur === undefined || cur === null || cur === "" ||
+            (typeof cur === "object" && !Array.isArray(cur) && Object.keys(cur).length === 0);
+          if (isEmpty && field.default_value) {
+            if (field.field_type === "number") {
+              const n = Number(field.default_value);
+              preloadedData[field.field_key] = isNaN(n) ? field.default_value : n;
+            } else if (field.field_type === "checkbox") {
+              preloadedData[field.field_key] = field.default_value === "true";
+            } else {
+              preloadedData[field.field_key] = field.default_value;
+            }
+          }
+        }
+      }
+
       const isNewCompany = !session.company_id;
       return jsonRes({ form, fields: fields || [], pages: pages || [], preloaded_data: preloadedData, is_new_company: isNewCompany });
     }
