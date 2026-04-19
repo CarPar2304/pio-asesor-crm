@@ -175,6 +175,7 @@ export default function PublicFormPage() {
   const [currentPage, setCurrentPage] = useState(0);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [isNewCompany, setIsNewCompany] = useState(false);
+  const [taxonomy, setTaxonomy] = useState<any>({ verticals: [], subVerticals: [], categoryLinks: [], vsvLinks: [], categories: [] });
 
   // Check if creation form (skip identification)
   const [formMeta, setFormMeta] = useState<any>(null);
