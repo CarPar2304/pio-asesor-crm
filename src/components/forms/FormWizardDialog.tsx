@@ -246,6 +246,23 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
     }]);
   };
 
+  // Live options for taxonomy/CRM-driven fields. Always recomputed so the wizard
+  // reflects the current CRM taxonomy regardless of when the field was added.
+  const getLiveCrmOptions = (table: string | null, column: string | null): string[] | null => {
+    if (table !== 'companies') return null;
+    if (column === 'category') {
+      const opts = taxonomy.allCategories || [];
+      return opts.length > 0 ? opts : [...CATEGORIES];
+    }
+    if (column === 'vertical') return taxonomy.getAllVerticalNames();
+    if (column === 'economic_activity') return taxonomy.getAllSubVerticalNames();
+    if (column === 'city') return [...CITIES];
+    return null;
+  };
+
+  const isTaxonomyDriven = (table: string | null, column: string | null) =>
+    table === 'companies' && (column === 'category' || column === 'vertical' || column === 'economic_activity' || column === 'city');
+
   const addCrmField = (mapping: typeof CRM_FIELD_MAPPINGS[0]) => {
     const key = `${mapping.table}_${mapping.column}`;
     if (formFields.find(f => f.field_key === key)) return;
@@ -260,18 +277,10 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
     else if (mapping.column === 'email') fieldType = 'email';
     else if (mapping.column === 'phone') fieldType = 'phone';
     // Taxonomy-driven selects (mirror CRM CompanyForm behavior)
-    else if (mapping.table === 'companies' && mapping.column === 'category') {
+    const liveOpts = getLiveCrmOptions(mapping.table, mapping.column);
+    if (liveOpts) {
       fieldType = 'select';
-      options = taxonomy.allCategories.length > 0 ? taxonomy.allCategories : [...CATEGORIES];
-    } else if (mapping.table === 'companies' && mapping.column === 'vertical') {
-      fieldType = 'select';
-      options = taxonomy.getAllVerticalNames();
-    } else if (mapping.table === 'companies' && mapping.column === 'economic_activity') {
-      fieldType = 'select';
-      options = taxonomy.getAllSubVerticalNames();
-    } else if (mapping.table === 'companies' && mapping.column === 'city') {
-      fieldType = 'select';
-      options = [...CITIES];
+      options = liveOpts;
     }
 
     setFormFields(prev => [...prev, {
