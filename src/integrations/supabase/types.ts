@@ -822,6 +822,8 @@ export type Database = {
           crm_column: string | null
           crm_field_id: string | null
           crm_table: string | null
+          default_value: string
+          default_value_editable: boolean
           display_order: number
           field_key: string
           field_type: string
@@ -847,6 +849,8 @@ export type Database = {
           crm_column?: string | null
           crm_field_id?: string | null
           crm_table?: string | null
+          default_value?: string
+          default_value_editable?: boolean
           display_order?: number
           field_key: string
           field_type?: string
@@ -872,6 +876,8 @@ export type Database = {
           crm_column?: string | null
           crm_field_id?: string | null
           crm_table?: string | null
+          default_value?: string
+          default_value_editable?: boolean
           display_order?: number
           field_key?: string
           field_type?: string
