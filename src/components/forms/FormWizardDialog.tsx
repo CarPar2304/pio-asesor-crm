@@ -157,15 +157,23 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       setLinkedOfferId(editingForm.linked_offer_id || null);
       setLinkedStageId(editingForm.linked_stage_id || null);
       setAllowCreation(editingForm.allow_creation || false);
-      supabase.from('external_form_fields').select('*').eq('form_id', editingForm.id).order('display_order')
-        .then(({ data }) => {
-          if (data) setFormFields(data.map((f: any) => ({ ...f, options: Array.isArray(f.options) ? f.options : [], only_for_new: f.only_for_new || false })));
-        });
+      Promise.all([
+        supabase.from('external_form_fields').select('*').eq('form_id', editingForm.id).order('display_order'),
+        (supabase.from as any)('external_form_pages').select('*').eq('form_id', editingForm.id).order('display_order'),
+      ]).then(([fieldsRes, pagesRes]: any[]) => {
+        if (fieldsRes.data) setFormFields(fieldsRes.data.map((f: any) => ({
+          ...f, options: Array.isArray(f.options) ? f.options : [], only_for_new: f.only_for_new || false, page_id: f.page_id || null,
+        })));
+        if (pagesRes?.data) setPages(pagesRes.data.map((p: any) => ({
+          id: p.id, persisted: true, title: p.title, description: p.description, display_order: p.display_order,
+        })));
+        else setPages([]);
+      });
     } else {
       setName(''); setDescription(''); setFormType('update'); setStatus('draft');
       setAllowCreation(false); setAllowNameFallback(false);
       setVerificationMode('key_and_code'); setVerificationKeyField('nit');
-      setCodeExpiration(10); setMaxAttempts(5); setFormFields([]);
+      setCodeExpiration(10); setMaxAttempts(5); setFormFields([]); setPages([]);
       setPublicTitle(''); setPublicSubtitle(''); setSubmitButtonText('Enviar');
       setSuccessMessage('Tu información ha sido enviada exitosamente.');
       setPrimaryColor('#4f46e5'); setSavedSlug(''); setSavedFormId(null);
