@@ -251,6 +251,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
     if (formFields.find(f => f.field_key === key)) return;
     // Auto-detect field type based on column
     let fieldType: FormFieldType = 'short_text';
+    let options: string[] = [];
     if (mapping.column === 'logo') fieldType = 'file';
     else if (mapping.column === 'sales_by_year') fieldType = 'sales_by_year';
     else if (mapping.column === 'exports_usd') fieldType = 'number';
@@ -258,12 +259,26 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
     else if (mapping.column === 'website') fieldType = 'url';
     else if (mapping.column === 'email') fieldType = 'email';
     else if (mapping.column === 'phone') fieldType = 'phone';
+    // Taxonomy-driven selects (mirror CRM CompanyForm behavior)
+    else if (mapping.table === 'companies' && mapping.column === 'category') {
+      fieldType = 'select';
+      options = taxonomy.allCategories.length > 0 ? taxonomy.allCategories : [...CATEGORIES];
+    } else if (mapping.table === 'companies' && mapping.column === 'vertical') {
+      fieldType = 'select';
+      options = taxonomy.getAllVerticalNames();
+    } else if (mapping.table === 'companies' && mapping.column === 'economic_activity') {
+      fieldType = 'select';
+      options = taxonomy.getAllSubVerticalNames();
+    } else if (mapping.table === 'companies' && mapping.column === 'city') {
+      fieldType = 'select';
+      options = [...CITIES];
+    }
 
     setFormFields(prev => [...prev, {
       label: mapping.label, field_key: key, field_type: fieldType, placeholder: '', help_text: '',
       section_name: '', is_required: false, is_visible: true, is_editable: true, is_readonly: false,
       preload_from_crm: true, crm_table: mapping.table, crm_column: mapping.column, crm_field_id: null,
-      options: [], display_order: prev.length,
+      options, display_order: prev.length,
       condition_field_key: null, condition_value: null, only_for_new: false,
       default_value: '', default_value_editable: true,
     }]);
