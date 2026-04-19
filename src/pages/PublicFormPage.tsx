@@ -626,7 +626,7 @@ export default function PublicFormPage() {
                             </Select>
                           );
                         })()
-                        ) : field.field_type === 'checkbox' ? (
+                        : field.field_type === 'checkbox' ? (
                           <div className="flex items-center gap-2">
                             <Checkbox checked={!!formData[field.field_key]}
                               onCheckedChange={v => updateFormData(field.field_key, !!v)} />
