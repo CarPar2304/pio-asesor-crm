@@ -467,6 +467,33 @@ export default function PublicFormPage() {
               <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-10 mb-2 object-contain" />
               <CardTitle className="text-lg">{form.public_title || form.name}</CardTitle>
               {form.public_subtitle && <CardDescription>{form.public_subtitle}</CardDescription>}
+
+              {/* Page indicator */}
+              {usePages && totalPages > 1 && (
+                <div className="mt-3 space-y-2">
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>Paso {currentPage + 1} de {totalPages}</span>
+                    <span>{Math.round(((currentPage + 1) / totalPages) * 100)}%</span>
+                  </div>
+                  <div className="flex gap-1">
+                    {Array.from({ length: totalPages }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="flex-1 h-1 rounded-full transition-colors"
+                        style={{ backgroundColor: i <= currentPage ? primaryColor : 'hsl(var(--muted))' }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Current page header (when multi-page) */}
+              {currentPageMeta && (currentPageMeta.title || currentPageMeta.description) && (
+                <div className="mt-3 pt-3 border-t">
+                  {currentPageMeta.title && <h2 className="text-base font-semibold">{currentPageMeta.title}</h2>}
+                  {currentPageMeta.description && <p className="text-xs text-muted-foreground mt-1">{currentPageMeta.description}</p>}
+                </div>
+              )}
             </CardHeader>
             <CardContent className="space-y-6">
               {nonEmptySections.map(([sectionName, sectionFields]) => (
@@ -542,17 +569,45 @@ export default function PublicFormPage() {
                 </div>
               ))}
 
+              {/* Empty page hint */}
+              {fieldsForCurrentView.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-6">Esta página no tiene preguntas asignadas.</p>
+              )}
+
               {errorMsg && (
                 <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-950/30 rounded-md p-3">
                   <AlertCircle className="h-4 w-4 shrink-0" /> {errorMsg}
                 </div>
               )}
 
-              <Button className="w-full" onClick={handleSubmit} disabled={loading}
-                style={{ backgroundColor: primaryColor }}>
-                {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                {form.submit_button_text || 'Enviar'}
-              </Button>
+              {/* Navigation: Previous / Next or Submit */}
+              <div className="flex gap-2">
+                {usePages && currentPage > 0 && (
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => { setCurrentPage(p => Math.max(0, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    disabled={loading}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
+                  </Button>
+                )}
+                {!isLastPage ? (
+                  <Button
+                    className="flex-1"
+                    onClick={() => { setCurrentPage(p => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    style={{ backgroundColor: primaryColor }}
+                  >
+                    Siguiente <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                ) : (
+                  <Button className="flex-1" onClick={handleSubmit} disabled={loading}
+                    style={{ backgroundColor: primaryColor }}>
+                    {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    {form.submit_button_text || 'Enviar'}
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </>
         )}
