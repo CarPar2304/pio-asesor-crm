@@ -298,7 +298,20 @@ Deno.serve(async (req) => {
         if (!form) return jsonRes({ error: "Formulario no encontrado" }, 404);
         const { data: fields } = await supabaseAdmin.from("external_form_fields").select("*").eq("form_id", form.id).order("display_order");
         const { data: pages } = await supabaseAdmin.from("external_form_pages").select("*").eq("form_id", form.id).order("display_order");
-        return jsonRes({ form, fields: fields || [], pages: pages || [], preloaded_data: {} });
+        const preloaded: Record<string, any> = {};
+        for (const field of fields || []) {
+          if (field.default_value) {
+            if (field.field_type === "number") {
+              const n = Number(field.default_value);
+              preloaded[field.field_key] = isNaN(n) ? field.default_value : n;
+            } else if (field.field_type === "checkbox") {
+              preloaded[field.field_key] = field.default_value === "true";
+            } else {
+              preloaded[field.field_key] = field.default_value;
+            }
+          }
+        }
+        return jsonRes({ form, fields: fields || [], pages: pages || [], preloaded_data: preloaded });
       }
 
       if (!sessionToken) return jsonRes({ error: "Token requerido" }, 400);
