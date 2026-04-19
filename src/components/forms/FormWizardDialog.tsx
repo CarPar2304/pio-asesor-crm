@@ -16,7 +16,7 @@ import {
   FormFieldType, FORM_TYPE_LABELS, FIELD_TYPE_OPTIONS, CRM_FIELD_MAPPINGS
 } from '@/types/externalForms';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
-import { ChevronLeft, ChevronRight, Plus, Trash2, GripVertical, Copy, ExternalLink, FolderPlus, Layers, Link2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Trash2, GripVertical, Copy, ExternalLink, FolderPlus, Layers, Link2, BookOpen, ArrowUp, ArrowDown, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -56,6 +56,15 @@ interface FieldDraft {
   condition_field_key?: string | null;
   condition_value?: string | null;
   only_for_new?: boolean;
+  page_id?: string | null;
+}
+
+interface PageDraft {
+  id: string;          // local uuid (kept across save when persisted)
+  persisted: boolean;  // whether it's already in DB
+  title: string;
+  description: string;
+  display_order: number;
 }
 
 export default function FormWizardDialog({ open, onClose, editingForm, onSaved }: Props) {
@@ -101,6 +110,9 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
   const [successMessage, setSuccessMessage] = useState('Tu información ha sido enviada exitosamente.');
   const [primaryColor, setPrimaryColor] = useState('#4f46e5');
 
+  // Pages (sections of questions for multi-page rendering)
+  const [pages, setPages] = useState<PageDraft[]>([]);
+
   // Step 6
   const [savedSlug, setSavedSlug] = useState('');
   const [savedFormId, setSavedFormId] = useState<string | null>(null);
@@ -145,15 +157,23 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       setLinkedOfferId(editingForm.linked_offer_id || null);
       setLinkedStageId(editingForm.linked_stage_id || null);
       setAllowCreation(editingForm.allow_creation || false);
-      supabase.from('external_form_fields').select('*').eq('form_id', editingForm.id).order('display_order')
-        .then(({ data }) => {
-          if (data) setFormFields(data.map((f: any) => ({ ...f, options: Array.isArray(f.options) ? f.options : [], only_for_new: f.only_for_new || false })));
-        });
+      Promise.all([
+        supabase.from('external_form_fields').select('*').eq('form_id', editingForm.id).order('display_order'),
+        (supabase.from as any)('external_form_pages').select('*').eq('form_id', editingForm.id).order('display_order'),
+      ]).then(([fieldsRes, pagesRes]: any[]) => {
+        if (fieldsRes.data) setFormFields(fieldsRes.data.map((f: any) => ({
+          ...f, options: Array.isArray(f.options) ? f.options : [], only_for_new: f.only_for_new || false, page_id: f.page_id || null,
+        })));
+        if (pagesRes?.data) setPages(pagesRes.data.map((p: any) => ({
+          id: p.id, persisted: true, title: p.title, description: p.description, display_order: p.display_order,
+        })));
+        else setPages([]);
+      });
     } else {
       setName(''); setDescription(''); setFormType('update'); setStatus('draft');
       setAllowCreation(false); setAllowNameFallback(false);
       setVerificationMode('key_and_code'); setVerificationKeyField('nit');
-      setCodeExpiration(10); setMaxAttempts(5); setFormFields([]);
+      setCodeExpiration(10); setMaxAttempts(5); setFormFields([]); setPages([]);
       setPublicTitle(''); setPublicSubtitle(''); setSubmitButtonText('Enviar');
       setSuccessMessage('Tu información ha sido enviada exitosamente.');
       setPrimaryColor('#4f46e5'); setSavedSlug(''); setSavedFormId(null);
@@ -371,12 +391,25 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
         if (error) throw error;
         formId = savedFormId;
         await supabase.from('external_form_fields').delete().eq('form_id', formId);
+        await (supabase.from as any)('external_form_pages').delete().eq('form_id', formId);
       } else {
         const { data, error } = await supabase.from('external_forms').insert(formData).select('id, slug').single();
         if (error) throw error;
         formId = data!.id;
         setSavedSlug(data!.slug);
         setSavedFormId(formId);
+      }
+
+      // Persist pages first so we can map local IDs -> persisted IDs for fields
+      const localToPersistedPageId: Record<string, string> = {};
+      if (pages.length > 0) {
+        const pagesToInsert = pages.map((p, i) => ({
+          form_id: formId, title: p.title, description: p.description, display_order: i,
+        }));
+        const { data: insertedPages, error: pagesErr } = await (supabase.from as any)('external_form_pages')
+          .insert(pagesToInsert).select('id');
+        if (pagesErr) throw pagesErr;
+        pages.forEach((p, i) => { localToPersistedPageId[p.id] = (insertedPages as any[])[i].id; });
       }
 
       if (formFields.length > 0) {
@@ -389,6 +422,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
           condition_field_key: f.condition_field_key || null,
           condition_value: f.condition_value || null,
           only_for_new: f.only_for_new || false,
+          page_id: f.page_id ? (localToPersistedPageId[f.page_id] || f.page_id) : null,
         }));
         const { error } = await supabase.from('external_form_fields').insert(fieldsToInsert as any);
         if (error) throw error;
@@ -878,7 +912,143 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
 
         {/* Step 5: Design */}
         {step === 4 && (
-          <div className="space-y-4">
+          <div className="space-y-5">
+            {/* Pages / Question sections manager */}
+            <div className="rounded-lg border bg-muted/20 p-4 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-4 w-4 text-primary" />
+                  <div>
+                    <Label className="text-sm font-semibold">Secciones de preguntas (páginas)</Label>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">Divide el formulario en varias páginas. Si no creas ninguna, se mostrará en una sola página.</p>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPages(prev => [...prev, {
+                    id: crypto.randomUUID(),
+                    persisted: false,
+                    title: `Página ${prev.length + 1}`,
+                    description: '',
+                    display_order: prev.length,
+                  }])}
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Añadir página
+                </Button>
+              </div>
+
+              {pages.length === 0 ? (
+                <div className="rounded-md border border-dashed p-4 text-center">
+                  <FileText className="h-6 w-6 mx-auto text-muted-foreground/50 mb-1.5" />
+                  <p className="text-xs text-muted-foreground">Sin páginas. El formulario se mostrará en una sola pantalla.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {pages.map((page, idx) => {
+                    const fieldsInPage = formFields.filter(f => f.page_id === page.id);
+                    return (
+                      <div key={page.id} className="rounded-md border bg-card p-3 space-y-2">
+                        <div className="flex items-start gap-2">
+                          <div className="flex flex-col gap-0.5 pt-1">
+                            <button
+                              type="button"
+                              disabled={idx === 0}
+                              onClick={() => setPages(prev => {
+                                const arr = [...prev]; [arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]];
+                                return arr.map((p, i) => ({ ...p, display_order: i }));
+                              })}
+                              className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                            >
+                              <ArrowUp className="h-3 w-3" />
+                            </button>
+                            <span className="text-[10px] text-muted-foreground text-center font-medium">{idx + 1}</span>
+                            <button
+                              type="button"
+                              disabled={idx === pages.length - 1}
+                              onClick={() => setPages(prev => {
+                                const arr = [...prev]; [arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]];
+                                return arr.map((p, i) => ({ ...p, display_order: i }));
+                              })}
+                              className="text-muted-foreground hover:text-foreground disabled:opacity-30"
+                            >
+                              <ArrowDown className="h-3 w-3" />
+                            </button>
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <div className="grid grid-cols-1 gap-2">
+                              <Input
+                                value={page.title}
+                                onChange={e => setPages(prev => prev.map(p => p.id === page.id ? { ...p, title: e.target.value } : p))}
+                                placeholder="Título de la página"
+                                className="h-8 text-sm font-medium"
+                              />
+                              <Textarea
+                                value={page.description}
+                                onChange={e => setPages(prev => prev.map(p => p.id === page.id ? { ...p, description: e.target.value } : p))}
+                                placeholder="Descripción opcional para esta página..."
+                                rows={2}
+                                className="text-xs"
+                              />
+                            </div>
+                            <div className="rounded-md bg-muted/40 p-2">
+                              <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium mb-1.5">
+                                Preguntas en esta página ({fieldsInPage.length})
+                              </p>
+                              {formFields.length === 0 ? (
+                                <p className="text-[11px] text-muted-foreground italic">Agrega campos en el paso "Constructor" para asignarlos.</p>
+                              ) : (
+                                <div className="space-y-1 max-h-40 overflow-y-auto">
+                                  {formFields.map((field, fIdx) => (
+                                    <label key={fIdx} className="flex items-center gap-2 text-xs hover:bg-background/60 rounded px-1.5 py-1 cursor-pointer">
+                                      <Checkbox
+                                        className="h-3.5 w-3.5"
+                                        checked={field.page_id === page.id}
+                                        onCheckedChange={v => updateField(fIdx, { page_id: v ? page.id : null })}
+                                      />
+                                      <span className="flex-1 truncate">{field.label || `Campo ${fIdx + 1}`}</span>
+                                      {field.page_id && field.page_id !== page.id && (
+                                        <Badge variant="outline" className="text-[9px] shrink-0">
+                                          Pág. {pages.findIndex(p => p.id === field.page_id) + 1}
+                                        </Badge>
+                                      )}
+                                    </label>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 shrink-0"
+                            onClick={() => {
+                              setPages(prev => prev.filter(p => p.id !== page.id));
+                              setFormFields(prev => prev.map(f => f.page_id === page.id ? { ...f, page_id: null } : f));
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3 text-destructive" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {/* Unassigned fields warning */}
+                  {(() => {
+                    const unassigned = formFields.filter(f => !f.page_id);
+                    if (unassigned.length === 0) return null;
+                    return (
+                      <div className="rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-500/10 dark:border-amber-500/30 p-2.5 text-[11px] text-amber-700 dark:text-amber-300">
+                        <strong>{unassigned.length}</strong> campo(s) sin asignar a página. Aparecerán al final del formulario en una sección "General".
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+
+            <Separator />
+
             <div>
               <Label>Título público del formulario</Label>
               <Input value={publicTitle} onChange={e => setPublicTitle(e.target.value)} placeholder="Ej: Actualización de datos empresariales" />

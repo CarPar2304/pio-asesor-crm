@@ -297,7 +297,8 @@ Deno.serve(async (req) => {
         const { data: form } = await formQuery.single();
         if (!form) return jsonRes({ error: "Formulario no encontrado" }, 404);
         const { data: fields } = await supabaseAdmin.from("external_form_fields").select("*").eq("form_id", form.id).order("display_order");
-        return jsonRes({ form, fields: fields || [], preloaded_data: {} });
+        const { data: pages } = await supabaseAdmin.from("external_form_pages").select("*").eq("form_id", form.id).order("display_order");
+        return jsonRes({ form, fields: fields || [], pages: pages || [], preloaded_data: {} });
       }
 
       if (!sessionToken) return jsonRes({ error: "Token requerido" }, 400);
@@ -311,6 +312,7 @@ Deno.serve(async (req) => {
       if (!form) return jsonRes({ error: "Formulario no encontrado" }, 404);
 
       const { data: fields } = await supabaseAdmin.from("external_form_fields").select("*").eq("form_id", form.id).order("display_order");
+      const { data: pages } = await supabaseAdmin.from("external_form_pages").select("*").eq("form_id", form.id).order("display_order");
 
       // Preload data from CRM
       let preloadedData: Record<string, any> = {};
@@ -340,7 +342,7 @@ Deno.serve(async (req) => {
       }
 
       const isNewCompany = !session.company_id;
-      return jsonRes({ form, fields: fields || [], preloaded_data: preloadedData, is_new_company: isNewCompany });
+      return jsonRes({ form, fields: fields || [], pages: pages || [], preloaded_data: preloadedData, is_new_company: isNewCompany });
     }
 
     if (req.method === "POST" && action === "submit") {

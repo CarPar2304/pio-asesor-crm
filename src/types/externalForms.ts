@@ -110,6 +110,16 @@ export interface ExternalFormField {
   options: string[];
   display_order: number;
   only_for_new: boolean;
+  page_id: string | null;
+  created_at: string;
+}
+
+export interface ExternalFormPage {
+  id: string;
+  form_id: string;
+  title: string;
+  description: string;
+  display_order: number;
   created_at: string;
 }
 

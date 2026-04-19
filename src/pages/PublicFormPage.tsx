@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, CheckCircle2, AlertCircle, ShieldCheck, FlaskConical, Upload, X } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertCircle, ShieldCheck, FlaskConical, Upload, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import logoCCC from '@/assets/logo-ccc.png';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -171,6 +171,8 @@ export default function PublicFormPage() {
   // Form
   const [form, setForm] = useState<any>(null);
   const [fields, setFields] = useState<any[]>([]);
+  const [pages, setPages] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(0);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [isNewCompany, setIsNewCompany] = useState(false);
 
@@ -188,6 +190,7 @@ export default function PublicFormPage() {
           if (data.form.form_type === 'creation' && data.form.verification_mode === 'none') {
             setForm(data.form);
             setFields(data.fields || []);
+            setPages(data.pages || []);
             setFormData(data.preloaded_data || {});
             setStep('form');
           }
@@ -268,6 +271,8 @@ export default function PublicFormPage() {
     if (data.error) { setErrorMsg(data.error); return; }
     setForm(data.form);
     setFields(data.fields || []);
+    setPages(data.pages || []);
+    setCurrentPage(0);
     setFormData(data.preloaded_data || {});
     setIsNewCompany(data.is_new_company || false);
     setStep('form');
@@ -315,16 +320,31 @@ export default function PublicFormPage() {
 
   const primaryColor = form?.primary_color || formMeta?.primary_color || '#4f46e5';
 
-  // Group fields by section (only visible ones)
-  const sections = fields.reduce((acc: Record<string, any[]>, field) => {
+  // Multi-page support: when pages exist, show fields page-by-page; otherwise group by section_name as before.
+  const usePages = pages.length > 0;
+
+  // Filter fields to display now (current page when multi-page, all when single-page)
+  const visibleFieldsAll = fields.filter(isFieldVisible);
+  const fieldsForCurrentView = usePages
+    ? (currentPage < pages.length
+        ? visibleFieldsAll.filter(f => f.page_id === pages[currentPage].id)
+        : visibleFieldsAll.filter(f => !f.page_id || !pages.some(p => p.id === f.page_id))) // overflow page for unassigned
+    : visibleFieldsAll;
+
+  // For single-page mode, group by section_name as before
+  const sections = fieldsForCurrentView.reduce((acc: Record<string, any[]>, field) => {
     const section = field.section_name || 'General';
     if (!acc[section]) acc[section] = [];
-    if (isFieldVisible(field)) acc[section].push(field);
+    acc[section].push(field);
     return acc;
   }, {});
-
-  // Filter out empty sections
   const nonEmptySections = Object.entries(sections).filter(([, f]) => (f as any[]).length > 0);
+
+  // Total pages including the optional "unassigned" trailing page
+  const unassignedFields = visibleFieldsAll.filter(f => !f.page_id || !pages.some(p => p.id === f.page_id));
+  const totalPages = usePages ? pages.length + (unassignedFields.length > 0 ? 1 : 0) : 1;
+  const isLastPage = !usePages || currentPage >= totalPages - 1;
+  const currentPageMeta = usePages && currentPage < pages.length ? pages[currentPage] : null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4">
@@ -447,6 +467,33 @@ export default function PublicFormPage() {
               <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-10 mb-2 object-contain" />
               <CardTitle className="text-lg">{form.public_title || form.name}</CardTitle>
               {form.public_subtitle && <CardDescription>{form.public_subtitle}</CardDescription>}
+
+              {/* Page indicator */}
+              {usePages && totalPages > 1 && (
+                <div className="mt-3 space-y-2">
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>Paso {currentPage + 1} de {totalPages}</span>
+                    <span>{Math.round(((currentPage + 1) / totalPages) * 100)}%</span>
+                  </div>
+                  <div className="flex gap-1">
+                    {Array.from({ length: totalPages }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="flex-1 h-1 rounded-full transition-colors"
+                        style={{ backgroundColor: i <= currentPage ? primaryColor : 'hsl(var(--muted))' }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Current page header (when multi-page) */}
+              {currentPageMeta && (currentPageMeta.title || currentPageMeta.description) && (
+                <div className="mt-3 pt-3 border-t">
+                  {currentPageMeta.title && <h2 className="text-base font-semibold">{currentPageMeta.title}</h2>}
+                  {currentPageMeta.description && <p className="text-xs text-muted-foreground mt-1">{currentPageMeta.description}</p>}
+                </div>
+              )}
             </CardHeader>
             <CardContent className="space-y-6">
               {nonEmptySections.map(([sectionName, sectionFields]) => (
@@ -522,17 +569,45 @@ export default function PublicFormPage() {
                 </div>
               ))}
 
+              {/* Empty page hint */}
+              {fieldsForCurrentView.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-6">Esta página no tiene preguntas asignadas.</p>
+              )}
+
               {errorMsg && (
                 <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-950/30 rounded-md p-3">
                   <AlertCircle className="h-4 w-4 shrink-0" /> {errorMsg}
                 </div>
               )}
 
-              <Button className="w-full" onClick={handleSubmit} disabled={loading}
-                style={{ backgroundColor: primaryColor }}>
-                {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                {form.submit_button_text || 'Enviar'}
-              </Button>
+              {/* Navigation: Previous / Next or Submit */}
+              <div className="flex gap-2">
+                {usePages && currentPage > 0 && (
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={() => { setCurrentPage(p => Math.max(0, p - 1)); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    disabled={loading}
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
+                  </Button>
+                )}
+                {!isLastPage ? (
+                  <Button
+                    className="flex-1"
+                    onClick={() => { setCurrentPage(p => p + 1); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    style={{ backgroundColor: primaryColor }}
+                  >
+                    Siguiente <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                ) : (
+                  <Button className="flex-1" onClick={handleSubmit} disabled={loading}
+                    style={{ backgroundColor: primaryColor }}>
+                    {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    {form.submit_button_text || 'Enviar'}
+                  </Button>
+                )}
+              </div>
             </CardContent>
           </>
         )}
