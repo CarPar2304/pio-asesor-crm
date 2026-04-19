@@ -277,6 +277,7 @@ export default function PublicFormPage() {
     setCurrentPage(0);
     setFormData(data.preloaded_data || {});
     setIsNewCompany(data.is_new_company || false);
+    if (data.taxonomy) setTaxonomy(data.taxonomy);
     setStep('form');
   };
 
