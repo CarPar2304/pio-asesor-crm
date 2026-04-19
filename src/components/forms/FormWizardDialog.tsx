@@ -57,6 +57,8 @@ interface FieldDraft {
   condition_value?: string | null;
   only_for_new?: boolean;
   page_id?: string | null;
+  default_value?: string;
+  default_value_editable?: boolean;
 }
 
 interface PageDraft {
