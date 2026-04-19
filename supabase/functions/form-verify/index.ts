@@ -317,6 +317,7 @@ Deno.serve(async (req) => {
           if (f.crm_column === "category") f.options = taxonomy.categories;
           else if (f.crm_column === "vertical") f.options = taxonomy.verticals.map((v: any) => v.name);
           else if (f.crm_column === "economic_activity") f.options = taxonomy.subVerticals.map((sv: any) => sv.name);
+          else if (f.crm_column === "city") f.options = taxonomy.cities;
         }
       };
 
