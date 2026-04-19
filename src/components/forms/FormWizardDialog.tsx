@@ -801,6 +801,54 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                       El campo de archivo permite al usuario subir un archivo o pegar una imagen con Ctrl+V (ideal para logos).
                     </div>
                   )}
+                  {/* Default value */}
+                  {field.field_type !== 'file' && field.field_type !== 'sales_by_year' && (
+                    <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
+                      <div>
+                        <Label className="text-[11px]">Respuesta por defecto</Label>
+                        {field.field_type === 'select' && field.options.length > 0 ? (
+                          <Select
+                            value={field.default_value || '__none'}
+                            onValueChange={v => updateField(idx, { default_value: v === '__none' ? '' : v })}
+                          >
+                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin valor" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none">Sin valor</SelectItem>
+                              {field.options.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        ) : field.field_type === 'checkbox' ? (
+                          <Select
+                            value={field.default_value || '__none'}
+                            onValueChange={v => updateField(idx, { default_value: v === '__none' ? '' : v })}
+                          >
+                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin valor" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none">Sin valor</SelectItem>
+                              <SelectItem value="true">Marcado</SelectItem>
+                              <SelectItem value="false">Desmarcado</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            className="h-8 text-xs"
+                            type={field.field_type === 'number' ? 'number' : field.field_type === 'date' ? 'date' : 'text'}
+                            value={field.default_value || ''}
+                            onChange={e => updateField(idx, { default_value: e.target.value })}
+                            placeholder="Valor que aparecerá pre-rellenado"
+                          />
+                        )}
+                      </div>
+                      <label className="flex items-center gap-1.5 text-[11px] pb-1.5 whitespace-nowrap" title="Si está desactivado, el respondiente no podrá modificar el valor por defecto.">
+                        <Checkbox
+                          checked={field.default_value_editable !== false}
+                          onCheckedChange={v => updateField(idx, { default_value_editable: !!v })}
+                          className="h-3.5 w-3.5"
+                        />
+                        Modificable
+                      </label>
+                    </div>
+                  )}
                   {/* Conditional logic */}
                   <div className="grid grid-cols-2 gap-2">
                     <div>
