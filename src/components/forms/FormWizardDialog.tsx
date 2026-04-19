@@ -57,6 +57,8 @@ interface FieldDraft {
   condition_value?: string | null;
   only_for_new?: boolean;
   page_id?: string | null;
+  default_value?: string;
+  default_value_editable?: boolean;
 }
 
 interface PageDraft {
@@ -163,6 +165,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       ]).then(([fieldsRes, pagesRes]: any[]) => {
         if (fieldsRes.data) setFormFields(fieldsRes.data.map((f: any) => ({
           ...f, options: Array.isArray(f.options) ? f.options : [], only_for_new: f.only_for_new || false, page_id: f.page_id || null,
+          default_value: f.default_value ?? '', default_value_editable: f.default_value_editable ?? true,
         })));
         if (pagesRes?.data) setPages(pagesRes.data.map((p: any) => ({
           id: p.id, persisted: true, title: p.title, description: p.description, display_order: p.display_order,
@@ -235,7 +238,8 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       section_name: '', is_required: false, is_visible: true, is_editable: true, is_readonly: false,
       preload_from_crm: false, crm_table: null, crm_column: null, crm_field_id: null,
       options: [], display_order: prev.length,
-      condition_field_key: null, condition_value: null, only_for_new: false
+      condition_field_key: null, condition_value: null, only_for_new: false,
+      default_value: '', default_value_editable: true,
     }]);
   };
 
@@ -257,7 +261,8 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       section_name: '', is_required: false, is_visible: true, is_editable: true, is_readonly: false,
       preload_from_crm: true, crm_table: mapping.table, crm_column: mapping.column, crm_field_id: null,
       options: [], display_order: prev.length,
-      condition_field_key: null, condition_value: null, only_for_new: false
+      condition_field_key: null, condition_value: null, only_for_new: false,
+      default_value: '', default_value_editable: true,
     }]);
   };
 
@@ -271,7 +276,8 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       is_required: false, is_visible: true, is_editable: true, is_readonly: false,
       preload_from_crm: true, crm_table: 'custom_field_values', crm_column: null, crm_field_id: cf.id,
       options: cf.options || [], display_order: prev.length,
-      condition_field_key: null, condition_value: null, only_for_new: false
+      condition_field_key: null, condition_value: null, only_for_new: false,
+      default_value: '', default_value_editable: true,
     }]);
   };
 
@@ -322,7 +328,8 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
         is_required: false, is_visible: true, is_editable: true, is_readonly: false,
         preload_from_crm: true, crm_table: 'custom_field_values', crm_column: null, crm_field_id: created.id,
         options: opts, display_order: prev.length,
-        condition_field_key: null, condition_value: null, only_for_new: false
+        condition_field_key: null, condition_value: null, only_for_new: false,
+        default_value: '', default_value_editable: true,
       }]);
 
       showSuccess('Campo creado', `"${created.name}" se añadió al CRM (sección "${sectionObj.name}") y al formulario`);
@@ -423,6 +430,8 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
           condition_value: f.condition_value || null,
           only_for_new: f.only_for_new || false,
           page_id: f.page_id ? (localToPersistedPageId[f.page_id] || f.page_id) : null,
+          default_value: f.default_value ?? '',
+          default_value_editable: f.default_value_editable ?? true,
         }));
         const { error } = await supabase.from('external_form_fields').insert(fieldsToInsert as any);
         if (error) throw error;
@@ -790,6 +799,54 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                   {field.field_type === 'file' && (
                     <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-2 text-[10px] text-blue-700 dark:text-blue-300">
                       El campo de archivo permite al usuario subir un archivo o pegar una imagen con Ctrl+V (ideal para logos).
+                    </div>
+                  )}
+                  {/* Default value */}
+                  {field.field_type !== 'file' && field.field_type !== 'sales_by_year' && (
+                    <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
+                      <div>
+                        <Label className="text-[11px]">Respuesta por defecto</Label>
+                        {field.field_type === 'select' && field.options.length > 0 ? (
+                          <Select
+                            value={field.default_value || '__none'}
+                            onValueChange={v => updateField(idx, { default_value: v === '__none' ? '' : v })}
+                          >
+                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin valor" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none">Sin valor</SelectItem>
+                              {field.options.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        ) : field.field_type === 'checkbox' ? (
+                          <Select
+                            value={field.default_value || '__none'}
+                            onValueChange={v => updateField(idx, { default_value: v === '__none' ? '' : v })}
+                          >
+                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin valor" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none">Sin valor</SelectItem>
+                              <SelectItem value="true">Marcado</SelectItem>
+                              <SelectItem value="false">Desmarcado</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            className="h-8 text-xs"
+                            type={field.field_type === 'number' ? 'number' : field.field_type === 'date' ? 'date' : 'text'}
+                            value={field.default_value || ''}
+                            onChange={e => updateField(idx, { default_value: e.target.value })}
+                            placeholder="Valor que aparecerá pre-rellenado"
+                          />
+                        )}
+                      </div>
+                      <label className="flex items-center gap-1.5 text-[11px] pb-1.5 whitespace-nowrap" title="Si está desactivado, el respondiente no podrá modificar el valor por defecto.">
+                        <Checkbox
+                          checked={field.default_value_editable !== false}
+                          onCheckedChange={v => updateField(idx, { default_value_editable: !!v })}
+                          className="h-3.5 w-3.5"
+                        />
+                        Modificable
+                      </label>
                     </div>
                   )}
                   {/* Conditional logic */}

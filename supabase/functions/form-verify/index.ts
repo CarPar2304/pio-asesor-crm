@@ -298,7 +298,20 @@ Deno.serve(async (req) => {
         if (!form) return jsonRes({ error: "Formulario no encontrado" }, 404);
         const { data: fields } = await supabaseAdmin.from("external_form_fields").select("*").eq("form_id", form.id).order("display_order");
         const { data: pages } = await supabaseAdmin.from("external_form_pages").select("*").eq("form_id", form.id).order("display_order");
-        return jsonRes({ form, fields: fields || [], pages: pages || [], preloaded_data: {} });
+        const preloaded: Record<string, any> = {};
+        for (const field of fields || []) {
+          if (field.default_value) {
+            if (field.field_type === "number") {
+              const n = Number(field.default_value);
+              preloaded[field.field_key] = isNaN(n) ? field.default_value : n;
+            } else if (field.field_type === "checkbox") {
+              preloaded[field.field_key] = field.default_value === "true";
+            } else {
+              preloaded[field.field_key] = field.default_value;
+            }
+          }
+        }
+        return jsonRes({ form, fields: fields || [], pages: pages || [], preloaded_data: preloaded });
       }
 
       if (!sessionToken) return jsonRes({ error: "Token requerido" }, 400);
@@ -337,6 +350,25 @@ Deno.serve(async (req) => {
           } else if (field.crm_table === "custom_field_values" && field.crm_field_id) {
             const fv = fieldValues?.find((v: any) => v.field_id === field.crm_field_id);
             if (fv) preloadedData[field.field_key] = fv.text_value || fv.number_value || "";
+          }
+        }
+      }
+
+      // Apply default_value for any field without a preloaded value
+      if (fields) {
+        for (const field of fields) {
+          const cur = preloadedData[field.field_key];
+          const isEmpty = cur === undefined || cur === null || cur === "" ||
+            (typeof cur === "object" && !Array.isArray(cur) && Object.keys(cur).length === 0);
+          if (isEmpty && field.default_value) {
+            if (field.field_type === "number") {
+              const n = Number(field.default_value);
+              preloadedData[field.field_key] = isNaN(n) ? field.default_value : n;
+            } else if (field.field_type === "checkbox") {
+              preloadedData[field.field_key] = field.default_value === "true";
+            } else {
+              preloadedData[field.field_key] = field.default_value;
+            }
           }
         }
       }

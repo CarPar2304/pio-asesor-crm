@@ -511,7 +511,8 @@ export default function PublicFormPage() {
                         {field.help_text && <p className="text-[11px] text-muted-foreground mb-1">{field.help_text}</p>}
 
                         {(() => {
-                          const effectiveReadonly = field.is_readonly || (field.only_for_new && !isNewCompany);
+                          const hasLockedDefault = field.default_value_editable === false && field.default_value && !!formData[field.field_key];
+                          const effectiveReadonly = field.is_readonly || (field.only_for_new && !isNewCompany) || hasLockedDefault;
                           return effectiveReadonly ? (
                             field.field_type === 'sales_by_year' ? (
                               <div className="rounded-md bg-muted px-3 py-2 text-sm space-y-1">
