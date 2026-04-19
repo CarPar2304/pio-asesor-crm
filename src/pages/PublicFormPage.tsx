@@ -190,6 +190,7 @@ export default function PublicFormPage() {
           if (data.form.form_type === 'creation' && data.form.verification_mode === 'none') {
             setForm(data.form);
             setFields(data.fields || []);
+            setPages(data.pages || []);
             setFormData(data.preloaded_data || {});
             setStep('form');
           }
