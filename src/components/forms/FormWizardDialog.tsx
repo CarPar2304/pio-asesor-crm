@@ -238,7 +238,8 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       section_name: '', is_required: false, is_visible: true, is_editable: true, is_readonly: false,
       preload_from_crm: false, crm_table: null, crm_column: null, crm_field_id: null,
       options: [], display_order: prev.length,
-      condition_field_key: null, condition_value: null, only_for_new: false
+      condition_field_key: null, condition_value: null, only_for_new: false,
+      default_value: '', default_value_editable: true,
     }]);
   };
 
