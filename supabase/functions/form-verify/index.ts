@@ -297,7 +297,8 @@ Deno.serve(async (req) => {
         const { data: form } = await formQuery.single();
         if (!form) return jsonRes({ error: "Formulario no encontrado" }, 404);
         const { data: fields } = await supabaseAdmin.from("external_form_fields").select("*").eq("form_id", form.id).order("display_order");
-        return jsonRes({ form, fields: fields || [], preloaded_data: {} });
+        const { data: pages } = await supabaseAdmin.from("external_form_pages").select("*").eq("form_id", form.id).order("display_order");
+        return jsonRes({ form, fields: fields || [], pages: pages || [], preloaded_data: {} });
       }
 
       if (!sessionToken) return jsonRes({ error: "Token requerido" }, 400);
