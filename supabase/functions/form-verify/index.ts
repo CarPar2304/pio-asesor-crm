@@ -358,6 +358,8 @@ Deno.serve(async (req) => {
 
       const { data: fields } = await supabaseAdmin.from("external_form_fields").select("*").eq("form_id", form.id).order("display_order");
       const { data: pages } = await supabaseAdmin.from("external_form_pages").select("*").eq("form_id", form.id).order("display_order");
+      const taxonomy = await loadTaxonomy();
+      refreshTaxonomyOptions(fields || [], taxonomy);
 
       // Preload data from CRM
       let preloadedData: Record<string, any> = {};
