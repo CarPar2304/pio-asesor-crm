@@ -320,16 +320,31 @@ export default function PublicFormPage() {
 
   const primaryColor = form?.primary_color || formMeta?.primary_color || '#4f46e5';
 
-  // Group fields by section (only visible ones)
-  const sections = fields.reduce((acc: Record<string, any[]>, field) => {
+  // Multi-page support: when pages exist, show fields page-by-page; otherwise group by section_name as before.
+  const usePages = pages.length > 0;
+
+  // Filter fields to display now (current page when multi-page, all when single-page)
+  const visibleFieldsAll = fields.filter(isFieldVisible);
+  const fieldsForCurrentView = usePages
+    ? (currentPage < pages.length
+        ? visibleFieldsAll.filter(f => f.page_id === pages[currentPage].id)
+        : visibleFieldsAll.filter(f => !f.page_id || !pages.some(p => p.id === f.page_id))) // overflow page for unassigned
+    : visibleFieldsAll;
+
+  // For single-page mode, group by section_name as before
+  const sections = fieldsForCurrentView.reduce((acc: Record<string, any[]>, field) => {
     const section = field.section_name || 'General';
     if (!acc[section]) acc[section] = [];
-    if (isFieldVisible(field)) acc[section].push(field);
+    acc[section].push(field);
     return acc;
   }, {});
-
-  // Filter out empty sections
   const nonEmptySections = Object.entries(sections).filter(([, f]) => (f as any[]).length > 0);
+
+  // Total pages including the optional "unassigned" trailing page
+  const unassignedFields = visibleFieldsAll.filter(f => !f.page_id || !pages.some(p => p.id === f.page_id));
+  const totalPages = usePages ? pages.length + (unassignedFields.length > 0 ? 1 : 0) : 1;
+  const isLastPage = !usePages || currentPage >= totalPages - 1;
+  const currentPageMeta = usePages && currentPage < pages.length ? pages[currentPage] : null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4">
