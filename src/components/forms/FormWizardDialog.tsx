@@ -166,10 +166,19 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
         supabase.from('external_form_fields').select('*').eq('form_id', editingForm.id).order('display_order'),
         (supabase.from as any)('external_form_pages').select('*').eq('form_id', editingForm.id).order('display_order'),
       ]).then(([fieldsRes, pagesRes]: any[]) => {
-        if (fieldsRes.data) setFormFields(fieldsRes.data.map((f: any) => ({
-          ...f, options: Array.isArray(f.options) ? f.options : [], only_for_new: f.only_for_new || false, page_id: f.page_id || null,
-          default_value: f.default_value ?? '', default_value_editable: f.default_value_editable ?? true,
-        })));
+        if (fieldsRes.data) setFormFields(fieldsRes.data.map((f: any) => {
+          const liveOpts = getLiveCrmOptions(f.crm_table, f.crm_column);
+          const isTax = isTaxonomyDriven(f.crm_table, f.crm_column);
+          return {
+            ...f,
+            options: liveOpts ?? (Array.isArray(f.options) ? f.options : []),
+            field_type: isTax ? 'select' : f.field_type,
+            only_for_new: f.only_for_new || false,
+            page_id: f.page_id || null,
+            default_value: f.default_value ?? '',
+            default_value_editable: f.default_value_editable ?? true,
+          };
+        }));
         if (pagesRes?.data) setPages(pagesRes.data.map((p: any) => ({
           id: p.id, persisted: true, title: p.title, description: p.description, display_order: p.display_order,
         })));
