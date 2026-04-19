@@ -816,46 +816,47 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                       </Select>
                     </div>
                   </div>
-                  {(field.field_type === 'select' || field.field_type === 'multiselect') && (() => {
-                    const isTaxonomy = field.crm_table === 'companies' &&
-                      (field.crm_column === 'category' || field.crm_column === 'vertical' || field.crm_column === 'economic_activity');
-                    if (isTaxonomy) {
-                      return (
-                        <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-2 text-[10px] text-blue-700 dark:text-blue-300">
-                          Opciones sincronizadas automáticamente desde la taxonomía del CRM ({field.options.length} valores). Se actualizan al cargar el formulario.
-                        </div>
-                      );
-                    }
+                  {(() => {
+                    const liveCrmOpts = getLiveCrmOptions(field.crm_table, field.crm_column);
+                    const effectiveOptions = liveCrmOpts ?? field.options;
+                    const isTaxonomy = !!liveCrmOpts;
                     return (
-                      <div>
-                        <Label className="text-[11px]">Opciones (separadas por coma)</Label>
-                        <Input className="h-8 text-xs" value={field.options.join(', ')}
-                          onChange={e => updateField(idx, { options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
-                      </div>
-                    );
-                  })()}
-                  {field.field_type === 'file' && (
-                    <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-2 text-[10px] text-blue-700 dark:text-blue-300">
-                      El campo de archivo permite al usuario subir un archivo o pegar una imagen con Ctrl+V (ideal para logos).
-                    </div>
-                  )}
-                  {/* Default value */}
-                  {field.field_type !== 'file' && field.field_type !== 'sales_by_year' && (
-                    <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
-                      <div>
-                        <Label className="text-[11px]">Respuesta por defecto</Label>
-                        {(field.field_type === 'select' || field.field_type === 'multiselect' || field.field_type === 'short_text') && field.options.length > 0 ? (
-                          <Select
-                            value={field.default_value || '__none'}
-                            onValueChange={v => updateField(idx, { default_value: v === '__none' ? '' : v })}
-                          >
-                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin valor" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__none">Sin valor</SelectItem>
-                              {field.options.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        ) : field.field_type === 'checkbox' ? (
+                      <>
+                        {(field.field_type === 'select' || field.field_type === 'multiselect') && (
+                          isTaxonomy ? (
+                            <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-2 text-[10px] text-blue-700 dark:text-blue-300">
+                              Opciones sincronizadas automáticamente desde {field.crm_column === 'city' ? 'la lista de ciudades' : 'la taxonomía'} del CRM ({effectiveOptions.length} valores). Se actualizan al cargar el formulario.
+                            </div>
+                          ) : (
+                            <div>
+                              <Label className="text-[11px]">Opciones (separadas por coma)</Label>
+                              <Input className="h-8 text-xs" value={field.options.join(', ')}
+                                onChange={e => updateField(idx, { options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
+                            </div>
+                          )
+                        )}
+                        {field.field_type === 'file' && (
+                          <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-2 text-[10px] text-blue-700 dark:text-blue-300">
+                            El campo de archivo permite al usuario subir un archivo o pegar una imagen con Ctrl+V (ideal para logos).
+                          </div>
+                        )}
+                        {/* Default value */}
+                        {field.field_type !== 'file' && field.field_type !== 'sales_by_year' && (
+                          <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
+                            <div>
+                              <Label className="text-[11px]">Respuesta por defecto</Label>
+                              {(field.field_type === 'select' || field.field_type === 'multiselect' || field.field_type === 'short_text') && effectiveOptions.length > 0 ? (
+                                <Select
+                                  value={field.default_value || '__none'}
+                                  onValueChange={v => updateField(idx, { default_value: v === '__none' ? '' : v })}
+                                >
+                                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin valor" /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="__none">Sin valor</SelectItem>
+                                    {effectiveOptions.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              ) : field.field_type === 'checkbox' ? (
                           <Select
                             value={field.default_value || '__none'}
                             onValueChange={v => updateField(idx, { default_value: v === '__none' ? '' : v })}
