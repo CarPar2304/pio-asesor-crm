@@ -595,7 +595,7 @@ export default function PublicFormPage() {
                           ) : field.field_type === 'long_text' ? (
                           <Textarea value={formData[field.field_key] || ''} onChange={e => updateFormData(field.field_key, e.target.value)}
                             placeholder={field.placeholder} rows={3} />
-                        ) : field.field_type === 'select' ? (() => {
+                        ) : (field.field_type === 'select' || (field.crm_table === 'companies' && (field.crm_column === 'category' || field.crm_column === 'vertical' || field.crm_column === 'economic_activity' || field.crm_column === 'city'))) ? (() => {
                           const isCrmTaxonomyField = field.crm_table === 'companies' &&
                             (field.crm_column === 'category' || field.crm_column === 'vertical' || field.crm_column === 'economic_activity' || field.crm_column === 'city');
                           const allowCreate = field.crm_table === 'companies' &&
