@@ -835,6 +835,7 @@ export type Database = {
           label: string
           only_for_new: boolean
           options: Json
+          page_id: string | null
           placeholder: string
           preload_from_crm: boolean
           section_name: string
@@ -859,6 +860,7 @@ export type Database = {
           label: string
           only_for_new?: boolean
           options?: Json
+          page_id?: string | null
           placeholder?: string
           preload_from_crm?: boolean
           section_name?: string
@@ -883,6 +885,7 @@ export type Database = {
           label?: string
           only_for_new?: boolean
           options?: Json
+          page_id?: string | null
           placeholder?: string
           preload_from_crm?: boolean
           section_name?: string
@@ -890,6 +893,48 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "external_form_fields_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "external_forms"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_form_fields_page_id_fkey"
+            columns: ["page_id"]
+            isOneToOne: false
+            referencedRelation: "external_form_pages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_form_pages: {
+        Row: {
+          created_at: string
+          description: string
+          display_order: number
+          form_id: string
+          id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          display_order?: number
+          form_id: string
+          id?: string
+          title?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          display_order?: number
+          form_id?: string
+          id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_form_pages_form_id_fkey"
             columns: ["form_id"]
             isOneToOne: false
             referencedRelation: "external_forms"
