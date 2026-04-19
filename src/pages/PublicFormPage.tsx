@@ -188,6 +188,7 @@ export default function PublicFormPage() {
         const data = await callFormApi('load-form', undefined, params);
         if (data.form) {
           setFormMeta(data.form);
+          if (data.taxonomy) setTaxonomy(data.taxonomy);
           if (data.form.form_type === 'creation' && data.form.verification_mode === 'none') {
             setForm(data.form);
             setFields(data.fields || []);
