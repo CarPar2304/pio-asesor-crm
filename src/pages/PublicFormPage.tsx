@@ -171,6 +171,8 @@ export default function PublicFormPage() {
   // Form
   const [form, setForm] = useState<any>(null);
   const [fields, setFields] = useState<any[]>([]);
+  const [pages, setPages] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(0);
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [isNewCompany, setIsNewCompany] = useState(false);
 
