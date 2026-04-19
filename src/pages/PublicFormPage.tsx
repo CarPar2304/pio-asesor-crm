@@ -271,6 +271,8 @@ export default function PublicFormPage() {
     if (data.error) { setErrorMsg(data.error); return; }
     setForm(data.form);
     setFields(data.fields || []);
+    setPages(data.pages || []);
+    setCurrentPage(0);
     setFormData(data.preloaded_data || {});
     setIsNewCompany(data.is_new_company || false);
     setStep('form');
