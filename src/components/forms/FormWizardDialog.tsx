@@ -452,7 +452,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
           field_type: f.field_type, placeholder: f.placeholder, help_text: f.help_text, section_name: f.section_name,
           is_required: f.is_required, is_visible: f.is_visible, is_editable: f.is_editable, is_readonly: f.is_readonly,
           preload_from_crm: f.preload_from_crm, crm_table: f.crm_table, crm_column: f.crm_column,
-          crm_field_id: f.crm_field_id, options: f.options, display_order: i,
+          crm_field_id: f.crm_field_id, options: getLiveCrmOptions(f.crm_table, f.crm_column) ?? f.options, display_order: i,
           condition_field_key: f.condition_field_key || null,
           condition_value: f.condition_value || null,
           only_for_new: f.only_for_new || false,
