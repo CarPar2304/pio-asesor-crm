@@ -342,7 +342,7 @@ Deno.serve(async (req) => {
       }
 
       const isNewCompany = !session.company_id;
-      return jsonRes({ form, fields: fields || [], preloaded_data: preloadedData, is_new_company: isNewCompany });
+      return jsonRes({ form, fields: fields || [], pages: pages || [], preloaded_data: preloadedData, is_new_company: isNewCompany });
     }
 
     if (req.method === "POST" && action === "submit") {
