@@ -290,6 +290,36 @@ Deno.serve(async (req) => {
       const slug = url.searchParams.get("slug");
       const testMode = url.searchParams.get("test_mode") === "true";
 
+      // Helper: load CRM taxonomy snapshot for hierarchical filtering and option refresh
+      const loadTaxonomy = async () => {
+        const [vRes, svRes, cvRes, vsvRes, catRes] = await Promise.all([
+          supabaseAdmin.from("crm_verticals").select("id, name").order("name"),
+          supabaseAdmin.from("crm_sub_verticals").select("id, name").order("name"),
+          supabaseAdmin.from("crm_category_verticals").select("category, vertical_id"),
+          supabaseAdmin.from("crm_vertical_sub_verticals").select("vertical_id, sub_vertical_id"),
+          supabaseAdmin.from("crm_categories").select("name").order("name"),
+        ]);
+        const verticals = (vRes.data as any[]) || [];
+        const subVerticals = (svRes.data as any[]) || [];
+        const categoryLinks = (cvRes.data as any[]) || [];
+        const vsvLinks = (vsvRes.data as any[]) || [];
+        const dbCats = ((catRes.data as any[]) || []).map(c => c.name);
+        // Default categories from app constants (mirror src/types/crm.ts CATEGORIES)
+        const baseCats = ["EBT", "Startup"];
+        const allCats = Array.from(new Set([...baseCats, ...dbCats, ...categoryLinks.map(l => l.category)])).sort();
+        return { verticals, subVerticals, categoryLinks, vsvLinks, categories: allCats };
+      };
+
+      // Refresh taxonomy-driven options on a field list (in place)
+      const refreshTaxonomyOptions = (fields: any[], taxonomy: any) => {
+        for (const f of fields) {
+          if (f.crm_table !== "companies") continue;
+          if (f.crm_column === "category") f.options = taxonomy.categories;
+          else if (f.crm_column === "vertical") f.options = taxonomy.verticals.map((v: any) => v.name);
+          else if (f.crm_column === "economic_activity") f.options = taxonomy.subVerticals.map((sv: any) => sv.name);
+        }
+      };
+
       // If slug only (for creation forms without verification)
       if (slug && !sessionToken) {
         let formQuery = supabaseAdmin.from("external_forms").select("*").eq("slug", slug);
@@ -298,6 +328,8 @@ Deno.serve(async (req) => {
         if (!form) return jsonRes({ error: "Formulario no encontrado" }, 404);
         const { data: fields } = await supabaseAdmin.from("external_form_fields").select("*").eq("form_id", form.id).order("display_order");
         const { data: pages } = await supabaseAdmin.from("external_form_pages").select("*").eq("form_id", form.id).order("display_order");
+        const taxonomy = await loadTaxonomy();
+        refreshTaxonomyOptions(fields || [], taxonomy);
         const preloaded: Record<string, any> = {};
         for (const field of fields || []) {
           if (field.default_value) {
@@ -311,7 +343,7 @@ Deno.serve(async (req) => {
             }
           }
         }
-        return jsonRes({ form, fields: fields || [], pages: pages || [], preloaded_data: preloaded });
+        return jsonRes({ form, fields: fields || [], pages: pages || [], preloaded_data: preloaded, taxonomy });
       }
 
       if (!sessionToken) return jsonRes({ error: "Token requerido" }, 400);
@@ -326,6 +358,8 @@ Deno.serve(async (req) => {
 
       const { data: fields } = await supabaseAdmin.from("external_form_fields").select("*").eq("form_id", form.id).order("display_order");
       const { data: pages } = await supabaseAdmin.from("external_form_pages").select("*").eq("form_id", form.id).order("display_order");
+      const taxonomy = await loadTaxonomy();
+      refreshTaxonomyOptions(fields || [], taxonomy);
 
       // Preload data from CRM
       let preloadedData: Record<string, any> = {};
@@ -374,7 +408,7 @@ Deno.serve(async (req) => {
       }
 
       const isNewCompany = !session.company_id;
-      return jsonRes({ form, fields: fields || [], pages: pages || [], preloaded_data: preloadedData, is_new_company: isNewCompany });
+      return jsonRes({ form, fields: fields || [], pages: pages || [], preloaded_data: preloadedData, is_new_company: isNewCompany, taxonomy });
     }
 
     if (req.method === "POST" && action === "submit") {

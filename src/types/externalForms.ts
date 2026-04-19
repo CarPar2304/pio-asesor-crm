@@ -46,7 +46,7 @@ export const CRM_FIELD_MAPPINGS = [
   { table: 'companies', column: 'description', label: 'Descripción' },
   { table: 'companies', column: 'city', label: 'Ciudad' },
   { table: 'companies', column: 'vertical', label: 'Vertical' },
-  { table: 'companies', column: 'economic_activity', label: 'Actividad económica' },
+  { table: 'companies', column: 'economic_activity', label: 'Sub-vertical' },
   { table: 'companies', column: 'website', label: 'Sitio web' },
   { table: 'companies', column: 'exports_usd', label: 'Exportaciones USD' },
   { table: 'companies', column: 'category', label: 'Categoría' },

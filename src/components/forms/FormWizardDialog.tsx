@@ -16,6 +16,8 @@ import {
   FormFieldType, FORM_TYPE_LABELS, FIELD_TYPE_OPTIONS, CRM_FIELD_MAPPINGS
 } from '@/types/externalForms';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
+import { useTaxonomy } from '@/contexts/TaxonomyContext';
+import { CATEGORIES, CITIES } from '@/types/crm';
 import { ChevronLeft, ChevronRight, Plus, Trash2, GripVertical, Copy, ExternalLink, FolderPlus, Layers, Link2, BookOpen, ArrowUp, ArrowDown, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -72,6 +74,7 @@ interface PageDraft {
 export default function FormWizardDialog({ open, onClose, editingForm, onSaved }: Props) {
   const { session } = useAuth();
   const { fields: customFields, sections: customSections, addSection, addField: addCustomField } = useCustomFields();
+  const taxonomy = useTaxonomy();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
 
@@ -248,6 +251,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
     if (formFields.find(f => f.field_key === key)) return;
     // Auto-detect field type based on column
     let fieldType: FormFieldType = 'short_text';
+    let options: string[] = [];
     if (mapping.column === 'logo') fieldType = 'file';
     else if (mapping.column === 'sales_by_year') fieldType = 'sales_by_year';
     else if (mapping.column === 'exports_usd') fieldType = 'number';
@@ -255,12 +259,26 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
     else if (mapping.column === 'website') fieldType = 'url';
     else if (mapping.column === 'email') fieldType = 'email';
     else if (mapping.column === 'phone') fieldType = 'phone';
+    // Taxonomy-driven selects (mirror CRM CompanyForm behavior)
+    else if (mapping.table === 'companies' && mapping.column === 'category') {
+      fieldType = 'select';
+      options = taxonomy.allCategories.length > 0 ? taxonomy.allCategories : [...CATEGORIES];
+    } else if (mapping.table === 'companies' && mapping.column === 'vertical') {
+      fieldType = 'select';
+      options = taxonomy.getAllVerticalNames();
+    } else if (mapping.table === 'companies' && mapping.column === 'economic_activity') {
+      fieldType = 'select';
+      options = taxonomy.getAllSubVerticalNames();
+    } else if (mapping.table === 'companies' && mapping.column === 'city') {
+      fieldType = 'select';
+      options = [...CITIES];
+    }
 
     setFormFields(prev => [...prev, {
       label: mapping.label, field_key: key, field_type: fieldType, placeholder: '', help_text: '',
       section_name: '', is_required: false, is_visible: true, is_editable: true, is_readonly: false,
       preload_from_crm: true, crm_table: mapping.table, crm_column: mapping.column, crm_field_id: null,
-      options: [], display_order: prev.length,
+      options, display_order: prev.length,
       condition_field_key: null, condition_value: null, only_for_new: false,
       default_value: '', default_value_editable: true,
     }]);
@@ -789,13 +807,24 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                       </Select>
                     </div>
                   </div>
-                  {(field.field_type === 'select' || field.field_type === 'multiselect') && (
-                    <div>
-                      <Label className="text-[11px]">Opciones (separadas por coma)</Label>
-                      <Input className="h-8 text-xs" value={field.options.join(', ')}
-                        onChange={e => updateField(idx, { options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
-                    </div>
-                  )}
+                  {(field.field_type === 'select' || field.field_type === 'multiselect') && (() => {
+                    const isTaxonomy = field.crm_table === 'companies' &&
+                      (field.crm_column === 'category' || field.crm_column === 'vertical' || field.crm_column === 'economic_activity');
+                    if (isTaxonomy) {
+                      return (
+                        <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-2 text-[10px] text-blue-700 dark:text-blue-300">
+                          Opciones sincronizadas automáticamente desde la taxonomía del CRM ({field.options.length} valores). Se actualizan al cargar el formulario.
+                        </div>
+                      );
+                    }
+                    return (
+                      <div>
+                        <Label className="text-[11px]">Opciones (separadas por coma)</Label>
+                        <Input className="h-8 text-xs" value={field.options.join(', ')}
+                          onChange={e => updateField(idx, { options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
+                      </div>
+                    );
+                  })()}
                   {field.field_type === 'file' && (
                     <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-2 text-[10px] text-blue-700 dark:text-blue-300">
                       El campo de archivo permite al usuario subir un archivo o pegar una imagen con Ctrl+V (ideal para logos).
