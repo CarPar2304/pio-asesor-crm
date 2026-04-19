@@ -56,6 +56,15 @@ interface FieldDraft {
   condition_field_key?: string | null;
   condition_value?: string | null;
   only_for_new?: boolean;
+  page_id?: string | null;
+}
+
+interface PageDraft {
+  id: string;          // local uuid (kept across save when persisted)
+  persisted: boolean;  // whether it's already in DB
+  title: string;
+  description: string;
+  display_order: number;
 }
 
 export default function FormWizardDialog({ open, onClose, editingForm, onSaved }: Props) {
