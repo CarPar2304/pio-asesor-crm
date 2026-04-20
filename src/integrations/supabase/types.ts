@@ -82,33 +82,45 @@ export type Database = {
       ally_embeddings: {
         Row: {
           ally_id: string
+          chunk_key: string
+          chunk_type: string
           content: string
+          content_hash: string | null
           created_at: string
           embedding: string | null
           id: string
+          metadata: Json
           updated_at: string
         }
         Insert: {
           ally_id: string
+          chunk_key?: string
+          chunk_type?: string
           content: string
+          content_hash?: string | null
           created_at?: string
           embedding?: string | null
           id?: string
+          metadata?: Json
           updated_at?: string
         }
         Update: {
           ally_id?: string
+          chunk_key?: string
+          chunk_type?: string
           content?: string
+          content_hash?: string | null
           created_at?: string
           embedding?: string | null
           id?: string
+          metadata?: Json
           updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "ally_embeddings_ally_id_fkey"
             columns: ["ally_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "allies"
             referencedColumns: ["id"]
           },
@@ -169,6 +181,60 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      chat_retrieval_logs: {
+        Row: {
+          conversation_id: string | null
+          created_at: string
+          error: string | null
+          evidence_level: string | null
+          id: string
+          intent: string | null
+          latency_ms: number | null
+          path: string | null
+          router_output: Json
+          tokens_in: number | null
+          tokens_out: number | null
+          tools_called: Json
+          user_id: string | null
+          user_message: string
+          vacancy_case: string | null
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string
+          error?: string | null
+          evidence_level?: string | null
+          id?: string
+          intent?: string | null
+          latency_ms?: number | null
+          path?: string | null
+          router_output?: Json
+          tokens_in?: number | null
+          tokens_out?: number | null
+          tools_called?: Json
+          user_id?: string | null
+          user_message?: string
+          vacancy_case?: string | null
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string
+          error?: string | null
+          evidence_level?: string | null
+          id?: string
+          intent?: string | null
+          latency_ms?: number | null
+          path?: string | null
+          router_output?: Json
+          tokens_in?: number | null
+          tokens_out?: number | null
+          tools_called?: Json
+          user_id?: string | null
+          user_message?: string
+          vacancy_case?: string | null
+        }
+        Relationships: []
       }
       companies: {
         Row: {
@@ -270,34 +336,46 @@ export type Database = {
       }
       company_embeddings: {
         Row: {
+          chunk_key: string
+          chunk_type: string
           company_id: string
           content: string
+          content_hash: string | null
           created_at: string
           embedding: string | null
           id: string
+          metadata: Json
           updated_at: string
         }
         Insert: {
+          chunk_key?: string
+          chunk_type?: string
           company_id: string
           content: string
+          content_hash?: string | null
           created_at?: string
           embedding?: string | null
           id?: string
+          metadata?: Json
           updated_at?: string
         }
         Update: {
+          chunk_key?: string
+          chunk_type?: string
           company_id?: string
           content?: string
+          content_hash?: string | null
           created_at?: string
           embedding?: string | null
           id?: string
+          metadata?: Json
           updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "company_embeddings_company_id_fkey"
             columns: ["company_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
@@ -1364,26 +1442,38 @@ export type Database = {
       }
       offer_embeddings: {
         Row: {
+          chunk_key: string
+          chunk_type: string
           content: string
+          content_hash: string | null
           created_at: string
           embedding: string | null
           id: string
+          metadata: Json
           offer_id: string
           updated_at: string
         }
         Insert: {
+          chunk_key?: string
+          chunk_type?: string
           content: string
+          content_hash?: string | null
           created_at?: string
           embedding?: string | null
           id?: string
+          metadata?: Json
           offer_id: string
           updated_at?: string
         }
         Update: {
+          chunk_key?: string
+          chunk_type?: string
           content?: string
+          content_hash?: string | null
           created_at?: string
           embedding?: string | null
           id?: string
+          metadata?: Json
           offer_id?: string
           updated_at?: string
         }
@@ -1391,7 +1481,7 @@ export type Database = {
           {
             foreignKeyName: "offer_embeddings_offer_id_fkey"
             columns: ["offer_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "portfolio_offers"
             referencedColumns: ["id"]
           },
@@ -1399,26 +1489,38 @@ export type Database = {
       }
       pipeline_embeddings: {
         Row: {
+          chunk_key: string
+          chunk_type: string
           content: string
+          content_hash: string | null
           created_at: string
           embedding: string | null
           id: string
+          metadata: Json
           offer_id: string
           updated_at: string
         }
         Insert: {
+          chunk_key?: string
+          chunk_type?: string
           content: string
+          content_hash?: string | null
           created_at?: string
           embedding?: string | null
           id?: string
+          metadata?: Json
           offer_id: string
           updated_at?: string
         }
         Update: {
+          chunk_key?: string
+          chunk_type?: string
           content?: string
+          content_hash?: string | null
           created_at?: string
           embedding?: string | null
           id?: string
+          metadata?: Json
           offer_id?: string
           updated_at?: string
         }
@@ -1426,7 +1528,7 @@ export type Database = {
           {
             foreignKeyName: "pipeline_embeddings_offer_id_fkey"
             columns: ["offer_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "portfolio_offers"
             referencedColumns: ["id"]
           },
@@ -1776,6 +1878,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      find_company_by_name: {
+        Args: { _limit?: number; _name: string }
+        Returns: {
+          id: string
+          legal_name: string
+          match_field: string
+          nit: string
+          similarity: number
+          trade_name: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -1809,6 +1922,24 @@ export type Database = {
           similarity: number
         }[]
       }
+      match_company_chunks: {
+        Args: {
+          filter_chunk_types?: string[]
+          filter_company_ids?: string[]
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          chunk_key: string
+          chunk_type: string
+          company_id: string
+          content: string
+          id: string
+          metadata: Json
+          similarity: number
+        }[]
+      }
       match_offers: {
         Args: {
           match_count?: number
@@ -1835,6 +1966,8 @@ export type Database = {
           similarity: number
         }[]
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       app_role: "usuario" | "gerente" | "admin"
