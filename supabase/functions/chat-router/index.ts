@@ -143,6 +143,7 @@ serve(async (req) => {
         ],
         tools: [TOOL],
         tool_choice: { type: "function", function: { name: "route_query" } },
+        reasoning_effort: "minimal",
       }),
     });
 
