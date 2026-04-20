@@ -614,7 +614,17 @@ serve(async (req) => {
     // Settings
     const { data: settingsRow } = await supabase.from("feature_settings").select("config").eq("feature_key", "company_chat").single();
     const config = (settingsRow?.config || {}) as any;
-    const chatModel = config.model || "google/gemini-3-flash-preview";
+    // Sanitize model: legacy values (gpt-5.4*, google/*) -> valid OpenAI ids
+    const sanitizeModel = (m: string | undefined): string => {
+      if (!m) return "gpt-5-mini";
+      const cleaned = m.replace(/^google\//, "").replace(/^openai\//, "");
+      if (cleaned === "gpt-5.4-mini") return "gpt-5-mini";
+      if (cleaned === "gpt-5.4") return "gpt-5";
+      // Map any unknown gemini-* to a safe OpenAI default
+      if (cleaned.startsWith("gemini")) return "gpt-5-mini";
+      return cleaned;
+    };
+    const chatModel = sanitizeModel(config.model);
     const embeddingModel = config.embeddingModel || "text-embedding-3-small";
     const customAddition = config.systemPrompt || "";
 
@@ -660,26 +670,28 @@ serve(async (req) => {
 
     while (iter < MAX_ITERS) {
       iter++;
-      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: chatModel, messages: conversation, tools: TOOLS, tool_choice: "auto" }),
-      });
-
-      if (!resp.ok) {
-        const errTxt = await resp.text();
-        if (resp.status === 429) {
+      let data: any;
+      try {
+        const completion = await openai.chat.completions.create({
+          model: chatModel,
+          messages: conversation,
+          tools: TOOLS,
+          tool_choice: "auto",
+        });
+        data = completion;
+      } catch (err: any) {
+        const status = err?.status || err?.response?.status;
+        const errTxt = err?.message || String(err);
+        console.error("openai error", status, errTxt);
+        if (status === 429) {
           await logRetrieval(supabase, { conversationIdForLog, userIdForLog, lastUserMessageForLog, routerOutput, toolsCalled, evidence: "none", vacancy: null, latency: Date.now() - startTime, error: "rate_limited" });
           return new Response(JSON.stringify({ error: "Demasiadas solicitudes. Intenta de nuevo en un momento." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
-        if (resp.status === 402) {
-          await logRetrieval(supabase, { conversationIdForLog, userIdForLog, lastUserMessageForLog, routerOutput, toolsCalled, evidence: "none", vacancy: null, latency: Date.now() - startTime, error: "payment_required" });
-          return new Response(JSON.stringify({ error: "Créditos agotados en Lovable AI. Agrega fondos en Settings." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (status === 401 || status === 403) {
+          return new Response(JSON.stringify({ error: "OPENAI_API_KEY inválida o sin permisos." }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
-        throw new Error(`gateway ${resp.status}: ${errTxt}`);
+        throw new Error(`openai ${status || ""}: ${errTxt}`);
       }
-
-      const data = await resp.json();
       const msg = data.choices?.[0]?.message;
       if (!msg) throw new Error("empty response from gateway");
 
