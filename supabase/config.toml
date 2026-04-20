@@ -6,6 +6,9 @@ verify_jwt = false
 [functions.chat-router]
 verify_jwt = false
 
+[functions.company-chat-actions]
+verify_jwt = false
+
 [functions.vectorize-companies]
 verify_jwt = false
 
