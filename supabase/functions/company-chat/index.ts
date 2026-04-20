@@ -580,7 +580,6 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const openaiKey = Deno.env.get("OPENAI_API_KEY")!;
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY")!;
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
   const openai = new OpenAI({ apiKey: openaiKey });
@@ -614,21 +613,19 @@ serve(async (req) => {
     // Settings
     const { data: settingsRow } = await supabase.from("feature_settings").select("config").eq("feature_key", "company_chat").single();
     const config = (settingsRow?.config || {}) as any;
-    // Sanitize model: legacy values (gpt-5.4*, google/*) -> valid OpenAI ids
-    // Sanitize model — only allow valid OpenAI ids. Map legacy/aliases.
+    // Sanitize model — only allow valid OpenAI ids and normalize legacy aliases.
     const VALID_OPENAI = new Set([
-      "gpt-5", "gpt-5-mini", "gpt-5-nano",
+      "gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-5.4", "gpt-5.4-mini",
       "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano",
       "o4-mini",
     ]);
     const sanitizeModel = (m: string | undefined): string => {
-      if (!m) return "gpt-5-mini";
+      if (!m) return "gpt-5.4-mini";
       const cleaned = m.replace(/^google\//, "").replace(/^openai\//, "").trim();
-      // Legacy / non-existent aliases → gpt-5-mini (rápido + reasoning)
-      if (cleaned === "gpt-5.4-mini" || cleaned === "gpt-5.2-mini") return "gpt-5-mini";
-      if (cleaned === "gpt-5.4" || cleaned === "gpt-5.2") return "gpt-5";
-      if (cleaned.startsWith("gemini")) return "gpt-5-mini";
-      return VALID_OPENAI.has(cleaned) ? cleaned : "gpt-5-mini";
+      if (cleaned === "gpt-5.2-mini") return "gpt-5.4-mini";
+      if (cleaned === "gpt-5.2") return "gpt-5.4";
+      if (cleaned.startsWith("gemini")) return "gpt-5.4-mini";
+      return VALID_OPENAI.has(cleaned) ? cleaned : "gpt-5.4-mini";
     };
     const chatModel = sanitizeModel(config.model);
     // gpt-5* models support reasoning_effort. Default low for speed.
