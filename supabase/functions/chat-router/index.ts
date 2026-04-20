@@ -124,19 +124,19 @@ serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
+    const apiKey = Deno.env.get("OPENAI_API_KEY");
+    if (!apiKey) throw new Error("OPENAI_API_KEY missing");
 
     const recent = messages.slice(-4);
     const taxonomyHint = taxonomy
       ? `\nTAXONOMÍA del CRM (úsala para detectar filtros):\n- Categorías: ${(taxonomy.categories || []).join(", ") || "-"}\n- Verticales: ${(taxonomy.verticals || []).join(", ") || "-"}\n- Sub-verticales: ${(taxonomy.subVerticals || []).join(", ") || "-"}\n- Ciudades: ${(taxonomy.cities || []).join(", ") || "-"}`
       : "";
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const resp = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        model: "gpt-5-nano",
         messages: [
           { role: "system", content: SYSTEM + taxonomyHint },
           ...recent,
