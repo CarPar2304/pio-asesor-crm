@@ -42,9 +42,9 @@ function envelope(tool: string, partial: any) {
 }
 
 // ============================================================
-// TOOL DEFINITIONS (sent to the LLM)
+// READ TOOLS (existing — unchanged behavior)
 // ============================================================
-const TOOLS = [
+const READ_TOOLS = [
   {
     type: "function",
     function: {
@@ -161,6 +161,99 @@ const TOOLS = [
     },
   },
 ];
+
+// ============================================================
+// ACTION TOOLS (new — mutations via company-chat-actions)
+// ============================================================
+const ACTION_TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "create_task",
+      description: "Crea una tarea para una empresa. Replica EXACTAMENTE la lógica del CRM (notificación + history + vectorize). Requiere company_id resuelto y due_date explícita (NO inventes fechas).",
+      parameters: {
+        type: "object",
+        properties: {
+          company_id: { type: "string" },
+          title: { type: "string" },
+          description: { type: "string" },
+          due_date: { type: "string", description: "YYYY-MM-DD" },
+          assigned_to: { type: "string", description: "user_id (opcional, default = quien escribe)" },
+          offer_id: { type: "string" },
+        },
+        required: ["company_id", "title", "due_date"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "complete_task",
+      description: "Marca una tarea como completada. Usa el task_id exacto (resuélvelo previamente con get_overdue_tasks o get_company_timeline).",
+      parameters: {
+        type: "object",
+        properties: { task_id: { type: "string" } },
+        required: ["task_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_milestone",
+      description: "Registra un hito de la empresa. type ∈ {capital, new-markets, alliances, awards, other}.",
+      parameters: {
+        type: "object",
+        properties: {
+          company_id: { type: "string" },
+          type: { type: "string", enum: ["capital", "new-markets", "alliances", "awards", "other"] },
+          title: { type: "string" },
+          description: { type: "string" },
+          date: { type: "string", description: "YYYY-MM-DD; default hoy" },
+        },
+        required: ["company_id", "type", "title"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "log_action",
+      description: "Registra una acción/interacción con la empresa (call, meeting, email, mentoring, diagnostic, routing, other). Equivalente a 'agregar acción' en la UI.",
+      parameters: {
+        type: "object",
+        properties: {
+          company_id: { type: "string" },
+          type: { type: "string", enum: ["call", "meeting", "email", "mentoring", "diagnostic", "routing", "other"] },
+          description: { type: "string" },
+          date: { type: "string", description: "YYYY-MM-DD; default hoy" },
+          notes: { type: "string" },
+        },
+        required: ["company_id", "type", "description"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "move_pipeline",
+      description: "Mueve una empresa a otra etapa de pipeline dentro de UNA oferta. Requiere target_stage_id resuelto y entry_id (o company_id+offer_id). Si la empresa está en varias ofertas, el modelo DEBE preguntar primero a cuál se refiere.",
+      parameters: {
+        type: "object",
+        properties: {
+          entry_id: { type: "string" },
+          company_id: { type: "string" },
+          offer_id: { type: "string" },
+          target_stage_id: { type: "string" },
+        },
+        required: ["target_stage_id"],
+      },
+    },
+  },
+];
+
+const TOOLS = [...READ_TOOLS, ...ACTION_TOOLS];
+const ACTION_TOOL_NAMES = new Set(ACTION_TOOLS.map((t) => t.function.name));
 
 // ============================================================
 // SYSTEM PROMPT — behavior rules
