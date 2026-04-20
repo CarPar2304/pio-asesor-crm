@@ -615,18 +615,29 @@ serve(async (req) => {
     const { data: settingsRow } = await supabase.from("feature_settings").select("config").eq("feature_key", "company_chat").single();
     const config = (settingsRow?.config || {}) as any;
     // Sanitize model: legacy values (gpt-5.4*, google/*) -> valid OpenAI ids
+    // Sanitize model — only allow valid OpenAI ids. Map legacy/aliases.
+    const VALID_OPENAI = new Set([
+      "gpt-5", "gpt-5-mini", "gpt-5-nano",
+      "gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano",
+      "o4-mini",
+    ]);
     const sanitizeModel = (m: string | undefined): string => {
       if (!m) return "gpt-5-mini";
-      const cleaned = m.replace(/^google\//, "").replace(/^openai\//, "");
-      if (cleaned === "gpt-5.4-mini") return "gpt-5-mini";
-      if (cleaned === "gpt-5.4") return "gpt-5";
-      // Map any unknown gemini-* to a safe OpenAI default
+      const cleaned = m.replace(/^google\//, "").replace(/^openai\//, "").trim();
+      // Legacy / non-existent aliases → gpt-5-mini (rápido + reasoning)
+      if (cleaned === "gpt-5.4-mini" || cleaned === "gpt-5.2-mini") return "gpt-5-mini";
+      if (cleaned === "gpt-5.4" || cleaned === "gpt-5.2") return "gpt-5";
       if (cleaned.startsWith("gemini")) return "gpt-5-mini";
-      return cleaned;
+      return VALID_OPENAI.has(cleaned) ? cleaned : "gpt-5-mini";
     };
     const chatModel = sanitizeModel(config.model);
+    // gpt-5* models support reasoning_effort. Default low for speed.
+    const reasoningEffortRaw = (config.reasoningEffort || "low").toLowerCase();
+    const reasoningEffort = ["minimal","low","medium","high"].includes(reasoningEffortRaw) ? reasoningEffortRaw : "low";
+    const supportsReasoning = chatModel.startsWith("gpt-5") || chatModel.startsWith("o4");
     const embeddingModel = config.embeddingModel || "text-embedding-3-small";
     const customAddition = config.systemPrompt || "";
+    console.log(`[company-chat] model=${chatModel} reasoning=${supportsReasoning ? reasoningEffort : "n/a"}`);
 
     // Taxonomy
     const [{ data: cats }, { data: verts }, { data: subVs }, { data: cities }] = await Promise.all([
@@ -672,12 +683,16 @@ serve(async (req) => {
       iter++;
       let data: any;
       try {
-        const completion = await openai.chat.completions.create({
+        const completionParams: any = {
           model: chatModel,
           messages: conversation,
           tools: TOOLS,
           tool_choice: "auto",
-        });
+        };
+        if (supportsReasoning && reasoningEffort !== "none") {
+          completionParams.reasoning_effort = reasoningEffort;
+        }
+        const completion = await openai.chat.completions.create(completionParams);
         data = completion;
       } catch (err: any) {
         const status = err?.status || err?.response?.status;
