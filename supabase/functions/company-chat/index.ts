@@ -1,3 +1,22 @@
+// ============================================================
+// company-chat — Hybrid CRM assistant
+// ============================================================
+// Architecture:
+//   1. Router classifies user turn → exact | semantic | hybrid | clarify
+//   2. Tools (function calling) execute based on path:
+//        - exact   → SQL tools only
+//        - semantic→ search_semantic only (marked as context, not fact)
+//        - hybrid  → SQL identity + RAG narrative (fixed-format reply)
+//        - clarify → ask the user before answering
+//   3. LLM final composes answer respecting truth hierarchy.
+//
+// Truth hierarchy (system prompt enforces it):
+//   1. Exact CRM data (SQL tools)
+//   2. Current state (pipeline_state, open tasks)
+//   3. History (history events, closed actions/tasks)
+//   4. Semantic context — narrative support only, NEVER as fact
+// ============================================================
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.97.0";
 import OpenAI from "npm:openai@4.96.0";
@@ -8,417 +27,619 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const normalizeText = (value: string) =>
-  value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase();
-
-function buildCompanyContent(
-  company: Record<string, any>,
-  contacts: Record<string, any>[] = [],
-  customProps: Record<string, any>[] = [],
-  actions: Record<string, any>[] = [],
-  milestonesList: Record<string, any>[] = [],
-  tasksList: Record<string, any>[] = [],
-  pipelineEntries: Record<string, any>[] = [],
-  stageMap: Map<string, any> = new Map(),
-  offerMap: Map<string, any> = new Map(),
-  profileMap: Map<string, string> = new Map(),
-) {
-  const parts: string[] = [];
-
-  parts.push(`Nombre comercial: ${company.trade_name}`);
-  if (company.legal_name) parts.push(`Razón social: ${company.legal_name}`);
-  if (company.nit) parts.push(`NIT: ${company.nit}`);
-  if (company.category) parts.push(`Categoría: ${company.category}`);
-  if (company.vertical) parts.push(`Vertical: ${company.vertical}`);
-  if (company.economic_activity) parts.push(`Sub-vertical / Actividad económica: ${company.economic_activity}`);
-  if (company.description) parts.push(`Descripción: ${company.description}`);
-  if (company.city) parts.push(`Ciudad: ${company.city}`);
-  if (company.website) parts.push(`Sitio web: ${company.website}`);
-  if (company.exports_usd) parts.push(`Exportaciones USD: ${company.exports_usd}`);
-
-  if (company.sales_by_year && typeof company.sales_by_year === "object") {
-    const salesEntries = Object.entries(company.sales_by_year as Record<string, number>)
-      .filter(([, v]) => v > 0)
-      .sort(([a], [b]) => Number(b) - Number(a));
-    if (salesEntries.length > 0) {
-      parts.push(`Ventas: ${salesEntries.map(([y, v]) => `${y}: $${Number(v).toLocaleString()}`).join(", ")}`);
-    }
-  }
-
-  if (contacts.length > 0) {
-    const contactText = contacts
-      .map((c) => {
-        const segments = [`${c.name}${c.position ? ` (${c.position})` : ""}`];
-        if (c.email) segments.push(`Email: ${c.email}`);
-        if (c.phone) segments.push(`Celular: ${c.phone}`);
-        return segments.join(" - ");
-      })
-      .join("; ");
-    parts.push(`Contactos: ${contactText}`);
-  }
-
-  if (customProps.length > 0) {
-    const propsText = customProps.map((p) => `${p.name}: ${p.value || ""}`).join("; ");
-    parts.push(`Propiedades: ${propsText}`);
-  }
-
-  if (actions.length > 0) {
-    const actionsText = actions.slice(0, 10)
-      .map((a) => `${a.date} - ${a.type}: ${a.description}${a.notes ? ` (${a.notes})` : ""}`)
-      .join("; ");
-    parts.push(`Acciones recientes: ${actionsText}`);
-  }
-
-  if (milestonesList.length > 0) {
-    const milestonesText = milestonesList.slice(0, 10)
-      .map((m) => `${m.date} - ${m.type}: ${m.title}${m.description ? ` - ${m.description}` : ""}`)
-      .join("; ");
-    parts.push(`Hitos: ${milestonesText}`);
-  }
-
-  if (tasksList.length > 0) {
-    const tasksText = tasksList.slice(0, 10)
-      .map((t) => {
-        const assignedName = t.assigned_to ? (profileMap.get(t.assigned_to) || "Sin asignar") : "Sin asignar";
-        const offerName = t.offer_id ? (offerMap.get(t.offer_id)?.name || "") : "";
-        return `${t.title} (Estado: ${t.status}, Vence: ${t.due_date}, Asignado a: ${assignedName}${offerName ? `, Oferta: ${offerName}` : ""})`;
-      })
-      .join("; ");
-    parts.push(`Tareas: ${tasksText}`);
-  }
-
-  if (pipelineEntries.length > 0) {
-    const pipelineText = pipelineEntries
-      .map((pe) => {
-        const stage = stageMap.get(pe.stage_id);
-        const offer = offerMap.get(pe.offer_id);
-        const assignedName = pe.assigned_to ? (profileMap.get(pe.assigned_to) || "Sin asignar") : "Sin asignar";
-        return `Oferta: ${offer?.name || "Desconocida"} (Producto: ${offer?.product || "N/A"}) → Etapa: ${stage?.name || "Desconocida"}, Gestor: ${assignedName}${pe.notes ? `, Notas: ${pe.notes}` : ""}`;
-      })
-      .join("; ");
-    parts.push(`Pipeline / Portafolio: ${pipelineText}`);
-  }
-
-  return parts.join("\n");
+const ISO = () => new Date().toISOString();
+function envelope(tool: string, partial: any) {
+  return {
+    tool,
+    filters_applied: partial.filters_applied || {},
+    total: partial.total ?? (Array.isArray(partial.results) ? partial.results.length : 0),
+    results: partial.results ?? [],
+    truncated: !!partial.truncated,
+    timestamp: ISO(),
+    warnings: partial.warnings || [],
+    ambiguity: partial.ambiguity || null,
+  };
 }
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+// ============================================================
+// TOOL DEFINITIONS (sent to the LLM)
+// ============================================================
+const TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "find_company_by_name",
+      description: "Resuelve un nombre/alias de empresa a candidatos del CRM usando búsqueda aproximada (pg_trgm). Devuelve ambigüedad si no hay un ganador claro.",
+      parameters: {
+        type: "object",
+        properties: { name: { type: "string" }, limit: { type: "integer", default: 5 } },
+        required: ["name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_company_profile",
+      description: "Devuelve SOLO identidad, taxonomía, financiero, descripción, ciudad, web. NO incluye contactos.",
+      parameters: { type: "object", properties: { company_id: { type: "string" } }, required: ["company_id"] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_company_contacts",
+      description: "Devuelve SOLO la lista de contactos de una empresa (con primario destacado).",
+      parameters: { type: "object", properties: { company_id: { type: "string" } }, required: ["company_id"] },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_companies",
+      description: "Lista empresas filtradas. Usar para 'todas las EBT en Cali', 'empresas de la oferta X en etapa Y'.",
+      parameters: {
+        type: "object",
+        properties: {
+          city: { type: "string" }, vertical: { type: "string" }, sub_vertical: { type: "string" },
+          category: { type: "string" }, offer: { type: "string" }, stage: { type: "string" },
+          limit: { type: "integer", default: 100 },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "count_companies",
+      description: "Conteo exacto de empresas con filtros.",
+      parameters: {
+        type: "object",
+        properties: {
+          city: { type: "string" }, vertical: { type: "string" }, sub_vertical: { type: "string" },
+          category: { type: "string" }, offer: { type: "string" }, stage: { type: "string" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_pipeline_state",
+      description: "Posiciones actuales en pipeline. Filtrable por empresa, oferta o etapa.",
+      parameters: {
+        type: "object",
+        properties: { company_id: { type: "string" }, offer: { type: "string" }, stage: { type: "string" } },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_overdue_tasks",
+      description: "Tareas vencidas (due_date < hoy y status != completed).",
+      parameters: {
+        type: "object",
+        properties: {
+          company_id: { type: "string" }, assigned_to_name: { type: "string" }, limit: { type: "integer", default: 50 },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_company_timeline",
+      description: "Eventos cronológicos del histórico de una empresa (acciones, hitos, tareas, movimientos de pipeline, notas).",
+      parameters: {
+        type: "object",
+        properties: {
+          company_id: { type: "string" }, limit: { type: "integer", default: 30 },
+          since: { type: "string", description: "ISO date — solo eventos posteriores" },
+        },
+        required: ["company_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_semantic",
+      description: "Búsqueda semántica sobre chunks. ÚSALO SOLO para contexto/narrativa, NUNCA para hechos exactos. Marca la respuesta como contexto.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string" },
+          chunk_types: {
+            type: "array", items: { type: "string", enum: ["profile", "financials", "contact", "action", "milestone", "task", "pipeline", "history"] },
+          },
+          company_ids: { type: "array", items: { type: "string" } },
+          limit: { type: "integer", default: 10 },
+        },
+        required: ["query"],
+      },
+    },
+  },
+];
+
+// ============================================================
+// SYSTEM PROMPT — behavior rules
+// ============================================================
+function buildSystemPrompt(routerOutput: any, taxonomy: any, customAddition: string) {
+  const today = new Date().toISOString().split("T")[0];
+  const tax = `TAXONOMÍA del CRM:
+- Categorías: ${(taxonomy.categories || []).join(", ") || "-"}
+- Verticales: ${(taxonomy.verticals || []).join(", ") || "-"}
+- Sub-verticales: ${(taxonomy.subVerticals || []).join(", ") || "-"}
+- Ciudades: ${(taxonomy.cities || []).join(", ") || "-"}`;
+
+  const router = `ROUTER OUTPUT (clasificación previa de esta pregunta):
+- path: ${routerOutput.path}
+- intent: ${routerOutput.intent}
+- entities: ${JSON.stringify(routerOutput.entities || {})}
+- evidence_level (preliminar): ${routerOutput.evidence_level}
+${routerOutput.clarification_question ? `- clarification_question: ${routerOutput.clarification_question}` : ""}`;
+
+  return `Eres el asistente del CRM "Pioneros Globales" (Cámara de Comercio de Cali).
+Hoy es ${today}.
+
+${tax}
+
+${router}
+
+═══ JERARQUÍA DE VERDAD (REGLA MAESTRA) ═══
+1. DATOS EXACTOS DEL CRM (tools SQL) — única fuente válida para hechos.
+2. ESTADO ACTUAL (pipeline_state, tareas abiertas) — siempre marcado como "actual".
+3. HISTÓRICO (timeline, eventos pasados) — siempre con fecha y marcado como "histórico".
+4. CONTEXTO SEMÁNTICO (search_semantic) — APOYO NARRATIVO, NUNCA fuente de hechos.
+
+═══ COMPORTAMIENTO POR CAMINO ═══
+- exact   → SOLO tools SQL. Si una tool exacta devuelve total=0, declara uno de los 4 casos de vacío. Nunca rellenes con search_semantic.
+- semantic→ SOLO search_semantic. Inicia la respuesta con: "Esto es contexto recuperado, no necesariamente el estado actual." Marca cada hallazgo con [Contexto].
+- hybrid  → Combina SQL (identidad/estado/historial) + search_semantic (matices). Usa el FORMATO FIJO obligatorio (ver abajo).
+- clarify → NO respondas el contenido. Haz UNA pregunta breve para desambiguar usando "clarification_question" como guía.
+
+═══ POLÍTICA DE VACÍO Y AMBIGÜEDAD (4 casos, NO confundirlos) ═══
+A. NO EXISTE: find_company_by_name → total=0 sin candidatos. → "No encontré ninguna empresa llamada *X* en el CRM."
+B. NO HAY COINCIDENCIA CONFIABLE: ambiguity != null. → Lista candidatos y pregunta cuál es. NO elijas tú.
+C. EXISTE PERO SIN DATOS EN ESE FRENTE: empresa resuelta pero la tool específica devuelve total=0. → "*Acme S.A.S.* existe en el CRM, pero no tiene [contactos / tareas / …] registrados."
+D. AMBIGÜEDAD DE LA PREGUNTA: la pregunta misma no tiene filtro o periodo claro. → pregunta breve.
+
+═══ FORMATO FIJO PARA RESPUESTAS HYBRID (obligatorio) ═══
+### Estado actual
+[Hechos vigentes con tag de fuente: [CRM] [Pipeline] [Tareas]. Si vacío, declárelo.]
+
+### Histórico relevante
+[Eventos pasados desc por fecha. Cada uno con [Histórico AAAA-MM-DD]. Si vacío, declárelo.]
+
+### Contexto / observaciones
+[Síntesis basada en search_semantic. Tag [Contexto]. Si vacío, omite la sección y declárelo.]
+
+### Nivel de evidencia
+[full | partial | none] — [breve justificación: qué se encontró completo, qué falta, qué se infirió.]
+
+═══ REGLAS DE ORO ═══
+1. NUNCA aproximes datos exactos. Tool exacta vacía = declarar caso A/B/C.
+2. NUNCA elijas un candidato cuando find_company_by_name devuelve ambiguity. Pregunta.
+3. SIEMPRE separa estado actual de histórico (en hybrid usa el formato fijo).
+4. SIEMPRE cita fuente por bloque: [CRM], [Pipeline], [Tareas], [Histórico fecha], [Contexto].
+5. NUNCA infieras un dato de empresa A a partir de empresa B.
+6. SIEMPRE termina con una línea explícita "Nivel de evidencia: full|partial|none — …".
+7. Para path=semantic: la primera línea DEBE ser el disclaimer de contexto.
+
+═══ FORMATO ═══
+- Markdown. Tablas GFM válidas (separador único |).
+- Negrillas para cifras y nombres de empresa.
+- Conciso pero completo.
+
+${customAddition ? `\nINSTRUCCIONES ADICIONALES DEL ADMINISTRADOR:\n${customAddition}` : ""}`;
+}
+
+// ============================================================
+// TOOL EXECUTORS
+// ============================================================
+function buildExecutors(supabase: any, openai: OpenAI, embeddingModel: string) {
+  const profileMapPromise = supabase.from("profiles").select("user_id, name").then((r: any) => new Map((r.data || []).map((p: any) => [p.user_id, p.name])));
+
+  async function findCompany(name: string, limit = 5) {
+    const { data, error } = await supabase.rpc("find_company_by_name", { _name: name, _limit: limit });
+    if (error) return envelope("find_company_by_name", { warnings: [error.message] });
+    const rows = data || [];
+    let ambiguity: any = null;
+    if (rows.length === 0) {
+      // No matches at all
+    } else if (rows.length === 1 && rows[0].similarity >= 0.4) {
+      // clear winner
+    } else {
+      const top = rows[0];
+      const second = rows[1];
+      const isLowConfidence = top.similarity < 0.4;
+      const isClose = second && (top.similarity - second.similarity < 0.1);
+      if (isLowConfidence || isClose) {
+        ambiguity = {
+          kind: isLowConfidence ? "low_confidence" : "multiple_matches",
+          candidates: rows.map((r: any) => ({ id: r.id, trade_name: r.trade_name, legal_name: r.legal_name, nit: r.nit, similarity: Number(r.similarity.toFixed(3)) })),
+        };
+      }
+    }
+    return envelope("find_company_by_name", {
+      filters_applied: { name, limit },
+      results: rows.map((r: any) => ({ id: r.id, trade_name: r.trade_name, legal_name: r.legal_name, nit: r.nit, similarity: Number(r.similarity.toFixed(3)), match_field: r.match_field })),
+      ambiguity,
+    });
   }
 
+  async function getProfile(companyId: string) {
+    const { data, error } = await supabase.from("companies")
+      .select("id, trade_name, legal_name, nit, category, vertical, economic_activity, description, city, sales_by_year, sales_currency, exports_usd, website")
+      .eq("id", companyId).maybeSingle();
+    if (error) return envelope("get_company_profile", { warnings: [error.message] });
+    if (!data) return envelope("get_company_profile", { filters_applied: { company_id: companyId }, results: [], total: 0 });
+    return envelope("get_company_profile", { filters_applied: { company_id: companyId }, results: [data], total: 1 });
+  }
+
+  async function getContacts(companyId: string) {
+    const { data, error } = await supabase.from("contacts").select("*").eq("company_id", companyId).order("is_primary", { ascending: false });
+    if (error) return envelope("get_company_contacts", { warnings: [error.message] });
+    return envelope("get_company_contacts", { filters_applied: { company_id: companyId }, results: data || [], total: data?.length || 0 });
+  }
+
+  async function listOrCount(args: any, countOnly: boolean) {
+    let q = supabase.from("companies").select("id, trade_name, legal_name, nit, category, vertical, economic_activity, city", countOnly ? { count: "exact", head: true } : { count: "exact" });
+    if (args.city) q = q.ilike("city", args.city);
+    if (args.vertical) q = q.ilike("vertical", args.vertical);
+    if (args.sub_vertical) q = q.ilike("economic_activity", args.sub_vertical);
+    if (args.category) q = q.ilike("category", args.category);
+
+    let companyIdsFilter: string[] | null = null;
+    if (args.offer || args.stage) {
+      let entriesQ = supabase.from("pipeline_entries").select("company_id, offer_id, stage_id, portfolio_offers!inner(name), pipeline_stages!inner(name)");
+      if (args.offer) entriesQ = entriesQ.ilike("portfolio_offers.name", `%${args.offer}%`);
+      if (args.stage) entriesQ = entriesQ.ilike("pipeline_stages.name", `%${args.stage}%`);
+      const { data: entries, error: eErr } = await entriesQ;
+      if (eErr) return envelope(countOnly ? "count_companies" : "list_companies", { warnings: [eErr.message] });
+      companyIdsFilter = Array.from(new Set((entries || []).map((e: any) => e.company_id)));
+      if (!companyIdsFilter.length) {
+        return envelope(countOnly ? "count_companies" : "list_companies", { filters_applied: args, total: 0, results: [] });
+      }
+      q = q.in("id", companyIdsFilter);
+    }
+
+    if (countOnly) {
+      const { count, error } = await q;
+      if (error) return envelope("count_companies", { warnings: [error.message] });
+      return envelope("count_companies", { filters_applied: args, total: count || 0, results: [] });
+    }
+    const limit = Math.min(args.limit || 100, 200);
+    const { data, count, error } = await q.limit(limit);
+    if (error) return envelope("list_companies", { warnings: [error.message] });
+    const total = count ?? data?.length ?? 0;
+    return envelope("list_companies", { filters_applied: args, total, results: data || [], truncated: total > (data?.length || 0) });
+  }
+
+  async function pipelineState(args: any) {
+    const profileMap = await profileMapPromise;
+    let q = supabase.from("pipeline_entries")
+      .select("id, company_id, notes, assigned_to, created_at, companies!inner(trade_name, nit), portfolio_offers!inner(id, name, product, status), pipeline_stages!inner(id, name, color)");
+    if (args.company_id) q = q.eq("company_id", args.company_id);
+    if (args.offer) q = q.ilike("portfolio_offers.name", `%${args.offer}%`);
+    if (args.stage) q = q.ilike("pipeline_stages.name", `%${args.stage}%`);
+    const { data, error } = await q.limit(200);
+    if (error) return envelope("get_pipeline_state", { warnings: [error.message] });
+    const results = (data || []).map((r: any) => ({
+      entry_id: r.id,
+      company: { id: r.company_id, trade_name: r.companies?.trade_name, nit: r.companies?.nit },
+      offer: { id: r.portfolio_offers?.id, name: r.portfolio_offers?.name, product: r.portfolio_offers?.product, status: r.portfolio_offers?.status },
+      stage: { id: r.pipeline_stages?.id, name: r.pipeline_stages?.name },
+      assigned_to: r.assigned_to ? (profileMap.get(r.assigned_to) || "Sin asignar") : "Sin asignar",
+      since: r.created_at,
+      notes: r.notes || "",
+    }));
+    return envelope("get_pipeline_state", { filters_applied: args, results, total: results.length });
+  }
+
+  async function overdueTasks(args: any) {
+    const profileMap = await profileMapPromise;
+    const today = new Date().toISOString().split("T")[0];
+    let q = supabase.from("company_tasks")
+      .select("id, title, description, due_date, status, assigned_to, company_id, offer_id, companies!inner(trade_name)")
+      .lt("due_date", today).neq("status", "completed");
+    if (args.company_id) q = q.eq("company_id", args.company_id);
+    if (args.assigned_to_name) {
+      // resolve name → user_id
+      const { data: profs } = await supabase.from("profiles").select("user_id, name").ilike("name", `%${args.assigned_to_name}%`);
+      const ids = (profs || []).map((p: any) => p.user_id);
+      if (!ids.length) return envelope("get_overdue_tasks", { filters_applied: args, total: 0, results: [], warnings: [`No se encontró usuario "${args.assigned_to_name}"`] });
+      q = q.in("assigned_to", ids);
+    }
+    const limit = Math.min(args.limit || 50, 200);
+    const { data, error } = await q.order("due_date", { ascending: true }).limit(limit);
+    if (error) return envelope("get_overdue_tasks", { warnings: [error.message] });
+    const results = (data || []).map((t: any) => ({
+      id: t.id, title: t.title, description: t.description, due_date: t.due_date, status: t.status,
+      company: { id: t.company_id, trade_name: t.companies?.trade_name },
+      assigned_to: t.assigned_to ? (profileMap.get(t.assigned_to) || "Sin asignar") : "Sin asignar",
+    }));
+    return envelope("get_overdue_tasks", { filters_applied: args, results, total: results.length, truncated: results.length === limit });
+  }
+
+  async function timeline(args: any) {
+    const profileMap = await profileMapPromise;
+    let q = supabase.from("company_history").select("*").eq("company_id", args.company_id).order("created_at", { ascending: false });
+    if (args.since) q = q.gte("created_at", args.since);
+    const limit = Math.min(args.limit || 30, 100);
+    const { data, error } = await q.limit(limit);
+    if (error) return envelope("get_company_timeline", { warnings: [error.message] });
+    const results = (data || []).map((h: any) => ({
+      id: h.id, event_type: h.event_type, title: h.title, description: h.description,
+      date: h.created_at?.split("T")[0],
+      performed_by: h.performed_by ? (profileMap.get(h.performed_by) || "Usuario") : "Sistema",
+      metadata: h.metadata || {},
+    }));
+    return envelope("get_company_timeline", { filters_applied: args, results, total: results.length, truncated: results.length === limit });
+  }
+
+  async function semantic(args: any) {
+    try {
+      const emb = await openai.embeddings.create({ model: embeddingModel, input: args.query });
+      const vec = JSON.stringify(emb.data[0].embedding);
+      const { data, error } = await supabase.rpc("match_company_chunks", {
+        query_embedding: vec,
+        match_threshold: 0.3,
+        match_count: Math.min(args.limit || 10, 30),
+        filter_chunk_types: args.chunk_types || null,
+        filter_company_ids: args.company_ids || null,
+      });
+      if (error) return envelope("search_semantic", { warnings: [error.message] });
+      const results = (data || []).map((r: any) => ({
+        company_id: r.company_id,
+        chunk_type: r.chunk_type,
+        chunk_key: r.chunk_key,
+        similarity: Number(r.similarity.toFixed(3)),
+        metadata: r.metadata,
+        content: r.content,
+      }));
+      return envelope("search_semantic", { filters_applied: args, results, total: results.length });
+    } catch (e) {
+      return envelope("search_semantic", { warnings: [e instanceof Error ? e.message : "embedding error"] });
+    }
+  }
+
+  return {
+    find_company_by_name: (a: any) => findCompany(a.name, a.limit),
+    get_company_profile: (a: any) => getProfile(a.company_id),
+    get_company_contacts: (a: any) => getContacts(a.company_id),
+    list_companies: (a: any) => listOrCount(a, false),
+    count_companies: (a: any) => listOrCount(a, true),
+    get_pipeline_state: (a: any) => pipelineState(a),
+    get_overdue_tasks: (a: any) => overdueTasks(a),
+    get_company_timeline: (a: any) => timeline(a),
+    search_semantic: (a: any) => semantic(a),
+  } as Record<string, (a: any) => Promise<any>>;
+}
+
+// ============================================================
+// MAIN
+// ============================================================
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const startTime = Date.now();
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const openaiKey = Deno.env.get("OPENAI_API_KEY")!;
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY")!;
+
+  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const openai = new OpenAI({ apiKey: openaiKey });
+
+  let userIdForLog: string | null = null;
+  let conversationIdForLog: string | null = null;
+  let lastUserMessageForLog = "";
+  let routerOutput: any = null;
+  let toolsCalled: any[] = [];
+
   try {
-    const { messages } = await req.json();
+    const { messages, conversation_id } = await req.json();
     if (!messages?.length) {
-      return new Response(JSON.stringify({ error: "Messages required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ error: "messages required" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    conversationIdForLog = conversation_id || null;
+    lastUserMessageForLog = [...messages].reverse().find((m: any) => m.role === "user")?.content?.trim() || "";
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const openaiKey = Deno.env.get("OPENAI_API_KEY")!;
+    // Try to capture authenticated user (best effort)
+    try {
+      const authHeader = req.headers.get("Authorization");
+      if (authHeader?.startsWith("Bearer ")) {
+        const supaAnon = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") || "");
+        const { data: { user } } = await supaAnon.auth.getUser(authHeader.replace("Bearer ", ""));
+        userIdForLog = user?.id || null;
+      }
+    } catch { /* ignore */ }
 
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
-    const openai = new OpenAI({ apiKey: openaiKey });
-
-    // Get config
-    const { data: settingsRow } = await supabase
-      .from("feature_settings")
-      .select("config")
-      .eq("feature_key", "company_chat")
-      .single();
-
-    const config = (settingsRow?.config || {}) as Record<string, any>;
-    const chatModel = config.model || "gpt-4.1-mini";
+    // Settings
+    const { data: settingsRow } = await supabase.from("feature_settings").select("config").eq("feature_key", "company_chat").single();
+    const config = (settingsRow?.config || {}) as any;
+    const chatModel = config.model || "google/gemini-3-flash-preview";
     const embeddingModel = config.embeddingModel || "text-embedding-3-small";
-    const reasoningEffort = config.reasoningEffort || "none";
-    const customPromptAddition = config.systemPrompt || "";
+    const customAddition = config.systemPrompt || "";
 
-    const lastUserMessage = [...messages].reverse().find((m: any) => m.role === "user")?.content?.trim() || "";
-    const recentMessages = messages.slice(-4);
-    const retrievalQuery = recentMessages
-      .map((m: any) => `${m.role === "user" ? "Usuario" : "Asistente"}: ${m.content}`)
-      .join("\n\n") || lastUserMessage;
-
-    // Generate embedding for the retrieval query
-    const embResponse = await openai.embeddings.create({
-      model: embeddingModel,
-      input: retrievalQuery,
-    });
-    const queryEmbedding = embResponse.data[0].embedding;
-
-    // Search similar companies via RPC
-    const wantsAll = /\btodas?\b|\btodos?\b|\bcada\b|\blistado\b|\bcompleto\b|\bgeneral\b/i.test(retrievalQuery);
-    const isContactLookup = /\bcelulares?\b|\bteléfonos?\b|\btelefonos?\b|\bcontactos?\b|\bcorreos?\b|\bemails?\b/i.test(retrievalQuery);
-    const isFollowUp = /\besta?s?\b|\besa?s?\b|\besto\b|\bagrega(?:le|r)?\b|\bañade(?:le|r)?\b|\bactualiza(?:r)?\b|\bcompleta(?:r)?\b|\bincluye(?:r)?\b|\btabla\b/i.test(lastUserMessage) && recentMessages.length > 1;
-    const isPortfolioQuery = /\boferta\b|\bportafolio\b|\bpipeline\b|\betapa\b|\baliado\b|\balianza\b|\bgestor\b|\bhistórico\b|\bhistorico\b|\btimeline\b|\bgesti[oó]n\b|\bqué se ha hecho\b|\bque se ha hecho\b/i.test(retrievalQuery);
-    const matchCount = wantsAll ? 100 : isContactLookup || isFollowUp ? 40 : 15;
-    const matchThreshold = wantsAll ? 0.15 : isContactLookup || isFollowUp ? 0.18 : 0.25;
-
-    // Fetch company matches + portfolio/ally matches in parallel
-    const [companyMatchResult, offerMatchResult, pipelineMatchResult, allyMatchResult] = await Promise.all([
-      supabase.rpc("match_companies", {
-        query_embedding: JSON.stringify(queryEmbedding),
-        match_threshold: matchThreshold,
-        match_count: matchCount,
-      }),
-      isPortfolioQuery || wantsAll ? supabase.rpc("match_offers", {
-        query_embedding: JSON.stringify(queryEmbedding),
-        match_threshold: 0.2,
-        match_count: 20,
-      }) : Promise.resolve({ data: [], error: null }),
-      isPortfolioQuery || wantsAll ? supabase.rpc("match_pipeline", {
-        query_embedding: JSON.stringify(queryEmbedding),
-        match_threshold: 0.2,
-        match_count: 20,
-      }) : Promise.resolve({ data: [], error: null }),
-      isPortfolioQuery || wantsAll ? supabase.rpc("match_allies", {
-        query_embedding: JSON.stringify(queryEmbedding),
-        match_threshold: 0.2,
-        match_count: 10,
-      }) : Promise.resolve({ data: [], error: null }),
-    ]);
-
-    const matches = companyMatchResult.data || [];
-    if (companyMatchResult.error) console.error("match_companies error:", companyMatchResult.error);
-
-    const offerMatches = offerMatchResult.data || [];
-    const pipelineMatches = pipelineMatchResult.data || [];
-    const allyMatches = allyMatchResult.data || [];
-
-    const normalizedConversation = normalizeText(retrievalQuery);
-    const { data: companyNameRows, error: companyNamesErr } = await supabase
-      .from("companies")
-      .select("id, trade_name, legal_name");
-
-    if (companyNamesErr) {
-      console.error("company name lookup error:", companyNamesErr);
-    }
-
-    const mentionedCompanyIds = Array.from(new Set(
-      (companyNameRows || [])
-        .filter((company: any) =>
-          [company.trade_name, company.legal_name]
-            .filter((name): name is string => Boolean(name))
-            .some((name) => {
-              const normalizedName = normalizeText(name);
-              return normalizedName.length >= 4 && normalizedConversation.includes(normalizedName);
-            })
-        )
-        .map((company: any) => company.id)
-    ));
-
-    let directMatches: any[] = [];
-    if (mentionedCompanyIds.length > 0) {
-      const [
-        directCompaniesRes, directContactsRes, directPropsRes,
-        directActionsRes, directMilestonesRes, directTasksRes,
-        directPipelineRes, directStagesRes, directOffersRes, directProfilesRes,
-      ] = await Promise.all([
-        supabase.from("companies").select("*").in("id", mentionedCompanyIds),
-        supabase.from("contacts").select("*").in("company_id", mentionedCompanyIds),
-        supabase.from("custom_properties").select("*").in("company_id", mentionedCompanyIds),
-        supabase.from("company_actions").select("*").in("company_id", mentionedCompanyIds).order("date", { ascending: false }),
-        supabase.from("milestones").select("*").in("company_id", mentionedCompanyIds).order("date", { ascending: false }),
-        supabase.from("company_tasks").select("*").in("company_id", mentionedCompanyIds).order("due_date", { ascending: false }),
-        supabase.from("pipeline_entries").select("*").in("company_id", mentionedCompanyIds),
-        supabase.from("pipeline_stages").select("*"),
-        supabase.from("portfolio_offers").select("id, name, product, status"),
-        supabase.from("profiles").select("user_id, name"),
-      ]);
-
-      const directCompanies = directCompaniesRes.data || [];
-      const directContacts = directContactsRes.data || [];
-      const directProps = directPropsRes.data || [];
-      const directActions = directActionsRes.data || [];
-      const directMilestones = directMilestonesRes.data || [];
-      const directTasks = directTasksRes.data || [];
-      const directPipeline = directPipelineRes.data || [];
-      const dStageMap = new Map((directStagesRes.data || []).map((s: any) => [s.id, s]));
-      const dOfferMap = new Map((directOffersRes.data || []).map((o: any) => [o.id, o]));
-      const dProfileMap = new Map((directProfilesRes.data || []).map((p: any) => [p.user_id, p.name]));
-
-      directMatches = directCompanies.map((company: any) => ({
-        id: `direct-${company.id}`,
-        company_id: company.id,
-        content: buildCompanyContent(
-          company,
-          directContacts.filter((c: any) => c.company_id === company.id),
-          directProps.filter((p: any) => p.company_id === company.id),
-          directActions.filter((a: any) => a.company_id === company.id),
-          directMilestones.filter((m: any) => m.company_id === company.id),
-          directTasks.filter((t: any) => t.company_id === company.id),
-          directPipeline.filter((pe: any) => pe.company_id === company.id),
-          dStageMap,
-          dOfferMap,
-          dProfileMap,
-        ),
-        similarity: 1,
-        source: "direct",
-      }));
-    }
-
-    const combinedMatches = Array.from(
-      new Map(
-        [...directMatches, ...(matches || [])].map((match: any) => [match.company_id, match])
-      ).values()
-    );
-
-    console.log("company-chat retrieval", {
-      lastUserMessage,
-      retrievalQueryLength: retrievalQuery.length,
-      mentionedCompanyIds: mentionedCompanyIds.length,
-      semanticMatches: matches?.length || 0,
-      combinedMatches: combinedMatches.length,
-      offerMatches: offerMatches.length,
-      pipelineMatches: pipelineMatches.length,
-      allyMatches: allyMatches.length,
-      isContactLookup,
-      isFollowUp,
-      isPortfolioQuery,
-      wantsAll,
-    });
-
-    // Build context from matches
-    let contextBlock = "";
-    if (combinedMatches.length) {
-      contextBlock = combinedMatches
-        .map((m: any, i: number) => `--- Empresa ${i + 1}${m.source === "direct" ? " (mencionada en la conversación)" : ` (similitud: ${(m.similarity * 100).toFixed(1)}%)`} ---\n${m.content}`)
-        .join("\n\n");
-    }
-
-    // Build portfolio context
-    let portfolioContextBlock = "";
-    if (offerMatches.length > 0) {
-      portfolioContextBlock += "\n\n═══ OFERTAS DEL PORTAFOLIO ═══\n";
-      portfolioContextBlock += offerMatches.map((m: any, i: number) => `--- Oferta ${i + 1} (similitud: ${(m.similarity * 100).toFixed(1)}%) ---\n${m.content}`).join("\n\n");
-    }
-    if (pipelineMatches.length > 0) {
-      portfolioContextBlock += "\n\n═══ PIPELINE (empresas por etapa) ═══\n";
-      portfolioContextBlock += pipelineMatches.map((m: any, i: number) => `--- Pipeline ${i + 1} (similitud: ${(m.similarity * 100).toFixed(1)}%) ---\n${m.content}`).join("\n\n");
-    }
-    if (allyMatches.length > 0) {
-      portfolioContextBlock += "\n\n═══ ALIADOS ═══\n";
-      portfolioContextBlock += allyMatches.map((m: any, i: number) => `--- Aliado ${i + 1} (similitud: ${(m.similarity * 100).toFixed(1)}%) ---\n${m.content}`).join("\n\n");
-    }
-
-    // Fetch CRM categories, verticals and sub-verticals for disambiguation
-    const [{ data: crmCategories }, { data: crmVerticals }, { data: crmSubVerticals }] = await Promise.all([
+    // Taxonomy
+    const [{ data: cats }, { data: verts }, { data: subVs }, { data: cities }] = await Promise.all([
       supabase.from("crm_categories").select("name"),
       supabase.from("crm_verticals").select("name"),
       supabase.from("crm_sub_verticals").select("name"),
+      supabase.from("companies").select("city").not("city", "is", null),
     ]);
-
-    const categoryNames = (crmCategories || []).map((c: any) => c.name);
-    const verticalNames = (crmVerticals || []).map((v: any) => v.name);
-    const subVerticalNames = (crmSubVerticals || []).map((sv: any) => sv.name);
-
-    const taxonomyBlock = `TAXONOMÍA DEL CRM (usar para interpretar consultas):
-- Categorías de empresa: ${categoryNames.join(", ") || "Sin categorías"}
-- Verticales: ${verticalNames.join(", ") || "Sin verticales"}
-- Sub-verticales: ${subVerticalNames.join(", ") || "Sin sub-verticales"}`;
-
-    const systemPrompt = `Eres un asistente inteligente del CRM "Pioneros Globales" de la Cámara de Comercio de Cali. Tu rol es ayudar a los asesores a consultar información sobre las empresas registradas, el portafolio de ofertas, los pipelines de gestión, aliados e histórico de gestión.
-
-${taxonomyBlock}
-
-ESTRATEGIA DE CONTEXTO (MUY IMPORTANTE):
-Antes de responder, analiza la pregunta del usuario y determina qué tipo de información necesitas:
-1. **Empresas**: Datos básicos, ventas, contactos, propiedades, categoría, vertical, ciudad → Usa el contexto de EMPRESAS
-2. **Portafolio/Ofertas**: Información sobre ofertas, productos, tipos, categorías de oferta → Usa el contexto de OFERTAS
-3. **Pipeline/Gestión**: En qué etapa está una empresa, quién la gestiona, movimientos → Usa el contexto de PIPELINE
-4. **Aliados**: Contactos de aliados, qué ofertas tienen vinculadas → Usa el contexto de ALIADOS
-5. **Histórico/Timeline**: Qué gestión se ha hecho, quién hizo qué, cronología de eventos → Busca en el contexto de empresas (sección "Histórico / Timeline")
-6. **Mixta**: Si la pregunta cruza varios dominios (ej: "qué empresas de la oferta X están en Cali"), combina contextos
-
-Si la pregunta es sobre histórico, timeline, gestiones realizadas o "qué se ha hecho con la empresa X", prioriza la sección de Histórico/Timeline del contexto.
-
-REGLAS DE DESAMBIGUACIÓN:
-- Cuando el usuario mencione un término que coincida exactamente con una categoría, vertical o sub-vertical del CRM (listadas arriba), SIEMPRE interpreta la consulta como referida a esa clasificación del CRM, NO como un concepto general.
-  - Ejemplo: Si "Escaladora" es una categoría del CRM y el usuario dice "dame empresas escaladoras", debe filtrar por categoría "Escaladora", NO buscar empresas con modelo de negocio escalable.
-- Si hay ambigüedad real, pregunta al usuario.
-
-REGLAS DE FORMATO:
-- Usa markdown para formatear tus respuestas
-- Usa **negrillas** para resaltar datos importantes
-- Usa listas con viñetas para enumerar
-- Cuando necesites comparar datos, usa tablas GFM válidas (separadores |, NO ||)
-- Para títulos usa solo ### (nivel 3) o #### (nivel 4)
-- Sé conciso pero completo
-
-REGLAS DE CONTENIDO:
-- Responde SOLO con información de las empresas, ofertas, pipelines, aliados e histórico proporcionados en el contexto
-- Si no encuentras información relevante, indícalo claramente
-- Puedes hacer análisis comparativos, resúmenes y recomendaciones basadas en los datos
-- Incluye nombres de empresas, categorías, verticales y métricas cuando sea relevante
-- Si el usuario pregunta "¿qué gestión se ha hecho con X?" o similares, busca en el histórico/timeline y presenta los eventos cronológicamente indicando quién los realizó
-
-${customPromptAddition ? `\nINSTRUCCIONES ADICIONALES DEL ADMINISTRADOR:\n${customPromptAddition}` : ""}
-
-CONTEXTO DE EMPRESAS RELEVANTES:
-${contextBlock || "No se encontraron empresas relevantes para esta consulta."}
-${portfolioContextBlock || ""}`;
-
-    // Build request body
-    const isReasoningModel = /^o\d/.test(chatModel);
-    const requestBody: any = {
-      model: chatModel,
-      messages: [{ role: "system", content: systemPrompt }, ...messages],
-      stream: true,
+    const taxonomy = {
+      categories: (cats || []).map((c: any) => c.name),
+      verticals: (verts || []).map((v: any) => v.name),
+      subVerticals: (subVs || []).map((s: any) => s.name),
+      cities: Array.from(new Set((cities || []).map((r: any) => r.city).filter(Boolean))),
     };
 
-    if (isReasoningModel && reasoningEffort && reasoningEffort !== "none") {
-      requestBody.reasoning = { effort: reasoningEffort };
+    // ---- 1. ROUTER ----
+    let routerData: any;
+    try {
+      const routerResp = await fetch(`${supabaseUrl}/functions/v1/chat-router`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}` },
+        body: JSON.stringify({ messages: messages.slice(-4), taxonomy }),
+      });
+      routerData = await routerResp.json();
+    } catch (e) {
+      console.error("router fetch failed, fallback:", e);
+      routerData = { path: "semantic", intent: "otro", entities: {}, evidence_level: "partial", rewritten_query: lastUserMessageForLog };
+    }
+    routerOutput = routerData;
+
+    // ---- 2. LLM with tools ----
+    const executors = buildExecutors(supabase, openai, embeddingModel);
+    const systemPrompt = buildSystemPrompt(routerData, taxonomy, customAddition);
+
+    const conversation: any[] = [{ role: "system", content: systemPrompt }, ...messages];
+
+    // Tool-calling loop (non-stream) — up to N iterations
+    const MAX_ITERS = 6;
+    let iter = 0;
+    let finalContent = "";
+
+    while (iter < MAX_ITERS) {
+      iter++;
+      const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: chatModel, messages: conversation, tools: TOOLS, tool_choice: "auto" }),
+      });
+
+      if (!resp.ok) {
+        const errTxt = await resp.text();
+        if (resp.status === 429) {
+          await logRetrieval(supabase, { conversationIdForLog, userIdForLog, lastUserMessageForLog, routerOutput, toolsCalled, evidence: "none", vacancy: null, latency: Date.now() - startTime, error: "rate_limited" });
+          return new Response(JSON.stringify({ error: "Demasiadas solicitudes. Intenta de nuevo en un momento." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        if (resp.status === 402) {
+          await logRetrieval(supabase, { conversationIdForLog, userIdForLog, lastUserMessageForLog, routerOutput, toolsCalled, evidence: "none", vacancy: null, latency: Date.now() - startTime, error: "payment_required" });
+          return new Response(JSON.stringify({ error: "Créditos agotados en Lovable AI. Agrega fondos en Settings." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+        throw new Error(`gateway ${resp.status}: ${errTxt}`);
+      }
+
+      const data = await resp.json();
+      const msg = data.choices?.[0]?.message;
+      if (!msg) throw new Error("empty response from gateway");
+
+      conversation.push(msg);
+
+      const calls = msg.tool_calls || [];
+      if (!calls.length) {
+        finalContent = msg.content || "";
+        break;
+      }
+
+      // Execute tools (parallel)
+      const results = await Promise.all(calls.map(async (tc: any) => {
+        const name = tc.function?.name;
+        let args: any = {};
+        try { args = JSON.parse(tc.function?.arguments || "{}"); } catch { /* */ }
+        const exec = executors[name];
+        if (!exec) {
+          return { tool_call_id: tc.id, role: "tool", name, content: JSON.stringify({ error: `unknown tool ${name}` }) };
+        }
+        try {
+          const out = await exec(args);
+          toolsCalled.push({ tool: name, args, total: out.total, ambiguity: out.ambiguity?.kind || null });
+          return { tool_call_id: tc.id, role: "tool", name, content: JSON.stringify(out) };
+        } catch (e) {
+          toolsCalled.push({ tool: name, args, error: String(e) });
+          return { tool_call_id: tc.id, role: "tool", name, content: JSON.stringify({ error: String(e) }) };
+        }
+      }));
+      conversation.push(...results);
     }
 
-    const response = await openai.chat.completions.create(requestBody);
-
-    // Stream response
+    // Stream the final content as SSE so the client (which expects streaming) keeps working
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
-      async start(controller) {
-        try {
-          for await (const chunk of response as any) {
-            const content = chunk.choices?.[0]?.delta?.content;
-            if (content) {
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\n`));
-            }
-            if (chunk.choices?.[0]?.finish_reason) {
-              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-            }
-          }
-        } catch (err) {
-          console.error("Stream error:", err);
-        } finally {
-          controller.close();
+      start(controller) {
+        // Chunk by ~60 chars to simulate streaming (final content already known)
+        const text = finalContent || "_(Sin respuesta del modelo.)_";
+        const CHUNK = 80;
+        for (let i = 0; i < text.length; i += CHUNK) {
+          const piece = text.slice(i, i + CHUNK);
+          const payload = { choices: [{ delta: { content: piece } }] };
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
         }
+        controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
+        controller.close();
       },
     });
 
-    return new Response(stream, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-    });
+    // Fire-and-forget log
+    const evidenceFinal = inferEvidence(toolsCalled, routerOutput);
+    const vacancy = inferVacancy(toolsCalled);
+    logRetrieval(supabase, {
+      conversationIdForLog, userIdForLog, lastUserMessageForLog,
+      routerOutput, toolsCalled, evidence: evidenceFinal, vacancy,
+      latency: Date.now() - startTime, error: null,
+    }).catch((e) => console.error("log error:", e));
+
+    return new Response(stream, { headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
   } catch (err) {
     console.error("company-chat error:", err);
-
-    const status = (err as any)?.status === 429 ? 429 : (err as any)?.status === 402 ? 402 : 500;
-    const message =
-      status === 429
-        ? "Demasiadas solicitudes, intenta de nuevo en un momento."
-        : status === 402
-        ? "Se agotaron los créditos de IA."
-        : err instanceof Error
-        ? err.message
-        : "Error desconocido";
-
-    return new Response(JSON.stringify({ error: message }), {
-      status,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    await logRetrieval(supabase, {
+      conversationIdForLog, userIdForLog, lastUserMessageForLog,
+      routerOutput, toolsCalled, evidence: "none", vacancy: null,
+      latency: Date.now() - startTime, error: err instanceof Error ? err.message : "Unknown",
+    }).catch(() => {});
+    return new Response(JSON.stringify({ error: err instanceof Error ? err.message : "Unknown" }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
+
+function inferEvidence(tools: any[], router: any): "full" | "partial" | "none" {
+  if (router?.path === "clarify") return "partial";
+  if (!tools.length) return router?.evidence_level || "partial";
+  const anyAmbiguity = tools.some((t) => t.ambiguity);
+  const anyTotal = tools.some((t) => (t.total ?? 0) > 0);
+  const allEmpty = tools.every((t) => (t.total ?? 0) === 0);
+  if (allEmpty) return "none";
+  if (anyAmbiguity) return "partial";
+  if (!anyTotal) return "none";
+  // partial if any tool returned 0 while others returned data
+  if (tools.some((t) => (t.total ?? 0) === 0)) return "partial";
+  return "full";
+}
+
+function inferVacancy(tools: any[]): string | null {
+  // A=no-existe, B=low confidence, C=existe sin datos, D=clarify
+  const findCalls = tools.filter((t) => t.tool === "find_company_by_name");
+  if (findCalls.some((t) => t.ambiguity)) return "B";
+  if (findCalls.length && findCalls.every((t) => (t.total ?? 0) === 0)) return "A";
+  const otherEmpty = tools.filter((t) => t.tool !== "find_company_by_name" && t.tool !== "search_semantic" && (t.total ?? 0) === 0);
+  if (otherEmpty.length && findCalls.some((t) => (t.total ?? 0) > 0)) return "C";
+  return null;
+}
+
+async function logRetrieval(supabase: any, p: any) {
+  try {
+    await supabase.from("chat_retrieval_logs").insert({
+      conversation_id: p.conversationIdForLog,
+      user_id: p.userIdForLog,
+      user_message: p.lastUserMessageForLog || "",
+      intent: p.routerOutput?.intent || null,
+      path: p.routerOutput?.path || null,
+      evidence_level: p.evidence,
+      vacancy_case: p.vacancy,
+      tools_called: p.toolsCalled || [],
+      router_output: p.routerOutput || {},
+      latency_ms: p.latency,
+      error: p.error,
+    });
+  } catch (e) {
+    console.error("logRetrieval failed:", e);
+  }
+}

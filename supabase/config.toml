@@ -1,1 +1,25 @@
 project_id = "xcrlxgfwzxuvqztmvrvv"
+
+[functions.company-chat]
+verify_jwt = false
+
+[functions.chat-router]
+verify_jwt = false
+
+[functions.vectorize-companies]
+verify_jwt = false
+
+[functions.company-fit]
+verify_jwt = false
+
+[functions.company-radar]
+verify_jwt = false
+
+[functions.form-verify]
+verify_jwt = false
+
+[functions.taxonomy-definitions]
+verify_jwt = false
+
+[functions.taxonomy-organize]
+verify_jwt = false
