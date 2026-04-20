@@ -628,13 +628,17 @@ serve(async (req) => {
       return VALID_OPENAI.has(cleaned) ? cleaned : "gpt-5.4-mini";
     };
     const chatModel = sanitizeModel(config.model);
-    // gpt-5* models support reasoning_effort. Default low for speed.
+    // reasoning_effort: solo para modelos que lo soportan en chat.completions con tools.
+    // gpt-5.4* exige /v1/responses cuando se combina tools+reasoning, así que NO se lo enviamos
+    // (el modelo razona por defecto a nivel "low"). gpt-5 / gpt-5-mini / gpt-5-nano / o4-mini sí lo aceptan.
     const reasoningEffortRaw = (config.reasoningEffort || "low").toLowerCase();
     const reasoningEffort = ["minimal","low","medium","high"].includes(reasoningEffortRaw) ? reasoningEffortRaw : "low";
-    const supportsReasoning = chatModel.startsWith("gpt-5") || chatModel.startsWith("o4");
+    const supportsReasoningWithTools =
+      (chatModel.startsWith("gpt-5") && !chatModel.startsWith("gpt-5.4") && !chatModel.startsWith("gpt-5.2"))
+      || chatModel.startsWith("o4");
     const embeddingModel = config.embeddingModel || "text-embedding-3-small";
     const customAddition = config.systemPrompt || "";
-    console.log(`[company-chat] model=${chatModel} reasoning=${supportsReasoning ? reasoningEffort : "n/a"}`);
+    console.log(`[company-chat] model=${chatModel} reasoning=${supportsReasoningWithTools ? reasoningEffort : "default(model)"}`);
 
     // Taxonomy
     const [{ data: cats }, { data: verts }, { data: subVs }, { data: cities }] = await Promise.all([
@@ -686,7 +690,7 @@ serve(async (req) => {
           tools: TOOLS,
           tool_choice: "auto",
         };
-        if (supportsReasoning && reasoningEffort !== "none") {
+        if (supportsReasoningWithTools && reasoningEffort !== "none") {
           completionParams.reasoning_effort = reasoningEffort;
         }
         const completion = await openai.chat.completions.create(completionParams);
