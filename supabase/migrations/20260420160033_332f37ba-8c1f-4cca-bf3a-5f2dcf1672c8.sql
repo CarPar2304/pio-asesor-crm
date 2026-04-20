@@ -1,0 +1,1 @@
+UPDATE public.feature_settings SET config = config || jsonb_build_object('model','gpt-5-mini','reasoningEffort','low'), updated_at = now() WHERE feature_key = 'company_chat';
