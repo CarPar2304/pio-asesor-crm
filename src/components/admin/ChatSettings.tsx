@@ -23,7 +23,7 @@ interface ChatConfig {
 }
 
 const DEFAULT_CONFIG: ChatConfig = {
-  model: 'gpt-5-mini',
+  model: 'gpt-5.4-mini',
   embeddingModel: 'text-embedding-3-small',
   reasoningEffort: 'low',
   systemPrompt: '',
@@ -246,7 +246,9 @@ export default function ChatSettings() {
                 <SelectItem value="o4-mini">o4-mini</SelectItem>
                 <SelectItem value="gpt-5-nano">gpt-5-nano</SelectItem>
                 <SelectItem value="gpt-5-mini">gpt-5-mini</SelectItem>
+                <SelectItem value="gpt-5.4-mini">gpt-5.4-mini</SelectItem>
                 <SelectItem value="gpt-5">gpt-5</SelectItem>
+                <SelectItem value="gpt-5.4">gpt-5.4</SelectItem>
               </SelectContent>
             </Select>
           </div>
