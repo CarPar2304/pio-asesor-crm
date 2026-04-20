@@ -12,6 +12,8 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, PieChart, Pie, Cell, Respon
 import { BarChart3, CheckCircle, Clock, Building2, Users, TrendingUp, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useEffect } from 'react';
+import ChatHealthPanel from '@/components/admin/ChatHealthPanel';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const PIE_COLORS = ['#6366f1', '#3b82f6', '#06b6d4', '#10b981', '#84cc16', '#f59e0b', '#f97316', '#ef4444', '#ec4899', '#8b5cf6'];
 
@@ -25,15 +27,17 @@ export default function Stats() {
 
   const [selectedUserId, setSelectedUserId] = useState<string>('me');
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [managementFilter, setManagementFilter] = useState<ManagementFilter>('all');
 
-  // Check if current user is gerente
+  // Check current user roles
   useEffect(() => {
     if (!session) return;
     supabase.from('user_roles').select('role').eq('user_id', session.user.id).then(({ data }) => {
       const roles = (data || []).map((r: any) => r.role);
       if (roles.includes('gerente')) setUserRole('gerente');
       else setUserRole('usuario');
+      setIsAdmin(roles.includes('admin'));
     });
   }, [session]);
 
@@ -183,6 +187,29 @@ export default function Stats() {
         )}
       </div>
 
+      {isAdmin ? (
+        <Tabs defaultValue="performance" className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="performance">Rendimiento</TabsTrigger>
+            <TabsTrigger value="chat-health">Salud del Chat</TabsTrigger>
+          </TabsList>
+          <TabsContent value="performance" className="space-y-6 mt-0">
+            <PerformanceContent stats={stats} categoryBarData={categoryBarData} productData={productData} offerCategoryData={offerCategoryData} managementFilter={managementFilter} setManagementFilter={setManagementFilter} />
+          </TabsContent>
+          <TabsContent value="chat-health" className="mt-0">
+            <ChatHealthPanel />
+          </TabsContent>
+        </Tabs>
+      ) : (
+        <PerformanceContent stats={stats} categoryBarData={categoryBarData} productData={productData} offerCategoryData={offerCategoryData} managementFilter={managementFilter} setManagementFilter={setManagementFilter} />
+      )}
+    </div>
+  );
+}
+
+function PerformanceContent({ stats, categoryBarData, productData, offerCategoryData, managementFilter, setManagementFilter }: any) {
+  return (
+    <>
       {/* KPI Cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Card>
@@ -215,7 +242,6 @@ export default function Stats() {
 
       {/* Charts row */}
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* Bar chart - empresas atendidas por categoría */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold">Empresas atendidas por categoría</CardTitle>
@@ -239,7 +265,6 @@ export default function Stats() {
           </CardContent>
         </Card>
 
-        {/* Donut chart - por tipo de producto */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold">Empresas por tipo de producto</CardTitle>
@@ -252,7 +277,7 @@ export default function Stats() {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={productData} cx="50%" cy="50%" innerRadius={50} outerRadius={90} dataKey="value" nameKey="name" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`} labelLine={false} style={{ fontSize: 11 }}>
-                      {productData.map((_, i) => (<Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />))}
+                      {productData.map((_: any, i: number) => (<Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />))}
                     </Pie>
                     <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: 12 }} />
                   </PieChart>
@@ -262,7 +287,6 @@ export default function Stats() {
           </CardContent>
         </Card>
 
-        {/* Donut chart - por categoría de oferta */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold">Distribución por categoría de oferta</CardTitle>
@@ -275,7 +299,7 @@ export default function Stats() {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={offerCategoryData} cx="50%" cy="50%" innerRadius={50} outerRadius={90} dataKey="value" nameKey="name" label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`} labelLine={false} style={{ fontSize: 11 }}>
-                      {offerCategoryData.map((_, i) => (<Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />))}
+                      {offerCategoryData.map((_: any, i: number) => (<Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />))}
                     </Pie>
                     <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: 12 }} />
                   </PieChart>
@@ -285,7 +309,7 @@ export default function Stats() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </>
   );
 }
 
