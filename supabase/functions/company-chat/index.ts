@@ -545,6 +545,32 @@ function buildExecutors(supabase: any, openai: OpenAI, embeddingModel: string) {
 }
 
 // ============================================================
+// ACTION EXECUTOR — proxies into company-chat-actions edge fn
+// (uses caller JWT so RLS applies as if from the UI)
+// ============================================================
+function buildActionExecutor(supabaseUrl: string, authHeader: string | null) {
+  return async function execAction(action: string, args: any) {
+    if (!authHeader) {
+      return { tool: action, mutation: true, executed: false, error: "missing auth — actions require an authenticated user", side_effects: [], result: null };
+    }
+    try {
+      const resp = await fetch(`${supabaseUrl}/functions/v1/company-chat-actions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: authHeader },
+        body: JSON.stringify({ action, args }),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok && !json?.tool) {
+        return { tool: action, mutation: true, executed: false, error: json?.error || `HTTP ${resp.status}`, side_effects: [], result: null };
+      }
+      return json;
+    } catch (e) {
+      return { tool: action, mutation: true, executed: false, error: e instanceof Error ? e.message : "network error", side_effects: [], result: null };
+    }
+  };
+}
+
+// ============================================================
 // MAIN
 // ============================================================
 serve(async (req) => {
