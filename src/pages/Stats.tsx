@@ -27,15 +27,17 @@ export default function Stats() {
 
   const [selectedUserId, setSelectedUserId] = useState<string>('me');
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [managementFilter, setManagementFilter] = useState<ManagementFilter>('all');
 
-  // Check if current user is gerente
+  // Check current user roles
   useEffect(() => {
     if (!session) return;
     supabase.from('user_roles').select('role').eq('user_id', session.user.id).then(({ data }) => {
       const roles = (data || []).map((r: any) => r.role);
       if (roles.includes('gerente')) setUserRole('gerente');
       else setUserRole('usuario');
+      setIsAdmin(roles.includes('admin'));
     });
   }, [session]);
 
