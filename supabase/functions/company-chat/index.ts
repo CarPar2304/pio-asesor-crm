@@ -42,9 +42,9 @@ function envelope(tool: string, partial: any) {
 }
 
 // ============================================================
-// TOOL DEFINITIONS (sent to the LLM)
+// READ TOOLS (existing — unchanged behavior)
 // ============================================================
-const TOOLS = [
+const READ_TOOLS = [
   {
     type: "function",
     function: {
@@ -163,6 +163,99 @@ const TOOLS = [
 ];
 
 // ============================================================
+// ACTION TOOLS (new — mutations via company-chat-actions)
+// ============================================================
+const ACTION_TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "create_task",
+      description: "Crea una tarea para una empresa. Replica EXACTAMENTE la lógica del CRM (notificación + history + vectorize). Requiere company_id resuelto y due_date explícita (NO inventes fechas).",
+      parameters: {
+        type: "object",
+        properties: {
+          company_id: { type: "string" },
+          title: { type: "string" },
+          description: { type: "string" },
+          due_date: { type: "string", description: "YYYY-MM-DD" },
+          assigned_to: { type: "string", description: "user_id (opcional, default = quien escribe)" },
+          offer_id: { type: "string" },
+        },
+        required: ["company_id", "title", "due_date"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "complete_task",
+      description: "Marca una tarea como completada. Usa el task_id exacto (resuélvelo previamente con get_overdue_tasks o get_company_timeline).",
+      parameters: {
+        type: "object",
+        properties: { task_id: { type: "string" } },
+        required: ["task_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_milestone",
+      description: "Registra un hito de la empresa. type ∈ {capital, new-markets, alliances, awards, other}.",
+      parameters: {
+        type: "object",
+        properties: {
+          company_id: { type: "string" },
+          type: { type: "string", enum: ["capital", "new-markets", "alliances", "awards", "other"] },
+          title: { type: "string" },
+          description: { type: "string" },
+          date: { type: "string", description: "YYYY-MM-DD; default hoy" },
+        },
+        required: ["company_id", "type", "title"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "log_action",
+      description: "Registra una acción/interacción con la empresa (call, meeting, email, mentoring, diagnostic, routing, other). Equivalente a 'agregar acción' en la UI.",
+      parameters: {
+        type: "object",
+        properties: {
+          company_id: { type: "string" },
+          type: { type: "string", enum: ["call", "meeting", "email", "mentoring", "diagnostic", "routing", "other"] },
+          description: { type: "string" },
+          date: { type: "string", description: "YYYY-MM-DD; default hoy" },
+          notes: { type: "string" },
+        },
+        required: ["company_id", "type", "description"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "move_pipeline",
+      description: "Mueve una empresa a otra etapa de pipeline dentro de UNA oferta. Requiere target_stage_id resuelto y entry_id (o company_id+offer_id). Si la empresa está en varias ofertas, el modelo DEBE preguntar primero a cuál se refiere.",
+      parameters: {
+        type: "object",
+        properties: {
+          entry_id: { type: "string" },
+          company_id: { type: "string" },
+          offer_id: { type: "string" },
+          target_stage_id: { type: "string" },
+        },
+        required: ["target_stage_id"],
+      },
+    },
+  },
+];
+
+const TOOLS = [...READ_TOOLS, ...ACTION_TOOLS];
+const ACTION_TOOL_NAMES = new Set(ACTION_TOOLS.map((t) => t.function.name));
+
+// ============================================================
 // SYSTEM PROMPT — behavior rules
 // ============================================================
 function buildSystemPrompt(routerOutput: any, taxonomy: any, customAddition: string) {
@@ -174,9 +267,11 @@ function buildSystemPrompt(routerOutput: any, taxonomy: any, customAddition: str
 - Ciudades: ${(taxonomy.cities || []).join(", ") || "-"}`;
 
   const router = `ROUTER OUTPUT (clasificación previa de esta pregunta):
+- operation: ${routerOutput.operation || "query"}
 - path: ${routerOutput.path}
 - intent: ${routerOutput.intent}
 - entities: ${JSON.stringify(routerOutput.entities || {})}
+- actions_intent: ${JSON.stringify(routerOutput.actions_intent || [])}
 - evidence_level (preliminar): ${routerOutput.evidence_level}
 ${routerOutput.clarification_question ? `- clarification_question: ${routerOutput.clarification_question}` : ""}`;
 
@@ -193,17 +288,38 @@ ${router}
 3. HISTÓRICO (timeline, eventos pasados) — siempre con fecha y marcado como "histórico".
 4. CONTEXTO SEMÁNTICO (search_semantic) — APOYO NARRATIVO, NUNCA fuente de hechos.
 
-═══ COMPORTAMIENTO POR CAMINO ═══
+═══ COMPORTAMIENTO POR OPERACIÓN ═══
+- query   → Solo lectura. PROHIBIDO usar action-tools (create_task, complete_task, create_milestone, log_action, move_pipeline).
+- action  → SOLO mutación. Usa tools de lectura únicamente para resolver IDs (find_company_by_name, get_pipeline_state). No compongas narrativa larga: confirma la acción ejecutada.
+- mixed   → Primero responde la consulta (formato fijo si aplica), separador "---", luego ejecuta acción y agrega "### Acciones ejecutadas".
+- clarify → NO ejecutes nada. Haz UNA pregunta breve y concreta.
+
+═══ COMPORTAMIENTO POR CAMINO (para query/mixed) ═══
 - exact   → SOLO tools SQL. Si una tool exacta devuelve total=0, declara uno de los 4 casos de vacío. Nunca rellenes con search_semantic.
 - semantic→ SOLO search_semantic. Inicia la respuesta con: "Esto es contexto recuperado, no necesariamente el estado actual." Marca cada hallazgo con [Contexto].
 - hybrid  → Combina SQL (identidad/estado/historial) + search_semantic (matices). Usa el FORMATO FIJO obligatorio (ver abajo).
-- clarify → NO respondas el contenido. Haz UNA pregunta breve para desambiguar usando "clarification_question" como guía.
+- clarify → NO respondas el contenido. Haz UNA pregunta breve para desambiguar.
 
 ═══ POLÍTICA DE VACÍO Y AMBIGÜEDAD (4 casos, NO confundirlos) ═══
 A. NO EXISTE: find_company_by_name → total=0 sin candidatos. → "No encontré ninguna empresa llamada *X* en el CRM."
 B. NO HAY COINCIDENCIA CONFIABLE: ambiguity != null. → Lista candidatos y pregunta cuál es. NO elijas tú.
 C. EXISTE PERO SIN DATOS EN ESE FRENTE: empresa resuelta pero la tool específica devuelve total=0. → "*Acme S.A.S.* existe en el CRM, pero no tiene [contactos / tareas / …] registrados."
 D. AMBIGÜEDAD DE LA PREGUNTA: la pregunta misma no tiene filtro o periodo claro. → pregunta breve.
+
+═══ REGLAS PARA ACCIONES (operation = action | mixed) ═══
+1. RESOLUCIÓN DE ENTIDADES OBLIGATORIA antes de ejecutar:
+   - Empresa: SIEMPRE pasa por find_company_by_name. Si ambiguity, NO ejecutes — pide elegir.
+   - Pipeline: usa get_pipeline_state(company_id) para encontrar entry_id, offer y stage actual. Si la empresa está en >1 oferta y el usuario no especificó cuál, PREGUNTA.
+   - Etapa destino (move_pipeline): el target_stage_id debe existir en la MISMA oferta. Resuélvelo desde get_pipeline_state (mismo offer_id).
+   - Tarea a cerrar: encuentra el task_id exacto (get_overdue_tasks o get_company_timeline). Si hay varias coincidencias por título, PREGUNTA cuál.
+2. CAMPOS MÍNIMOS:
+   - create_task requiere due_date. Si el usuario NO la dijo y router marca "due_date" en missing_fields, PREGUNTA. NUNCA inventes fechas como "mañana".
+   - log_action: type debe ser uno del enum. Si el usuario dijo "reunión" → type=meeting; "llamada" → call. Si no se sabe, pregunta.
+3. CONFIRMACIÓN PARA ALTO IMPACTO:
+   - Acciones de bajo riesgo (create_task, log_action, create_milestone): ejecuta directo si todo está claro y router.confidence >= 0.8.
+   - Acciones de alto impacto (move_pipeline, complete_task): si confidence < 0.8 o algún missing_field, PREGUNTA confirmación primero ("¿Confirmas mover *Acme* de **Diagnóstico** a **Negociación** en *Aceleración 2026*?"). NO ejecutes ese turno; espera respuesta.
+4. UNA ACCIÓN A LA VEZ por intent. Si el router lista 2 actions_intent, ejecútalas en secuencia (cada tool call por separado).
+5. SI UNA ACCIÓN FALLA (executed=false o error en envelope): declara el error tal cual, NO reintentes silenciosamente.
 
 ═══ FORMATO FIJO PARA RESPUESTAS HYBRID (obligatorio) ═══
 ### Estado actual
@@ -218,6 +334,15 @@ D. AMBIGÜEDAD DE LA PREGUNTA: la pregunta misma no tiene filtro o periodo claro
 ### Nivel de evidencia
 [full | partial | none] — [breve justificación: qué se encontró completo, qué falta, qué se infirió.]
 
+═══ FORMATO PARA RESPUESTAS CON ACCIONES (obligatorio si ejecutaste algo) ═══
+[…contenido de consulta si operation=mixed…]
+
+### Acciones ejecutadas
+- ✅ [Ejecutado] <descripción concisa con nombre de empresa, etapa/tarea/fecha>.
+- ❌ [Falló] <descripción> — motivo: <error>.
+
+Nivel de evidencia: full|partial|none — …
+
 ═══ REGLAS DE ORO ═══
 1. NUNCA aproximes datos exactos. Tool exacta vacía = declarar caso A/B/C.
 2. NUNCA elijas un candidato cuando find_company_by_name devuelve ambiguity. Pregunta.
@@ -226,6 +351,7 @@ D. AMBIGÜEDAD DE LA PREGUNTA: la pregunta misma no tiene filtro o periodo claro
 5. NUNCA infieras un dato de empresa A a partir de empresa B.
 6. SIEMPRE termina con una línea explícita "Nivel de evidencia: full|partial|none — …".
 7. Para path=semantic: la primera línea DEBE ser el disclaimer de contexto.
+8. Para operation=action: PROHIBIDO componer respuestas largas o usar formato hybrid. Sé breve y confirma con "### Acciones ejecutadas".
 
 ═══ FORMATO ═══
 - Markdown. Tablas GFM válidas (separador único |).
@@ -416,6 +542,32 @@ function buildExecutors(supabase: any, openai: OpenAI, embeddingModel: string) {
     get_company_timeline: (a: any) => timeline(a),
     search_semantic: (a: any) => semantic(a),
   } as Record<string, (a: any) => Promise<any>>;
+}
+
+// ============================================================
+// ACTION EXECUTOR — proxies into company-chat-actions edge fn
+// (uses caller JWT so RLS applies as if from the UI)
+// ============================================================
+function buildActionExecutor(supabaseUrl: string, authHeader: string | null) {
+  return async function execAction(action: string, args: any) {
+    if (!authHeader) {
+      return { tool: action, mutation: true, executed: false, error: "missing auth — actions require an authenticated user", side_effects: [], result: null };
+    }
+    try {
+      const resp = await fetch(`${supabaseUrl}/functions/v1/company-chat-actions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: authHeader },
+        body: JSON.stringify({ action, args }),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok && !json?.tool) {
+        return { tool: action, mutation: true, executed: false, error: json?.error || `HTTP ${resp.status}`, side_effects: [], result: null };
+      }
+      return json;
+    } catch (e) {
+      return { tool: action, mutation: true, executed: false, error: e instanceof Error ? e.message : "network error", side_effects: [], result: null };
+    }
+  };
 }
 
 // ============================================================

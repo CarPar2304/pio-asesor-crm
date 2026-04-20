@@ -184,6 +184,8 @@ export type Database = {
       }
       chat_retrieval_logs: {
         Row: {
+          actions_executed: Json
+          actions_failed: Json
           conversation_id: string | null
           created_at: string
           error: string | null
@@ -191,6 +193,7 @@ export type Database = {
           id: string
           intent: string | null
           latency_ms: number | null
+          operation: string | null
           path: string | null
           router_output: Json
           tokens_in: number | null
@@ -201,6 +204,8 @@ export type Database = {
           vacancy_case: string | null
         }
         Insert: {
+          actions_executed?: Json
+          actions_failed?: Json
           conversation_id?: string | null
           created_at?: string
           error?: string | null
@@ -208,6 +213,7 @@ export type Database = {
           id?: string
           intent?: string | null
           latency_ms?: number | null
+          operation?: string | null
           path?: string | null
           router_output?: Json
           tokens_in?: number | null
@@ -218,6 +224,8 @@ export type Database = {
           vacancy_case?: string | null
         }
         Update: {
+          actions_executed?: Json
+          actions_failed?: Json
           conversation_id?: string | null
           created_at?: string
           error?: string | null
@@ -225,6 +233,7 @@ export type Database = {
           id?: string
           intent?: string | null
           latency_ms?: number | null
+          operation?: string | null
           path?: string | null
           router_output?: Json
           tokens_in?: number | null
