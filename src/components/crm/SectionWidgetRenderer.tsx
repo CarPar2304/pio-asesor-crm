@@ -106,11 +106,14 @@ function calcSingle(calculation: SectionWidget['calculation'], r: Resolved): num
 }
 
 function PrettyKPI({ title, value, trend, color, breakdown }: { title: string; value: string; trend?: number | null; color?: string; breakdown?: string }) {
+  // Auto-scale font size based on text length to avoid awkward wrapping
+  const len = value.length;
+  const valueClass = len > 24 ? 'text-sm' : len > 16 ? 'text-base' : len > 10 ? 'text-lg' : 'text-xl';
   return (
-    <div className="rounded-lg border border-border/50 bg-card p-4 h-full flex flex-col justify-between">
-      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{title}</p>
-      <div>
-        <p className="mt-2 text-2xl font-bold" style={color ? { color } : undefined}>{value}</p>
+    <div className="rounded-lg border border-border/50 bg-card p-3 h-full flex flex-col justify-between min-w-0 overflow-hidden">
+      <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground truncate">{title}</p>
+      <div className="min-w-0">
+        <p className={cn('mt-1 font-bold leading-tight break-words', valueClass)} style={color ? { color } : undefined}>{value}</p>
         {trend !== null && trend !== undefined && !isNaN(trend) && (
           <p className={cn('mt-1 text-xs font-medium', trend > 0 ? 'text-success' : 'text-destructive')}>
             {trend > 0 ? '↑' : '↓'} {formatPercentage(Math.abs(trend))}
