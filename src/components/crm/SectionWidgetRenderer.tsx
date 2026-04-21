@@ -124,6 +124,9 @@ function PrettyKPI({ title, value, trend, color, breakdown }: { title: string; v
 const PIE_COLORS = WIDGET_PALETTE;
 
 export default function SectionWidgetRenderer({ widget, company, fields, viewCurrency }: Props) {
+  // Spacer: invisible in the live profile, only used in the editor canvas
+  if ((widget.config as any).isSpacer) return null;
+
   const sources = widget.sources && widget.sources.length > 0
     ? widget.sources
     : [{ sourceType: widget.sourceType, sourceKey: widget.sourceKey } as WidgetSource];
