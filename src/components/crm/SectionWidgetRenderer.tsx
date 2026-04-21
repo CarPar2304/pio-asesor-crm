@@ -359,7 +359,7 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
     }
 
     return (
-      <div className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4 overflow-x-auto')}>
+      <div style={heightStyle} className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4 overflow-x-auto')}>
         <p className="text-xs font-medium text-muted-foreground mb-3">{title}</p>
         <table className="w-full text-xs">
           <thead>
