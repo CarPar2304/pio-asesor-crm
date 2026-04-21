@@ -457,9 +457,10 @@ function buildExecutors(supabase: any, openai: OpenAI, embeddingModel: string) {
     if (args.category) q = q.ilike("category", args.category);
 
     let companyIdsFilter: string[] | null = null;
-    if (args.offer || args.stage) {
+    if (args.offer_id || args.offer || args.stage) {
       let entriesQ = supabase.from("pipeline_entries").select("company_id, offer_id, stage_id, portfolio_offers!inner(name), pipeline_stages!inner(name)");
-      if (args.offer) entriesQ = entriesQ.ilike("portfolio_offers.name", `%${args.offer}%`);
+      if (args.offer_id) entriesQ = entriesQ.eq("offer_id", args.offer_id);
+      else if (args.offer) entriesQ = entriesQ.ilike("portfolio_offers.name", `%${args.offer}%`);
       if (args.stage) entriesQ = entriesQ.ilike("pipeline_stages.name", `%${args.stage}%`);
       const { data: entries, error: eErr } = await entriesQ;
       if (eErr) return envelope(countOnly ? "count_companies" : "list_companies", { warnings: [eErr.message] });
@@ -480,6 +481,68 @@ function buildExecutors(supabase: any, openai: OpenAI, embeddingModel: string) {
     if (error) return envelope("list_companies", { warnings: [error.message] });
     const total = count ?? data?.length ?? 0;
     return envelope("list_companies", { filters_applied: args, total, results: data || [], truncated: total > (data?.length || 0) });
+  }
+
+  async function findOfferByName(name: string, limit = 5) {
+    const { data, error } = await supabase.rpc("find_offer_by_name", { _name: name, _limit: limit });
+    if (error) return envelope("find_offer_by_name", { warnings: [error.message] });
+    const rows = data || [];
+    let ambiguity: any = null;
+    if (rows.length === 0) {
+      // none
+    } else if (rows.length === 1 && rows[0].similarity >= 0.4) {
+      // clear winner
+    } else {
+      const top = rows[0];
+      const second = rows[1];
+      const isLowConfidence = top.similarity < 0.4;
+      const isClose = second && (top.similarity - second.similarity < 0.1);
+      if (isLowConfidence || isClose) {
+        ambiguity = {
+          kind: isLowConfidence ? "low_confidence" : "multiple_matches",
+          candidates: rows.map((r: any) => ({ id: r.id, name: r.name, product: r.product, status: r.status, similarity: Number(r.similarity.toFixed(3)) })),
+        };
+      }
+    }
+    return envelope("find_offer_by_name", {
+      filters_applied: { name, limit },
+      results: rows.map((r: any) => ({ id: r.id, name: r.name, product: r.product, status: r.status, similarity: Number(r.similarity.toFixed(3)) })),
+      ambiguity,
+    });
+  }
+
+  async function listOffers(args: any) {
+    let q = supabase.from("portfolio_offers").select("id, name, product, status, description, start_date, end_date", { count: "exact" });
+    if (args.status) q = q.eq("status", args.status);
+    if (args.product) q = q.ilike("product", `%${args.product}%`);
+    const limit = Math.min(args.limit || 100, 200);
+    const { data, count, error } = await q.order("name", { ascending: true }).limit(limit);
+    if (error) return envelope("list_offers", { warnings: [error.message] });
+    return envelope("list_offers", { filters_applied: args, total: count ?? data?.length ?? 0, results: data || [] });
+  }
+
+  async function getOfferSummary(offerId: string) {
+    const [{ data: offer, error: oErr }, { data: stages, error: sErr }, { data: entries, error: eErr }] = await Promise.all([
+      supabase.from("portfolio_offers").select("id, name, product, status, description, start_date, end_date, type").eq("id", offerId).maybeSingle(),
+      supabase.from("pipeline_stages").select("id, name, color, display_order, counts_as_management").eq("offer_id", offerId).order("display_order", { ascending: true }),
+      supabase.from("pipeline_entries").select("id, company_id, stage_id, companies!inner(trade_name, nit), pipeline_stages!inner(name)").eq("offer_id", offerId),
+    ]);
+    if (oErr || sErr || eErr) return envelope("get_offer_summary", { warnings: [oErr?.message, sErr?.message, eErr?.message].filter(Boolean) });
+    if (!offer) return envelope("get_offer_summary", { filters_applied: { offer_id: offerId }, total: 0, results: [] });
+    const byStage: Record<string, number> = {};
+    (entries || []).forEach((e: any) => { byStage[e.stage_id] = (byStage[e.stage_id] || 0) + 1; });
+    const stagesEnriched = (stages || []).map((s: any) => ({ ...s, companies_count: byStage[s.id] || 0 }));
+    const companies = (entries || []).map((e: any) => ({
+      company_id: e.company_id,
+      trade_name: e.companies?.trade_name,
+      nit: e.companies?.nit,
+      stage: e.pipeline_stages?.name,
+    }));
+    return envelope("get_offer_summary", {
+      filters_applied: { offer_id: offerId },
+      total: companies.length,
+      results: [{ offer, stages: stagesEnriched, companies_total: companies.length, companies }],
+    });
   }
 
   async function pipelineState(args: any) {
