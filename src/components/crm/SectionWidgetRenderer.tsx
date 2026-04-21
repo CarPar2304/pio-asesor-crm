@@ -137,15 +137,6 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
   const colSpan = SIZE_COL_SPAN[size];
   const baseColor = widget.config.color || PIE_COLORS[0];
 
-  if (resolved.length === 0) {
-    if (widget.hideIfEmpty) return null;
-    return (
-      <div className={cn(colSpan, 'rounded-lg border border-dashed border-border p-4 text-center')}>
-        <p className="text-xs text-muted-foreground">Variable no encontrada</p>
-      </div>
-    );
-  }
-
   // Conditional visibility — independent of hideIfEmpty
   if (widget.config.condition?.sourceKey) {
     const ok = evaluateCondition(widget.config.condition, company, fields);
