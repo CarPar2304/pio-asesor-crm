@@ -10,6 +10,15 @@ export interface WidgetSource {
   color?: string;
 }
 
+export type WidgetConditionOperator = 'is_set' | 'is_empty' | 'equals' | 'not_equals';
+
+export interface WidgetCondition {
+  sourceType: WidgetSourceType;
+  sourceKey: string;
+  operator: WidgetConditionOperator;
+  value?: string;
+}
+
 export interface WidgetConfig {
   color?: string;
   size?: WidgetSize;
@@ -18,6 +27,8 @@ export interface WidgetConfig {
   suffix?: string;
   /** When KPI has multiple sources: how to combine them */
   combine?: 'sum' | 'avg';
+  /** Conditional visibility: only render when this condition is satisfied */
+  condition?: WidgetCondition;
 }
 
 export interface SectionWidget {
