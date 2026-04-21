@@ -196,7 +196,7 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
       }
 
       const display = `${widget.config.prefix || ''}${valueStr}${widget.config.suffix || ''}`;
-      return <div className={colSpan}><PrettyKPI title={title} value={display} trend={trend} color={baseColor} /></div>;
+      return <div style={heightStyle} className={colSpan}><PrettyKPI title={title} value={display} trend={trend} color={baseColor} /></div>;
     }
 
     // Multi-source KPI: combine numeric values
