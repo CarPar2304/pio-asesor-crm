@@ -3,12 +3,21 @@ export type WidgetCalculation = 'last' | 'sum' | 'avg' | 'max' | 'min' | 'yoy' |
 export type WidgetSourceType = 'custom_field' | 'native';
 export type WidgetSize = 'sm' | 'md' | 'lg' | 'full';
 
+export interface WidgetSource {
+  sourceType: WidgetSourceType;
+  sourceKey: string;
+  label?: string;
+  color?: string;
+}
+
 export interface WidgetConfig {
   color?: string;
   size?: WidgetSize;
   showLegend?: boolean;
   prefix?: string;
   suffix?: string;
+  /** When KPI has multiple sources: how to combine them */
+  combine?: 'sum' | 'avg';
 }
 
 export interface SectionWidget {
@@ -16,11 +25,15 @@ export interface SectionWidget {
   sectionId: string;
   title: string;
   widgetType: WidgetType;
+  /** Legacy single source — kept for back-compat. Mirrors sources[0] when present. */
   sourceType: WidgetSourceType;
-  sourceKey: string; // custom_field id OR native key
+  sourceKey: string;
+  /** New multi-variable list. If empty, falls back to (sourceType, sourceKey). */
+  sources: WidgetSource[];
   calculation: WidgetCalculation;
   config: WidgetConfig;
   displayOrder: number;
+  hideIfEmpty: boolean;
 }
 
 export const WIDGET_TYPE_LABELS: Record<WidgetType, string> = {
@@ -55,6 +68,8 @@ export const SIZE_COL_SPAN: Record<WidgetSize, string> = {
   full: 'col-span-4',
 };
 
+export const SIZE_ORDER: WidgetSize[] = ['sm', 'md', 'lg', 'full'];
+
 // Native fields available as widget sources
 export interface NativeFieldOption {
   key: string;
@@ -68,4 +83,15 @@ export const NATIVE_FIELDS: NativeFieldOption[] = [
   { key: 'vertical', label: 'Vertical', type: 'select' },
   { key: 'city', label: 'Ciudad', type: 'select' },
   { key: 'category', label: 'Categoría', type: 'select' },
+];
+
+export const WIDGET_PALETTE = [
+  'hsl(var(--primary))',
+  'hsl(var(--success))',
+  'hsl(var(--gold))',
+  'hsl(var(--destructive))',
+  '#8b5cf6',
+  '#06b6d4',
+  '#f59e0b',
+  '#ec4899',
 ];
