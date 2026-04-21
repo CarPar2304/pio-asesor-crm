@@ -461,6 +461,11 @@ function SortableWidgetCard({ widget, fields, onEdit, onDelete, onShrink, onExpa
         )}
       </div>
 
+      {isSpacer ? (
+        <div className="flex items-center justify-center h-full min-h-[80px] text-[10px] uppercase tracking-wider text-muted-foreground/60">
+          Espacio
+        </div>
+      ) : (
       <div onClick={onEdit} className="cursor-pointer pt-3">
         <div className="flex items-center gap-1.5 mb-1">
           <Icon className="h-3 w-3 text-primary shrink-0" />
@@ -479,6 +484,7 @@ function SortableWidgetCard({ widget, fields, onEdit, onDelete, onShrink, onExpa
           {hasCondition && <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">condicional</span>}
         </div>
       </div>
+      )}
 
       {/* Resize handles — all four sides */}
       <div
