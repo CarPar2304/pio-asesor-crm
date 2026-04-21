@@ -137,6 +137,9 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
   const colSpan = SIZE_COL_SPAN[size];
   const baseColor = widget.config.color || PIE_COLORS[0];
 
+  // Spacer: invisible in the live profile, only used in the editor canvas
+  if ((widget.config as any).isSpacer) return null;
+
   // Conditional visibility — independent of hideIfEmpty
   if (widget.config.condition?.sourceKey) {
     const ok = evaluateCondition(widget.config.condition, company, fields);

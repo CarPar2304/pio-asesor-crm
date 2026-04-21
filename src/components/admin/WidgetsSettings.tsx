@@ -204,6 +204,22 @@ export default function WidgetsSettings() {
     });
   };
 
+  const handleAddSpacer = async () => {
+    if (!activeSection) return;
+    await addWidget({
+      sectionId: activeSection,
+      title: 'Espacio',
+      widgetType: 'kpi',
+      sourceType: 'native',
+      sourceKey: '__spacer',
+      sources: [],
+      calculation: 'last',
+      config: { size: 'sm', isSpacer: true } as any,
+      hideIfEmpty: false,
+    });
+    showSuccess('Espacio añadido');
+  };
+
   // Resize-by-drag handle. `dir` = 'right' | 'left' | 'bottom' | 'top'.
   // Right/bottom: positive drag → bigger. Left/top: negative drag → bigger.
   const startResizeDrag = (
@@ -219,7 +235,8 @@ export default function WidgetsSettings() {
     const startY = e.clientY;
     const startSizeIdx = SIZE_ORDER.indexOf(w.config.size || 'sm');
     const colWidth = grid.getBoundingClientRect().width / 4;
-    const stepPx = Math.max(40, colWidth);
+    const isVertical = dir === 'top' || dir === 'bottom';
+    const stepPx = isVertical ? 60 : Math.max(40, colWidth);
     let appliedIdx = startSizeIdx;
 
     const move = (ev: PointerEvent) => {
@@ -295,7 +312,12 @@ export default function WidgetsSettings() {
           <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
             Vista previa del perfil — arrastra para reordenar
           </p>
-          <Button size="sm" onClick={handleAddNew} className="gap-1"><Plus className="h-3.5 w-3.5" /> Widget compuesto</Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={handleAddSpacer} className="gap-1">
+              <Plus className="h-3.5 w-3.5" /> Espacio
+            </Button>
+            <Button size="sm" onClick={handleAddNew} className="gap-1"><Plus className="h-3.5 w-3.5" /> Widget compuesto</Button>
+          </div>
         </div>
 
         {sectionItems.length === 0 ? (
@@ -378,14 +400,18 @@ function SortableWidgetCard({ widget, fields, onEdit, onDelete, onShrink, onExpa
     : fields.find(f => f.id === primarySrc.sourceKey)?.name;
   const hasCondition = !!widget.config.condition?.sourceKey;
 
+  const isSpacer = !!(widget.config as any).isSpacer;
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
         colSpan,
-        'group relative rounded-lg border-2 bg-card p-3 transition-colors',
-        widget.__virtual ? 'border-dashed border-border/50' : 'border-border/70',
+        'group relative rounded-lg border-2 transition-colors',
+        isSpacer
+          ? 'border-dashed border-border/40 bg-muted/30 min-h-[80px]'
+          : cn('bg-card p-3', widget.__virtual ? 'border-dashed border-border/50' : 'border-border/70'),
         'hover:border-primary/50'
       )}
     >
@@ -435,6 +461,11 @@ function SortableWidgetCard({ widget, fields, onEdit, onDelete, onShrink, onExpa
         )}
       </div>
 
+      {isSpacer ? (
+        <div className="flex items-center justify-center h-full min-h-[80px] text-[10px] uppercase tracking-wider text-muted-foreground/60">
+          Espacio
+        </div>
+      ) : (
       <div onClick={onEdit} className="cursor-pointer pt-3">
         <div className="flex items-center gap-1.5 mb-1">
           <Icon className="h-3 w-3 text-primary shrink-0" />
@@ -453,26 +484,31 @@ function SortableWidgetCard({ widget, fields, onEdit, onDelete, onShrink, onExpa
           {hasCondition && <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">condicional</span>}
         </div>
       </div>
+      )}
 
-      {/* Resize handles — all four sides + corners */}
+      {/* Resize handles — all four sides */}
       <div
         onPointerDown={(e) => onResizeStart(e, 'right')}
-        className="absolute top-2 bottom-2 right-0 w-1.5 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded-l"
+        style={{ touchAction: 'none' }}
+        className="absolute top-2 bottom-2 -right-1 w-3 z-20 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded"
         title="Arrastra para cambiar el tamaño"
       />
       <div
         onPointerDown={(e) => onResizeStart(e, 'left')}
-        className="absolute top-2 bottom-2 left-0 w-1.5 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded-r"
+        style={{ touchAction: 'none' }}
+        className="absolute top-2 bottom-2 -left-1 w-3 z-20 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded"
         title="Arrastra para cambiar el tamaño"
       />
       <div
         onPointerDown={(e) => onResizeStart(e, 'bottom')}
-        className="absolute left-2 right-2 bottom-0 h-1.5 cursor-ns-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded-t"
+        style={{ touchAction: 'none' }}
+        className="absolute left-2 right-2 -bottom-1 h-3 z-20 cursor-ns-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded"
         title="Arrastra para cambiar el tamaño"
       />
       <div
         onPointerDown={(e) => onResizeStart(e, 'top')}
-        className="absolute left-2 right-2 top-0 h-1.5 cursor-ns-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded-b"
+        style={{ touchAction: 'none' }}
+        className="absolute left-2 right-2 -top-1 h-3 z-20 cursor-ns-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded"
         title="Arrastra para cambiar el tamaño"
       />
     </div>
