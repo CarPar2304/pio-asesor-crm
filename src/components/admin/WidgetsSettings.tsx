@@ -460,7 +460,7 @@ function SortableWidgetCard({ widget, fields, gridCols, onEdit, onDelete, onShri
       ref={setNodeRef}
       style={style}
       className={cn(
-        'group relative rounded-lg border-2 transition-colors',
+        'group relative rounded-lg border-2 transition-colors min-w-0 overflow-hidden',
         isSpacer
           ? 'border-dashed border-border/40 bg-muted/30'
           : cn('bg-card p-3', widget.__virtual ? 'border-dashed border-border/50' : 'border-border/70'),
