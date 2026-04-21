@@ -58,6 +58,7 @@ export default function WidgetsSettings() {
   const [draftWidget, setDraftWidget] = useState<Partial<VirtualWidget> | null>(null);
   const [localOrder, setLocalOrder] = useState<VirtualWidget[] | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  const { config: gridConfig, setConfig: setGridConfig } = useWidgetGridConfig(activeSection);
 
   useEffect(() => {
     if (!activeSection && sections.length > 0) setActiveSection(sections[0].id);
