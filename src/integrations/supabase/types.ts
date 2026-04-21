@@ -1849,10 +1849,12 @@ export type Database = {
           config: Json
           created_at: string
           display_order: number
+          hide_if_empty: boolean
           id: string
           section_id: string
           source_key: string
           source_type: string
+          sources: Json
           title: string
           updated_at: string
           widget_type: string
@@ -1862,10 +1864,12 @@ export type Database = {
           config?: Json
           created_at?: string
           display_order?: number
+          hide_if_empty?: boolean
           id?: string
           section_id: string
           source_key?: string
           source_type?: string
+          sources?: Json
           title?: string
           updated_at?: string
           widget_type?: string
@@ -1875,10 +1879,12 @@ export type Database = {
           config?: Json
           created_at?: string
           display_order?: number
+          hide_if_empty?: boolean
           id?: string
           section_id?: string
           source_key?: string
           source_type?: string
+          sources?: Json
           title?: string
           updated_at?: string
           widget_type?: string

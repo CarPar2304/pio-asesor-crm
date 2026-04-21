@@ -78,7 +78,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
   const tipoClienteField = fields.find(f => f.name.toLowerCase().includes('tipo de cliente'));
   const tipoClienteValue = tipoClienteField ? getFieldValueDisplay(tipoClienteField.id) : null;
 
-  // Build tabs: custom sections with data + activity (pipeline removed - redundant with portfolio)
+  // Build tabs: any section with fields OR widgets is shown (auto-virtual widgets handle empty filtering)
   const tabItems = useMemo(() => {
     const items: { id: string; label: string; type: 'section' | 'activity' }[] = [];
 
@@ -90,9 +90,8 @@ export default function CompanyProfile({ company, onBack }: Props) {
 
     sections.forEach(s => {
       const sectionFields = fields.filter(f => f.sectionId === s.id);
-      const hasData = sectionFields.some(f => getFieldValueDisplay(f.id));
       const hasWidgets = widgets.some(w => w.sectionId === s.id);
-      if (hasData || hasWidgets) {
+      if (sectionFields.length > 0 || hasWidgets) {
         items.push({ id: s.id, label: s.name, type: 'section' });
       }
     });
@@ -337,30 +336,41 @@ function UnsectionedFieldsTab({ fields, getFieldValueDisplay }: { company: Compa
   );
 }
 
-function SectionFieldsTab({ company, sectionFields, sectionWidgets, allFields, viewCurrency, getFieldValueDisplay }: { company: Company; sectionFields: any[]; sectionWidgets: any[]; allFields: any[]; viewCurrency: string; getFieldValueDisplay: (id: string) => string | null }) {
+function SectionFieldsTab({ company, sectionFields, sectionWidgets, allFields, viewCurrency }: { company: Company; sectionFields: any[]; sectionWidgets: any[]; allFields: any[]; viewCurrency: string; getFieldValueDisplay: (id: string) => string | null }) {
+  // Auto-generate virtual widgets for fields not already covered by configured widgets
+  const covered = new Set<string>();
+  sectionWidgets.forEach((w: any) => {
+    const srcs = (w.sources && w.sources.length > 0) ? w.sources : [{ sourceType: w.sourceType, sourceKey: w.sourceKey }];
+    srcs.forEach((s: any) => covered.add(`${s.sourceType}:${s.sourceKey}`));
+  });
+
+  const virtualWidgets = sectionFields
+    .filter(f => !covered.has(`custom_field:${f.id}`))
+    .map((f, idx) => ({
+      id: `__v_${f.id}`,
+      sectionId: f.sectionId,
+      title: f.name,
+      widgetType: 'kpi' as const,
+      sourceType: 'custom_field' as const,
+      sourceKey: f.id,
+      sources: [{ sourceType: 'custom_field' as const, sourceKey: f.id }],
+      calculation: 'last' as const,
+      config: { size: 'sm' as const, color: 'hsl(var(--primary))' },
+      displayOrder: 1000 + idx,
+      hideIfEmpty: true,
+    }));
+
+  const allWidgets = [...sectionWidgets, ...virtualWidgets];
+
+  if (allWidgets.length === 0) {
+    return <p className="text-xs text-muted-foreground">Sin widgets ni campos en esta sección.</p>;
+  }
+
   return (
-    <div className="space-y-4">
-      {sectionWidgets.length > 0 && (
-        <div className="grid grid-cols-4 gap-3">
-          {sectionWidgets.map(w => (
-            <SectionWidgetRenderer key={w.id} widget={w} company={company} fields={allFields} viewCurrency={viewCurrency} />
-          ))}
-        </div>
-      )}
-      {sectionFields.length > 0 && (
-        <div className="grid gap-2 sm:grid-cols-2">
-          {sectionFields.map(f => {
-            const display = getFieldValueDisplay(f.id);
-            if (!display) return null;
-            return (
-              <div key={f.id} className="rounded-lg border border-border/50 p-3">
-                <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{f.name}</p>
-                <p className="mt-1 text-sm font-medium">{display}</p>
-              </div>
-            );
-          })}
-        </div>
-      )}
+    <div className="grid grid-cols-4 gap-3">
+      {allWidgets.map(w => (
+        <SectionWidgetRenderer key={w.id} widget={w as any} company={company} fields={allFields} viewCurrency={viewCurrency} />
+      ))}
     </div>
   );
 }

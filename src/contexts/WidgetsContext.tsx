@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { SectionWidget } from '@/types/widgets';
+import { SectionWidget, WidgetSource } from '@/types/widgets';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -15,17 +15,40 @@ interface WidgetsContextType {
 
 const WidgetsContext = createContext<WidgetsContextType | null>(null);
 
-const fromRow = (r: any): SectionWidget => ({
-  id: r.id,
-  sectionId: r.section_id,
-  title: r.title,
-  widgetType: r.widget_type,
-  sourceType: r.source_type,
-  sourceKey: r.source_key,
-  calculation: r.calculation,
-  config: r.config || {},
-  displayOrder: r.display_order,
-});
+const fromRow = (r: any): SectionWidget => {
+  const sources: WidgetSource[] = Array.isArray(r.sources) ? r.sources : [];
+  return {
+    id: r.id,
+    sectionId: r.section_id,
+    title: r.title,
+    widgetType: r.widget_type,
+    sourceType: r.source_type,
+    sourceKey: r.source_key,
+    sources: sources.length > 0
+      ? sources
+      : (r.source_key ? [{ sourceType: r.source_type, sourceKey: r.source_key }] : []),
+    calculation: r.calculation,
+    config: r.config || {},
+    displayOrder: r.display_order,
+    hideIfEmpty: r.hide_if_empty !== false,
+  };
+};
+
+const toRow = (w: Partial<SectionWidget>) => {
+  const sources = w.sources && w.sources.length > 0 ? w.sources : [];
+  const primary = sources[0];
+  return {
+    section_id: w.sectionId,
+    title: w.title,
+    widget_type: w.widgetType,
+    source_type: primary?.sourceType ?? w.sourceType,
+    source_key: primary?.sourceKey ?? w.sourceKey,
+    sources,
+    calculation: w.calculation,
+    config: w.config,
+    hide_if_empty: w.hideIfEmpty !== false,
+  };
+};
 
 export function WidgetsProvider({ children }: { children: React.ReactNode }) {
   const { session } = useAuth();
@@ -45,13 +68,7 @@ export function WidgetsProvider({ children }: { children: React.ReactNode }) {
   const addWidget = useCallback(async (w: Omit<SectionWidget, 'id' | 'displayOrder'>) => {
     const maxOrder = widgets.filter(x => x.sectionId === w.sectionId).reduce((m, x) => Math.max(m, x.displayOrder), -1);
     const { data, error } = await (supabase as any).from('section_widgets').insert({
-      section_id: w.sectionId,
-      title: w.title,
-      widget_type: w.widgetType,
-      source_type: w.sourceType,
-      source_key: w.sourceKey,
-      calculation: w.calculation,
-      config: w.config,
+      ...toRow(w),
       display_order: maxOrder + 1,
     }).select().single();
     if (error || !data) return null;
@@ -60,14 +77,7 @@ export function WidgetsProvider({ children }: { children: React.ReactNode }) {
   }, [widgets, fetchAll]);
 
   const updateWidget = useCallback(async (w: SectionWidget) => {
-    await (supabase as any).from('section_widgets').update({
-      title: w.title,
-      widget_type: w.widgetType,
-      source_type: w.sourceType,
-      source_key: w.sourceKey,
-      calculation: w.calculation,
-      config: w.config,
-    }).eq('id', w.id);
+    await (supabase as any).from('section_widgets').update(toRow(w)).eq('id', w.id);
     await fetchAll();
   }, [fetchAll]);
 
