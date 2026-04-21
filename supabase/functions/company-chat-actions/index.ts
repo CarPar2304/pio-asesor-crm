@@ -140,12 +140,13 @@ async function logHistory(
   metadata: any,
   performedBy: string | null,
 ) {
+  const meta = { source: "chat_agent", ...(metadata || {}) };
   const { error } = await supabase.from("company_history").insert({
     company_id: companyId,
     event_type: eventType,
     title,
     description: description || "",
-    metadata: metadata || {},
+    metadata: meta,
     performed_by: performedBy || null,
   });
   if (error) console.error("[history] insert failed", error);
