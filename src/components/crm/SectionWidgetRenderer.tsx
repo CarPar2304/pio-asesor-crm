@@ -143,6 +143,7 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
   const wrapperStyle: React.CSSProperties = {
     gridColumn: `span ${colSpanN}`,
     gridRow: `span ${heightUnits}`,
+    minWidth: 0,
   };
   const baseColor = widget.config.color || PIE_COLORS[0];
 
