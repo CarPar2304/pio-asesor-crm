@@ -23,6 +23,8 @@ import {
   SortableContext, useSortable, arrayMove, rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useWidgetGridConfig } from '@/hooks/useWidgetGridConfig';
+import { sizeToColSpan } from '@/types/widgets';
 
 const WIDGET_ICONS: Record<WidgetType, any> = {
   kpi: Sparkles, bar: BarChart3, line: LineChart, pie: PieChart, table: TableIcon,
