@@ -403,10 +403,12 @@ function SortableWidgetCard({ widget, fields, onEdit, onDelete, onShrink, onExpa
   onResizeStart: (e: React.PointerEvent, dir: 'right' | 'left' | 'bottom' | 'top') => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: widget.id });
+  const heightUnits = Math.max(1, Math.min(4, widget.config.heightUnits || 1));
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+    minHeight: `${heightUnits * 100}px`,
   };
   const Icon = WIDGET_ICONS[widget.widgetType];
   const size = widget.config.size || 'md';
