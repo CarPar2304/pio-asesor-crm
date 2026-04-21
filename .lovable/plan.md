@@ -1,91 +1,81 @@
 
 
-# Company Chat v7 — Volver al RAG simple + tools solo para acciones
+## Rediseño del sistema de widgets del perfil
 
-## Decisión
+### Concepto central
+Cada **campo** de cada sección se vuelve automáticamente un **widget**. El usuario no añade widgets desde cero: configura cómo se ve cada campo (tipo de visualización, tamaño, posición). Además puede crear widgets compuestos que combinen varias variables.
 
-Revertimos la arquitectura híbrida (read-tools + RAG) y volvemos al **RAG puro original**: el contexto se construye 100% desde búsqueda vectorial sobre `company_embeddings`, `offer_embeddings`, `pipeline_embeddings`, `ally_embeddings` y embeddings de tareas. El modelo recibe ese contexto en el system/user prompt y responde con base en él. **Cero read-tools.**
+### 1. Auto-generación de widgets desde campos existentes
 
-Las tools solo quedan para **acciones** (mutaciones), porque escribir requiere precisión y confirmación que el RAG no garantiza.
+- Al abrir "Visualizaciones" en `/perfil`, el sistema lista **todos los campos de la sección** (custom + nativos) como widgets virtuales con configuración por defecto (KPI tamaño `sm`).
+- Al editar uno por primera vez, se persiste en `section_widgets` con su `source_key` apuntando al campo. Mientras no se persista, el render del perfil usa el default.
+- Esto elimina la duplicación: ya no se ve el campo "crudo" *y* el widget. Si la sección tiene widgets configurados, se renderizan **solo los widgets** (que incluyen los campos por defecto en formato KPI).
 
-## Por qué
+### 2. Ocultar widgets sin datos
 
-- El usuario reporta que la arquitectura con read-tools (find_company_by_name, list_companies, get_company_profile, etc.) responde de forma incoherente: en un turno dice que tiene a Qash inscrita en Venezuela Tech Week y al siguiente dice que no la encuentra para moverla. Esto pasa porque cada tool consulta la BD por separado con criterios distintos (fuzzy vs exacto, joins distintos), y el modelo no mantiene coherencia entre llamadas.
-- El RAG vectorial original recuperaba TODO el contexto relevante en un solo paso al inicio del turno, y el modelo respondía sobre un snapshot consistente.
-- Acciones sí necesitan tools — pero deben resolver la entidad usando el **mismo contexto RAG** que el modelo ya vio, no re-buscar en BD.
+- Cada widget tiene un nuevo flag `hideIfEmpty` (default `true`).
+- En el render: si la fuente no tiene valor (null, "", `{}` para metric_by_year), el widget no se muestra.
+- En el editor de widget aparece un toggle "Ocultar si no hay datos".
 
----
+### 3. Widgets multi-variable (sumar/comparar variables)
 
-## Cambios
+- Nuevo campo `sources: Array<{ sourceType, sourceKey, label?, color? }>` en `section_widgets` (jsonb). El `sourceKey` legacy se mantiene como retrocompatibilidad pero el editor ya escribe `sources`.
+- En el editor: botón "+ Añadir variable" para agregar más fuentes (máx. 5).
+- Render por tipo de visualización:
+  - **KPI**: si hay >1 fuente, suma los valores (configurable: `sum` / `avg`) y muestra una sub-línea con el desglose.
+  - **Bar / Line**: cada variable es una serie distinta (multi-bar agrupada o multi-line). Eje X = años combinados.
+  - **Pie**: cada variable es un slice (último valor o suma según `calculation`).
+  - **Table**: columnas = variables, filas = años.
 
-### 1. `supabase/functions/company-chat/index.ts` — reescritura
+### 4. Maquetador drag-and-drop con preview en vivo
 
-**Eliminar:**
-- Todas las read-tools: `find_company_by_name`, `find_offer_by_name`, `list_companies`, `count_companies`, `list_offers`, `get_offer_summary`, `get_company_profile`, `get_company_contacts`, `get_overdue_tasks`, `get_company_history`, `search_semantic`, y los executors asociados.
-- La lógica de "router decide path / hybrid / exact / semantic" en este archivo (el router queda, pero su salida se usa solo como hint de intención, no para enrutar a paths distintos).
-- El system prompt actual con su lista negra de tags y formato fijo — se reemplaza por el prompt original RAG.
+Reemplaza la lista vertical actual por un **canvas tipo grid** que es a la vez editor y preview:
 
-**Mantener / restaurar:**
-- Recuperación RAG inicial: para cada turno, vectorizar la pregunta del usuario, hacer match contra los 5 stores (company, offer, pipeline, ally, task embeddings) con un top-K razonable (ej. 8 por store), armar un bloque de **CONTEXTO** estructurado por sección y meterlo en el system prompt.
-- Conservar historial de la conversación (últimos N turnos) para continuidad.
-- Modelo: `gpt-5.4-mini` directo a OpenAI con `OPENAI_API_KEY`. Sin Lovable AI.
+```text
+┌─────────────────────────────────────────────┐
+│  [Sección: Financiamiento ▼] [+ Widget]    │
+├─────────────────────────────────────────────┤
+│  ┌──────┐ ┌──────┐ ┌────────────────────┐  │
+│  │ KPI  │ │ KPI  │ │   Bar chart        │  │
+│  │ sm   │ │ sm   │ │   md               │  │
+│  └──────┘ └──────┘ └────────────────────┘  │
+│  ┌────────────────────────────────────────┐ │
+│  │       Line chart  full                 │ │
+│  └────────────────────────────────────────┘ │
+└─────────────────────────────────────────────┘
+```
 
-**Nuevas/conservadas tools — solo acciones:**
-- `create_task(company_name, title, description?, due_date, assigned_to?)`
-- `complete_task(task_id_or_title, company_name)`
-- `create_milestone(company_name, type, title, description?, date)`
-- `log_action(company_name, type, description, date?, notes?)` — llamada, reunión, nota, etc.
-- `move_pipeline(company_name, offer_name, target_stage_name)`
+- Grid CSS de 4 columnas, mismas reglas de tamaño (`sm`=1, `md`=2, `lg`=3, `full`=4) que el render real → **WYSIWYG exacto**.
+- Drag-and-drop con `@dnd-kit/core` + `@dnd-kit/sortable` (ya disponible vía dependencias estándar; si no, se instala).
+- Cada widget en el canvas se puede:
+  - Arrastrar para reordenar
+  - Click para editar (abre panel lateral con la config)
+  - Botón redimensionar (cicla sm → md → lg → full)
+  - Botón eliminar
+- El canvas escala el ancho del contenedor para que el preview se vea como en el perfil real.
 
-**Resolución de entidades para acciones:**
-- Las acciones reciben `company_name` / `offer_name` como string del usuario.
-- El executor server-side hace la resolución usando `find_company_by_name` y `find_offer_by_name` RPC (siguen existiendo en BD, no como tools del modelo) con threshold de similitud.
-- Si hay ambigüedad o no encuentra → devuelve `executed: false` con `error` y lista de candidatos. El modelo traduce eso a una pregunta natural.
-- **Caso Qash**: cuando el modelo ya mencionó en contexto previo que Qash está inscrita en Venezuela Tech Week, al pedir `move_pipeline("Qash", "Venezuela Tech Week", "Seleccionada")`, el executor resuelve fuzzy ambos nombres y verifica que existe `pipeline_entries` para ese par. Si existe → mueve. Si no existe pero la empresa sí está en otra oferta similar → devuelve candidatos. Esto resuelve la incoherencia actual.
+### 5. Cambios en el render del perfil (`CompanyProfile.tsx`)
 
-### 2. Prompt del agente — vuelta al original con ajustes mínimos
+- Si la sección tiene widgets: renderizar solo widgets (no la lista cruda de campos).
+- Si no tiene widgets configurados: renderizar todos los campos como widgets KPI auto-generados con tamaño `sm`.
+- Filtrar widgets vacíos cuando `hideIfEmpty=true`.
 
-Tono: analista del equipo de Pioneros Globales (Cámara de Comercio de Cali), responde en español natural sobre el CONTEXTO recuperado. Sin tags técnicos. Para acciones: confirma con ✅ o explica con ⚠️/❌ qué falló en lenguaje humano. Para preguntas estratégicas, razona sobre el contexto recuperado y argumenta. Si el contexto no trae lo necesario, lo dice ("No tengo registro de eso en lo que recuperé").
+### Detalles técnicos
 
-No se incluyen ejemplos rígidos de salida (como pidió el usuario antes).
+**Migración DB**: añadir columnas a `section_widgets`:
+- `sources jsonb default '[]'` — array de fuentes para multi-variable
+- `hide_if_empty boolean default true`
 
-### 3. `supabase/functions/company-chat-actions/index.ts` — mantener
+Mantener `source_type` y `source_key` para retrocompat; al guardar desde el nuevo editor, se escriben ambos (`sources[0]` espejado).
 
-Los handlers de acciones ya escriben en `company_history` con `performed_by` desde JWT y `metadata.source = "chat_agent"` (cambio v6 que sí gustó). Se mantiene tal cual. Solo se ajusta:
-- `move_pipeline`: aceptar `company_name` + `offer_name` (strings) y resolver server-side con `find_company_by_name` + `find_offer_by_name`. Verificar que existe el `pipeline_entry` antes de actualizar; si no existe, devolver error claro `"X no está inscrita en Y"` con lista de ofertas donde sí está, para que el modelo proponga.
-- Mismo patrón resolver-server-side para `create_task`, `complete_task`, `create_milestone`, `log_action`.
+**Archivos a modificar**:
+- `src/types/widgets.ts` — agregar `WidgetSource`, `sources`, `hideIfEmpty`
+- `src/contexts/WidgetsContext.tsx` — mapear nuevos campos
+- `src/components/admin/WidgetsSettings.tsx` — reescribir como maquetador drag-drop con preview
+- `src/components/crm/SectionWidgetRenderer.tsx` — soporte multi-source, hide-if-empty, multi-series charts
+- `src/components/crm/CompanyProfile.tsx` — auto-generar widgets virtuales cuando no hay configurados; ocultar campos crudos cuando sí hay
 
-### 4. `supabase/functions/chat-router/index.ts` — simplificar o quitar
+**Nueva dependencia**: `@dnd-kit/core` y `@dnd-kit/sortable` (si no están, instalar).
 
-Como ya no hay paths distintos en el agente, el router pierde sentido. **Opción A**: eliminarlo. **Opción B**: mantenerlo pero solo como clasificador de intención (consulta vs acción) para decidir si el modelo debe priorizar tools o solo conversar. Recomendación: **eliminarlo** — el modelo con buen prompt distingue solo.
-
-### 5. Asegurar que los embeddings de tareas existan
-
-Verificar si hay `task_embeddings` o si las tareas se incluyen dentro de `company_embeddings`. Si no existen como store independiente, incluir las tareas pendientes/recientes de cada empresa dentro del chunk de contexto de empresa (ya lo hace la función `vectorize-companies`). Confirmar antes de implementar.
-
-### 6. Pruebas que deben pasar
-
-1. "¿Cuántas empresas en Cali?" → respuesta basada en lo recuperado por RAG (puede no ser exacto en conteos masivos, y eso está OK — el agente lo dice).
-2. "Perfil de TuCash" → datos del contexto vectorial, prosa natural.
-3. "¿Qué empresas están en Venezuela Tech Week en etapa Seleccionada?" → responde con lo que trae el RAG de pipeline.
-4. **"Pasa a Qash de inscrita a seleccionada en Venezuela Tech Week"** → llama `move_pipeline`, executor resuelve fuzzy ambos nombres, verifica `pipeline_entries`, ejecuta, registra en `company_history`, confirma con ✅.
-5. "Cuál es la más estratégica para Venezuela Tech Week" → razona sobre el contexto RAG y argumenta.
-6. "Créame una tarea para TuCash de seguimiento mañana" → ejecuta, queda en timeline con el usuario de la sesión.
-7. "Empresa Acme XYZ" inexistente → "No tengo registro de Acme XYZ en lo que encontré."
-
----
-
-## Archivos tocados
-
-- `supabase/functions/company-chat/index.ts` — reescritura: RAG-first, eliminar read-tools, mantener solo action tools, prompt original simplificado.
-- `supabase/functions/company-chat-actions/index.ts` — endurecer resolución server-side de entidades en cada acción + mensajes de error con candidatos.
-- `supabase/functions/chat-router/index.ts` — eliminar (o dejar como no-op).
-- (No tocar) UI del chat, tablas, embeddings, `vectorize-companies`.
-
-## Out of scope
-
-- No cambiar embeddings ni re-vectorizar.
-- No cambiar UI.
-- No agregar nuevas action tools más allá de las 5 existentes.
-- Cero Lovable AI — todo OpenAI directo.
+**Migración**: nueva migración SQL para las dos columnas.
 
