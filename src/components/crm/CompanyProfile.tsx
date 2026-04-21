@@ -78,7 +78,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
   const tipoClienteField = fields.find(f => f.name.toLowerCase().includes('tipo de cliente'));
   const tipoClienteValue = tipoClienteField ? getFieldValueDisplay(tipoClienteField.id) : null;
 
-  // Build tabs: custom sections with data + activity (pipeline removed - redundant with portfolio)
+  // Build tabs: any section with fields OR widgets is shown (auto-virtual widgets handle empty filtering)
   const tabItems = useMemo(() => {
     const items: { id: string; label: string; type: 'section' | 'activity' }[] = [];
 
@@ -90,9 +90,8 @@ export default function CompanyProfile({ company, onBack }: Props) {
 
     sections.forEach(s => {
       const sectionFields = fields.filter(f => f.sectionId === s.id);
-      const hasData = sectionFields.some(f => getFieldValueDisplay(f.id));
       const hasWidgets = widgets.some(w => w.sectionId === s.id);
-      if (hasData || hasWidgets) {
+      if (sectionFields.length > 0 || hasWidgets) {
         items.push({ id: s.id, label: s.name, type: 'section' });
       }
     });
