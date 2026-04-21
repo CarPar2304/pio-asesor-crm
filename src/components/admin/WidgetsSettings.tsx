@@ -261,11 +261,11 @@ export default function WidgetsSettings() {
             </div>
             {draftWidget && (
               <WidgetEditor
-                widget={draftWidget}
-                fields={customFields}
+                widget={draftWidget as VirtualWidget}
+                fields={fields}
                 sections={sections}
                 onChange={setDraftWidget}
-                onSave={handleSave}
+                onSave={handleSaveDraft}
                 onCancel={closeEditor}
               />
             )}
