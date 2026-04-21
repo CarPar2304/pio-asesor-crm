@@ -217,7 +217,7 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
       : values.reduce((a, b) => a + b.value, 0);
     const breakdown = values.map(v => `${v.label}: ${fmt(v.value, v.isUSD)}`).join(' · ');
     const display = `${widget.config.prefix || ''}${fmt(total)}${widget.config.suffix || ''}`;
-    return <div className={colSpan}><PrettyKPI title={title} value={display} color={baseColor} breakdown={breakdown} /></div>;
+    return <div style={heightStyle} className={colSpan}><PrettyKPI title={title} value={display} color={baseColor} breakdown={breakdown} /></div>;
   }
 
   // ============ Charts (multi-series) ============
