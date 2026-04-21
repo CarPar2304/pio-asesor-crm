@@ -45,7 +45,9 @@ NO inventes valores. Si falta la fecha, inclúyela en missing_fields (no asumas 
 
 ═══ INTENTS DE NEGOCIO (para query) ═══
 perfil_empresa | contacto | estado_comercial | tareas_pendientes | historial_seguimiento |
-listado_filtrado | conteo | comparacion | resumen_ejecutivo | otro
+listado_filtrado | conteo | comparacion | resumen_ejecutivo | catalogo_ofertas | otro
+
+REGLA: Si el mensaje habla de "ofertas / portafolio / portfolio / programas / convocatorias / catálogo" sin nombrar empresa específica, intent="catalogo_ofertas" y path="exact".
 
 ═══ EVIDENCE_LEVEL preliminar ═══
 - "full": pregunta clara y resoluble.
@@ -72,7 +74,7 @@ const TOOL = {
           enum: [
             "perfil_empresa", "contacto", "estado_comercial", "tareas_pendientes",
             "historial_seguimiento", "listado_filtrado", "conteo", "comparacion",
-            "resumen_ejecutivo", "otro",
+            "resumen_ejecutivo", "catalogo_ofertas", "otro",
           ],
         },
         actions_intent: {
