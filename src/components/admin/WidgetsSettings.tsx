@@ -251,7 +251,7 @@ export default function WidgetsSettings() {
         const dy = ev.clientY - startY;
         const delta = dir === 'bottom' ? dy : -dy;
         const steps = Math.round(delta / stepPxY);
-        const nextHeight = Math.max(1, Math.min(4, startHeight + steps));
+        const nextHeight = Math.max(1, Math.min(8, startHeight + steps));
         if (nextHeight !== appliedHeight) {
           appliedHeight = nextHeight;
           setLocalOrder(prev => {
