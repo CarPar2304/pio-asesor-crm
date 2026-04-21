@@ -135,6 +135,8 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
 
   const size = widget.config.size || 'md';
   const colSpan = SIZE_COL_SPAN[size];
+  const heightUnits = Math.max(1, Math.min(4, widget.config.heightUnits || 1));
+  const heightStyle: React.CSSProperties | undefined = heightUnits > 1 ? { minHeight: `${heightUnits * 100}px` } : undefined;
   const baseColor = widget.config.color || PIE_COLORS[0];
 
   // Spacer: invisible in the live profile, only used in the editor canvas
