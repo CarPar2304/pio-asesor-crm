@@ -83,7 +83,22 @@ export const SIZE_COL_SPAN: Record<WidgetSize, string> = {
   full: 'col-span-4',
 };
 
+/** Numeric col-span per WidgetSize, scaled to a grid with `gridCols` columns. */
+export const sizeToColSpan = (size: WidgetSize, gridCols: number): number => {
+  const base = { sm: 1, md: 2, lg: 3, full: 4 }[size];
+  // Scale proportionally to gridCols (default 4)
+  const scaled = Math.round((base / 4) * gridCols);
+  return Math.max(1, Math.min(gridCols, scaled));
+};
+
 export const SIZE_ORDER: WidgetSize[] = ['sm', 'md', 'lg', 'full'];
+
+export interface GridConfig {
+  cols: number;     // 2..8
+  rowH: number;     // px, base row height
+}
+
+export const DEFAULT_GRID: GridConfig = { cols: 4, rowH: 100 };
 
 // Native fields available as widget sources
 export interface NativeFieldOption {
