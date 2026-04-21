@@ -22,6 +22,28 @@ interface Resolved {
   isUSD?: boolean;
 }
 
+function evaluateCondition(condition: NonNullable<SectionWidget['config']['condition']>, company: Company, fields: CustomField[]): boolean {
+  const r = resolveOne({ sourceType: condition.sourceType, sourceKey: condition.sourceKey }, company, fields);
+  if (!r) return false;
+  const empty = isEmpty(r);
+  let textVal: string | null = null;
+  if (r.fieldType === 'metric_by_year') {
+    const entries = getYearEntries(r.yearValues);
+    textVal = entries.length > 0 ? String(entries[entries.length - 1].value) : null;
+  } else if (r.fieldType === 'number') {
+    textVal = r.numberValue !== null && r.numberValue !== undefined ? String(r.numberValue) : null;
+  } else {
+    textVal = r.textValue || null;
+  }
+  switch (condition.operator) {
+    case 'is_set': return !empty;
+    case 'is_empty': return empty;
+    case 'equals': return (textVal ?? '') === (condition.value ?? '');
+    case 'not_equals': return (textVal ?? '') !== (condition.value ?? '');
+    default: return true;
+  }
+}
+
 function resolveOne(src: WidgetSource, company: Company, fields: CustomField[]): Resolved | null {
   if (src.sourceType === 'native') {
     const native = NATIVE_FIELDS.find(n => n.key === src.sourceKey);
@@ -114,6 +136,12 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
   const size = widget.config.size || 'md';
   const colSpan = SIZE_COL_SPAN[size];
   const baseColor = widget.config.color || PIE_COLORS[0];
+
+  // Conditional visibility — independent of hideIfEmpty
+  if (widget.config.condition?.sourceKey) {
+    const ok = evaluateCondition(widget.config.condition, company, fields);
+    if (!ok) return null;
+  }
 
   if (resolved.length === 0) {
     if (widget.hideIfEmpty) return null;

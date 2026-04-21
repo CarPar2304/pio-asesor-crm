@@ -1,8 +1,8 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useWidgets } from '@/contexts/WidgetsContext';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import {
-  SectionWidget, WidgetType, WidgetCalculation, WidgetSize, WidgetSource,
+  SectionWidget, WidgetType, WidgetCalculation, WidgetSize, WidgetSource, WidgetCondition, WidgetConditionOperator,
   WIDGET_TYPE_LABELS, CALCULATION_LABELS, SIZE_LABELS, SIZE_COL_SPAN, SIZE_ORDER,
   NATIVE_FIELDS, WIDGET_PALETTE,
 } from '@/types/widgets';
@@ -13,7 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { Dialog, DialogPortal, DialogTitle } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2, BarChart3, LineChart, PieChart, Sparkles, Table as TableIcon, Maximize2, GripVertical, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, BarChart3, LineChart, PieChart, Sparkles, Table as TableIcon, ChevronLeft, ChevronRight, GripVertical, X } from 'lucide-react';
 import { showSuccess } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import {
@@ -56,19 +56,23 @@ export default function WidgetsSettings() {
   const [activeSection, setActiveSection] = useState<string>('');
   const [editId, setEditId] = useState<string | null>(null);
   const [draftWidget, setDraftWidget] = useState<Partial<VirtualWidget> | null>(null);
+  const [localOrder, setLocalOrder] = useState<VirtualWidget[] | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!activeSection && sections.length > 0) setActiveSection(sections[0].id);
   }, [sections, activeSection]);
 
+  // Reset local order when section changes or upstream widgets/fields update
+  useEffect(() => { setLocalOrder(null); }, [activeSection, widgets, fields]);
+
   // Build widget list: persisted + virtual (auto-generated from fields)
-  const sectionItems = useMemo<VirtualWidget[]>(() => {
+  const baseSectionItems = useMemo<VirtualWidget[]>(() => {
     if (!activeSection) return [];
     const persisted = widgets
       .filter(w => w.sectionId === activeSection)
       .sort((a, b) => a.displayOrder - b.displayOrder) as VirtualWidget[];
 
-    // Identify which sources are already covered
     const covered = new Set<string>();
     persisted.forEach(w => (w.sources.length > 0 ? w.sources : [{ sourceType: w.sourceType, sourceKey: w.sourceKey }]).forEach(s => {
       covered.add(`${s.sourceType}:${s.sourceKey}`);
@@ -87,35 +91,12 @@ export default function WidgetsSettings() {
     return [...persisted, ...virtuals];
   }, [activeSection, widgets, fields]);
 
+  const sectionItems = localOrder || baseSectionItems;
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
-  const handleDragEnd = async (e: DragEndEvent) => {
-    const { active, over } = e;
-    if (!over || active.id === over.id) return;
-    const ids = sectionItems.map(w => w.id);
-    const oldIdx = ids.indexOf(String(active.id));
-    const newIdx = ids.indexOf(String(over.id));
-    if (oldIdx < 0 || newIdx < 0) return;
-    const reordered = arrayMove(sectionItems, oldIdx, newIdx);
-    // Persist any virtual that moved past its natural position by materializing
-    const persistedIds = reordered.filter(w => !w.__virtual).map(w => w.id);
-    if (persistedIds.length > 0) await reorderWidgets(activeSection, persistedIds);
-  };
-
-  const cycleSize = async (w: VirtualWidget) => {
-    const idx = SIZE_ORDER.indexOf(w.config.size || 'sm');
-    const next = SIZE_ORDER[(idx + 1) % SIZE_ORDER.length];
-    const updated = { ...w, config: { ...w.config, size: next } };
-    if (w.__virtual) {
-      // Materialize on edit
-      await materialize(updated);
-    } else {
-      await updateWidget(updated);
-    }
-  };
-
-  const materialize = async (w: VirtualWidget): Promise<SectionWidget | null> => {
-    const created = await addWidget({
+  const materializeWidget = useCallback(async (w: VirtualWidget): Promise<SectionWidget | null> => {
+    return await addWidget({
       sectionId: w.sectionId,
       title: w.title,
       widgetType: w.widgetType,
@@ -126,11 +107,54 @@ export default function WidgetsSettings() {
       config: w.config,
       hideIfEmpty: w.hideIfEmpty,
     });
-    return created;
+  }, [addWidget]);
+
+  const handleDragEnd = async (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const ids = sectionItems.map(w => w.id);
+    const oldIdx = ids.indexOf(String(active.id));
+    const newIdx = ids.indexOf(String(over.id));
+    if (oldIdx < 0 || newIdx < 0) return;
+
+    // Optimistic local reorder so the preview doesn't bounce back
+    const reordered = arrayMove(sectionItems, oldIdx, newIdx);
+    setLocalOrder(reordered);
+
+    // Materialize any virtual widget so it gets a stable id and can be reordered in DB
+    const materializedIds: string[] = [];
+    for (const w of reordered) {
+      if (w.__virtual) {
+        const created = await materializeWidget(w);
+        if (created) materializedIds.push(created.id);
+      } else {
+        materializedIds.push(w.id);
+      }
+    }
+    if (materializedIds.length > 0) {
+      await reorderWidgets(activeSection, materializedIds);
+    }
+  };
+
+  const setSize = async (w: VirtualWidget, size: WidgetSize) => {
+    if (size === (w.config.size || 'sm')) return;
+    const updated = { ...w, config: { ...w.config, size } };
+    if (w.__virtual) {
+      await materializeWidget(updated);
+    } else {
+      await updateWidget(updated);
+    }
+  };
+
+  const stepSize = async (w: VirtualWidget, dir: 1 | -1) => {
+    const idx = SIZE_ORDER.indexOf(w.config.size || 'sm');
+    const nextIdx = Math.max(0, Math.min(SIZE_ORDER.length - 1, idx + dir));
+    if (nextIdx === idx) return;
+    await setSize(w, SIZE_ORDER[nextIdx]);
   };
 
   const handleDelete = async (w: VirtualWidget) => {
-    if (w.__virtual) return; // Virtual = not persisted, nothing to delete
+    if (w.__virtual) return;
     if (!confirm('¿Eliminar este widget?')) return;
     await deleteWidget(w.id);
     showSuccess('Widget eliminado');
@@ -180,6 +204,40 @@ export default function WidgetsSettings() {
     });
   };
 
+  // Resize-by-drag handle on the right border of each widget
+  const startResizeDrag = (w: VirtualWidget, e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const grid = gridRef.current;
+    if (!grid) return;
+    const startX = e.clientX;
+    const startSizeIdx = SIZE_ORDER.indexOf(w.config.size || 'sm');
+    const colWidth = grid.getBoundingClientRect().width / 4;
+    let appliedIdx = startSizeIdx;
+
+    const move = (ev: PointerEvent) => {
+      const dx = ev.clientX - startX;
+      const steps = Math.round(dx / colWidth);
+      const nextIdx = Math.max(0, Math.min(SIZE_ORDER.length - 1, startSizeIdx + steps));
+      if (nextIdx !== appliedIdx) {
+        appliedIdx = nextIdx;
+        setLocalOrder(prev => {
+          const list = prev || baseSectionItems;
+          return list.map(x => x.id === w.id ? { ...x, config: { ...x.config, size: SIZE_ORDER[nextIdx] } } : x);
+        });
+      }
+    };
+    const up = async () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      if (appliedIdx !== startSizeIdx) {
+        await setSize(w, SIZE_ORDER[appliedIdx]);
+      }
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
   if (sections.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-border p-8 text-center">
@@ -188,13 +246,17 @@ export default function WidgetsSettings() {
     );
   }
 
+  const sectionFieldsForEditor = draftWidget
+    ? fields.filter(f => f.sectionId === (draftWidget as VirtualWidget).sectionId)
+    : [];
+
   return (
     <div className="space-y-4">
       <div>
         <h2 className="text-base font-semibold">Maquetador de visualizaciones</h2>
         <p className="text-xs text-muted-foreground">
-          Cada campo aparece como widget. Arrastra para reordenar, click para editar tipo y tamaño,
-          o crea widgets compuestos combinando varias variables.
+          Cada campo aparece como widget. Arrastra para reordenar, usa los botones ← → o el borde derecho
+          para cambiar tamaño, y crea widgets compuestos combinando varias variables.
         </p>
       </div>
 
@@ -230,7 +292,7 @@ export default function WidgetsSettings() {
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={sectionItems.map(w => w.id)} strategy={rectSortingStrategy}>
-              <div className="grid grid-cols-4 gap-3">
+              <div ref={gridRef} className="grid grid-cols-4 gap-3">
                 {sectionItems.map(w => (
                   <SortableWidgetCard
                     key={w.id}
@@ -238,7 +300,9 @@ export default function WidgetsSettings() {
                     fields={fields}
                     onEdit={() => openEditor(w)}
                     onDelete={() => handleDelete(w)}
-                    onCycleSize={() => cycleSize(w)}
+                    onShrink={() => stepSize(w, -1)}
+                    onExpand={() => stepSize(w, 1)}
+                    onResizeStart={(e) => startResizeDrag(w, e)}
                   />
                 ))}
               </div>
@@ -250,7 +314,7 @@ export default function WidgetsSettings() {
       {/* Editor panel */}
       <Dialog open={!!editId} onOpenChange={(o) => !o && closeEditor()}>
         <DialogPortal>
-          <DialogPrimitive.Overlay className="fixed inset-0 z-50 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-background/30 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
           <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg max-h-[85vh] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto border bg-background p-6 shadow-lg rounded-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
             <div className="flex items-center justify-between">
               <DialogTitle>{editId === '__new' ? 'Nuevo widget compuesto' : 'Editar widget'}</DialogTitle>
@@ -263,7 +327,7 @@ export default function WidgetsSettings() {
               <WidgetEditor
                 widget={draftWidget as VirtualWidget}
                 fields={fields}
-                
+                sectionFields={sectionFieldsForEditor}
                 onChange={setDraftWidget}
                 onSave={handleSaveDraft}
                 onCancel={closeEditor}
@@ -277,8 +341,9 @@ export default function WidgetsSettings() {
 }
 
 // =============== Sortable card ===============
-function SortableWidgetCard({ widget, fields, onEdit, onDelete, onCycleSize }: {
-  widget: VirtualWidget; fields: any[]; onEdit: () => void; onDelete: () => void; onCycleSize: () => void;
+function SortableWidgetCard({ widget, fields, onEdit, onDelete, onShrink, onExpand, onResizeStart }: {
+  widget: VirtualWidget; fields: any[]; onEdit: () => void; onDelete: () => void;
+  onShrink: () => void; onExpand: () => void; onResizeStart: (e: React.PointerEvent) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: widget.id });
   const style: React.CSSProperties = {
@@ -289,11 +354,15 @@ function SortableWidgetCard({ widget, fields, onEdit, onDelete, onCycleSize }: {
   const Icon = WIDGET_ICONS[widget.widgetType];
   const size = widget.config.size || 'md';
   const colSpan = SIZE_COL_SPAN[size];
+  const sizeIdx = SIZE_ORDER.indexOf(size);
+  const canShrink = sizeIdx > 0;
+  const canExpand = sizeIdx < SIZE_ORDER.length - 1;
   const sourceCount = widget.sources.length || 1;
   const primarySrc = widget.sources[0] || { sourceType: widget.sourceType, sourceKey: widget.sourceKey };
   const sourceLabel = primarySrc.sourceType === 'native'
     ? NATIVE_FIELDS.find(n => n.key === primarySrc.sourceKey)?.label
     : fields.find(f => f.id === primarySrc.sourceKey)?.name;
+  const hasCondition = !!widget.config.condition?.sourceKey;
 
   return (
     <div
@@ -319,11 +388,20 @@ function SortableWidgetCard({ widget, fields, onEdit, onDelete, onCycleSize }: {
       {/* Action buttons */}
       <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
-          onClick={(e) => { e.stopPropagation(); onCycleSize(); }}
-          className="p-1 rounded hover:bg-muted"
-          title={`Tamaño: ${SIZE_LABELS[size]}`}
+          onClick={(e) => { e.stopPropagation(); onShrink(); }}
+          disabled={!canShrink}
+          className="p-1 rounded hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent"
+          title="Reducir"
         >
-          <Maximize2 className="h-3 w-3 text-muted-foreground" />
+          <ChevronLeft className="h-3 w-3 text-muted-foreground" />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onExpand(); }}
+          disabled={!canExpand}
+          className="p-1 rounded hover:bg-muted disabled:opacity-30 disabled:hover:bg-transparent"
+          title="Ampliar"
+        >
+          <ChevronRight className="h-3 w-3 text-muted-foreground" />
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); onEdit(); }}
@@ -354,19 +432,32 @@ function SortableWidgetCard({ widget, fields, onEdit, onDelete, onCycleSize }: {
         <p className="text-[10px] text-muted-foreground truncate mt-0.5">
           {sourceCount > 1 ? `${sourceCount} variables` : (sourceLabel || '—')}
         </p>
-        <div className="flex items-center gap-1 mt-2">
+        <div className="flex items-center gap-1 mt-2 flex-wrap">
           <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{size}</span>
           {widget.__virtual && <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground italic">auto</span>}
           {widget.hideIfEmpty && <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">oculta vacío</span>}
+          {hasCondition && <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">condicional</span>}
         </div>
       </div>
+
+      {/* Resize handle (right border) */}
+      <div
+        onPointerDown={onResizeStart}
+        className="absolute top-0 right-0 h-full w-1.5 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity"
+        title="Arrastra para cambiar el tamaño"
+      />
     </div>
   );
 }
 
 // =============== Editor ===============
-function WidgetEditor({ widget, onChange, fields, onSave, onCancel }: {
-  widget: VirtualWidget; onChange: (w: Partial<VirtualWidget>) => void; fields: any[]; onSave: () => void; onCancel: () => void;
+function WidgetEditor({ widget, onChange, fields, sectionFields, onSave, onCancel }: {
+  widget: VirtualWidget;
+  onChange: (w: Partial<VirtualWidget>) => void;
+  fields: any[];
+  sectionFields: any[];
+  onSave: () => void;
+  onCancel: () => void;
 }) {
   const sources = widget.sources && widget.sources.length > 0
     ? widget.sources
@@ -392,6 +483,30 @@ function WidgetEditor({ widget, onChange, fields, onSave, onCancel }: {
   };
 
   const isMultiCapable = widget.widgetType !== 'kpi' || sources.length > 1;
+  const condition = widget.config.condition;
+  const conditionFieldType = condition?.sourceType === 'native'
+    ? NATIVE_FIELDS.find(n => n.key === condition.sourceKey)?.type
+    : sectionFields.find(f => f.id === condition?.sourceKey)?.fieldType;
+  const conditionField = condition?.sourceType === 'custom_field'
+    ? sectionFields.find(f => f.id === condition.sourceKey)
+    : null;
+  const needsValue = condition && (condition.operator === 'equals' || condition.operator === 'not_equals');
+
+  const setCondition = (patch: Partial<WidgetCondition> | null) => {
+    if (patch === null) {
+      const { condition: _c, ...rest } = widget.config;
+      onChange({ ...widget, config: rest });
+      return;
+    }
+    const next: WidgetCondition = {
+      sourceType: condition?.sourceType || 'custom_field',
+      sourceKey: condition?.sourceKey || '',
+      operator: condition?.operator || 'is_set',
+      value: condition?.value,
+      ...patch,
+    };
+    onChange({ ...widget, config: { ...widget.config, condition: next } });
+  };
 
   return (
     <div className="space-y-4 mt-4">
@@ -523,6 +638,83 @@ function WidgetEditor({ widget, onChange, fields, onSave, onCancel }: {
           </div>
         </div>
       )}
+
+      {/* Conditional visibility */}
+      <div className="rounded-md border border-border/60 p-3 space-y-3">
+        <div className="flex items-center justify-between">
+          <div>
+            <Label className="text-xs">Mostrar solo si…</Label>
+            <p className="text-[10px] text-muted-foreground">Visibilidad condicional según otro campo de la sección.</p>
+          </div>
+          <Switch
+            checked={!!condition}
+            onCheckedChange={(v) => v
+              ? setCondition({ sourceType: 'custom_field', sourceKey: '', operator: 'is_set' })
+              : setCondition(null)}
+          />
+        </div>
+        {condition && (
+          <>
+            <div className="grid grid-cols-2 gap-2">
+              <Select
+                value={condition.sourceType}
+                onValueChange={(v: 'native' | 'custom_field') => setCondition({ sourceType: v, sourceKey: '', value: undefined })}
+              >
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="custom_field">Campo personalizado</SelectItem>
+                  <SelectItem value="native">Campo nativo</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={condition.sourceKey}
+                onValueChange={(v) => setCondition({ sourceKey: v, value: undefined })}
+              >
+                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Campo" /></SelectTrigger>
+                <SelectContent>
+                  {condition.sourceType === 'native'
+                    ? NATIVE_FIELDS.map(n => <SelectItem key={n.key} value={n.key}>{n.label}</SelectItem>)
+                    : sectionFields.map(f => <SelectItem key={f.id} value={f.id}>{f.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Select
+                value={condition.operator}
+                onValueChange={(v: WidgetConditionOperator) => setCondition({ operator: v })}
+              >
+                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="is_set">Tiene valor</SelectItem>
+                  <SelectItem value="is_empty">Está vacío</SelectItem>
+                  <SelectItem value="equals">Es igual a</SelectItem>
+                  <SelectItem value="not_equals">Es diferente de</SelectItem>
+                </SelectContent>
+              </Select>
+              {needsValue && (
+                conditionField?.fieldType === 'select' && Array.isArray(conditionField.options) ? (
+                  <Select value={condition.value || ''} onValueChange={(v) => setCondition({ value: v })}>
+                    <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Valor" /></SelectTrigger>
+                    <SelectContent>
+                      {conditionField.options.map((opt: string) => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    className="h-8 text-xs"
+                    value={condition.value || ''}
+                    onChange={(e) => setCondition({ value: e.target.value })}
+                    placeholder="Valor"
+                  />
+                )
+              )}
+            </div>
+            <p className="text-[10px] text-muted-foreground italic">
+              Ej: widget "Tipo de inversión" condicional al campo "Inversión" con operador "Tiene valor".
+            </p>
+          </>
+        )}
+      </div>
 
       <div className="flex items-center justify-between rounded-md border border-border/60 p-3">
         <div>
