@@ -253,9 +253,7 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
     });
 
     return (
-      <div className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
-        <p className="text-xs font-medium text-muted-foreground mb-3">{title}</p>
-        <ResponsiveContainer width="100%" height={200}>
+      <div style={heightStyle} className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
           {widget.widgetType === 'bar' ? (
             <BarChart data={data}>
               <XAxis dataKey="year" fontSize={11} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
@@ -299,16 +297,12 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
     if (data.length === 0) {
       if (widget.hideIfEmpty) return null;
       return (
-        <div className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
-          <p className="text-xs font-medium text-muted-foreground mb-2">{title}</p>
-          <p className="text-xs text-muted-foreground">Sin datos para graficar</p>
+        <div style={heightStyle} className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
         </div>
       );
     }
     return (
-      <div className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
-        <p className="text-xs font-medium text-muted-foreground mb-3">{title}</p>
-        <ResponsiveContainer width="100%" height={220}>
+      <div style={heightStyle} className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
           <PieChart>
             <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={75} label={(e: any) => e.name}>
               {data.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
@@ -339,9 +333,7 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
     if (years.length === 0) {
       // Single non-year value table
       return (
-        <div className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
-          <p className="text-xs font-medium text-muted-foreground mb-3">{title}</p>
-          <div className="space-y-1">
+        <div style={heightStyle} className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
             {series.map((s, i) => {
               const display = s.textValue ?? (s.numberValue !== null && s.numberValue !== undefined ? formatSales(s.numberValue, s.isUSD ? 'USD' : viewCurrency) : '—');
               return (
