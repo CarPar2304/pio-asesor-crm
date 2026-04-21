@@ -315,7 +315,7 @@ export default function WidgetsSettings() {
                     onDelete={() => handleDelete(w)}
                     onShrink={() => stepSize(w, -1)}
                     onExpand={() => stepSize(w, 1)}
-                    onResizeStart={(e) => startResizeDrag(w, e)}
+                    onResizeStart={(e, dir) => startResizeDrag(w, e, dir)}
                   />
                 ))}
               </div>
