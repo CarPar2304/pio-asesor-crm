@@ -337,15 +337,23 @@ serve(async (req) => {
     conversationIdForLog = conversation_id || null;
     lastUserMessageForLog = [...messages].reverse().find((m: any) => m.role === "user")?.content?.trim() || "";
 
-    // Capture authenticated user
+    // REQUIRE authenticated user — this endpoint exposes full CRM context via RAG
     const authHeader = req.headers.get("Authorization");
-    try {
-      if (authHeader?.startsWith("Bearer ")) {
-        const supaAnon = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") || "");
-        const { data: { user } } = await supaAnon.auth.getUser(authHeader.replace("Bearer ", ""));
-        userIdForLog = user?.id || null;
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    {
+      const supaAnon = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY") || "");
+      const { data: { user }, error: authErr } = await supaAnon.auth.getUser(authHeader.replace("Bearer ", ""));
+      if (authErr || !user) {
+        return new Response(JSON.stringify({ error: "Invalid token" }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
-    } catch { /* ignore */ }
+      userIdForLog = user.id;
+    }
 
     // Settings
     const { data: settingsRow } = await supabase.from("feature_settings").select("config").eq("feature_key", "company_chat").single();
