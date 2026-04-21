@@ -22,6 +22,7 @@ import AddToPipelineDialog from '@/components/portfolio/AddToPipelineDialog';
 import CompanyPipelineNotes from './CompanyPipelineNotes';
 import SectionWidgetRenderer from './SectionWidgetRenderer';
 import { useWidgets } from '@/contexts/WidgetsContext';
+import { useWidgetGridConfig } from '@/hooks/useWidgetGridConfig';
 import { cn } from '@/lib/utils';
 
 interface Props {
