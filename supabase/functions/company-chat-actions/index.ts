@@ -332,7 +332,7 @@ async function logActionFn(supabase: any, userId: string, args: any) {
   }).select().single();
   if (error || !row) return envelope("log_action", { error: error?.message || "insert failed" });
 
-  await logHistory(supabase, companyId, "action", `Acción: ${type}`, description, { type, notes }, userId);
+  await logHistory(supabase, companyId, "action", `Acción: ${type}`, description, { actionId: row.id, type, notes, date }, userId);
 
   return envelope("log_action", {
     executed: true,
