@@ -239,10 +239,10 @@ export default function WidgetsSettings() {
     const isVertical = dir === 'top' || dir === 'bottom';
 
     const startSizeIdx = SIZE_ORDER.indexOf(w.config.size || 'sm');
-    const startHeight = Math.max(1, Math.min(4, w.config.heightUnits || 1));
-    const colWidth = grid.getBoundingClientRect().width / 4;
+    const startHeight = Math.max(1, Math.min(8, w.config.heightUnits || 1));
+    const colWidth = grid.getBoundingClientRect().width / gridConfig.cols;
     const stepPxX = Math.max(40, colWidth);
-    const stepPxY = 70;
+    const stepPxY = Math.max(40, gridConfig.rowH);
     let appliedSizeIdx = startSizeIdx;
     let appliedHeight = startHeight;
 
