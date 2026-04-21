@@ -32,6 +32,7 @@ const App = () => (
         <CRMProvider>
           <TaxonomyProvider>
           <CustomFieldsProvider>
+          <WidgetsProvider>
           <PortfolioProvider>
           <Toaster position="bottom-right" options={{ fill: "#171717", roundness: 14, duration: 3000, styles: { title: "!text-white", description: "!text-white/75" } }} />
           <BrowserRouter>
@@ -51,6 +52,7 @@ const App = () => (
             </Routes>
           </BrowserRouter>
           </PortfolioProvider>
+          </WidgetsProvider>
           </CustomFieldsProvider>
           </TaxonomyProvider>
         </CRMProvider>
