@@ -235,9 +235,7 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
     if (series.length === 0) {
       if (widget.hideIfEmpty) return null;
       return (
-        <div className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
-          <p className="text-xs font-medium text-muted-foreground mb-2">{title}</p>
-          <p className="text-xs text-muted-foreground">Sin datos por año</p>
+        <div style={heightStyle} className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
         </div>
       );
     }
