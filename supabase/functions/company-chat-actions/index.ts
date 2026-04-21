@@ -175,12 +175,12 @@ async function createTask(
   const assignedTo: string | null = args.assigned_to || userId;
   const offerId: string | null = args.offer_id || null;
 
-  if (!companyId)  return envelope("create_task", { error: "company_id required" });
-  if (!title)      return envelope("create_task", { error: "title required" });
-  if (!isISODate(dueDate)) return envelope("create_task", { error: "due_date must be YYYY-MM-DD" });
+  if (!companyId)  return envelope("create_task", { error: "missing_company_id", message: "Falta identificar la empresa." });
+  if (!title)      return envelope("create_task", { error: "missing_title", message: "Falta el título de la tarea." });
+  if (!isISODate(dueDate)) return envelope("create_task", { error: "missing_due_date", message: "Falta la fecha de vencimiento (formato YYYY-MM-DD)." });
 
   const company = await getCompanyMeta(supabase, companyId);
-  if (!company) return envelope("create_task", { error: "company not found" });
+  if (!company) return envelope("create_task", { error: "company_not_found", message: "No encontré esa empresa." });
 
   const { data: task, error } = await supabase.from("company_tasks").insert({
     company_id: companyId,
