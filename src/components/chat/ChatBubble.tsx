@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useChatPersistence } from '@/hooks/useChatPersistence';
 import type { Msg } from '@/hooks/useChatPersistence';
+import { supabase } from '@/integrations/supabase/client';
 import ChatMessageList from './ChatMessageList';
 import ConversationList from './ConversationList';
 
@@ -48,11 +49,16 @@ export default function ChatBubble() {
     };
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Tu sesión expiró. Vuelve a iniciar sesión para usar el chat.');
+      }
+
       const resp = await fetch(CHAT_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ messages: allMessages, conversation_id: conversationId }),
       });
