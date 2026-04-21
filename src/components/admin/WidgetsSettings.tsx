@@ -219,7 +219,8 @@ export default function WidgetsSettings() {
     const startY = e.clientY;
     const startSizeIdx = SIZE_ORDER.indexOf(w.config.size || 'sm');
     const colWidth = grid.getBoundingClientRect().width / 4;
-    const stepPx = Math.max(40, colWidth);
+    const isVertical = dir === 'top' || dir === 'bottom';
+    const stepPx = isVertical ? 60 : Math.max(40, colWidth);
     let appliedIdx = startSizeIdx;
 
     const move = (ev: PointerEvent) => {
