@@ -426,22 +426,23 @@ export default function WidgetsSettings() {
 }
 
 // =============== Sortable card ===============
-function SortableWidgetCard({ widget, fields, onEdit, onDelete, onShrink, onExpand, onResizeStart }: {
-  widget: VirtualWidget; fields: any[]; onEdit: () => void; onDelete: () => void;
+function SortableWidgetCard({ widget, fields, gridCols, onEdit, onDelete, onShrink, onExpand, onResizeStart }: {
+  widget: VirtualWidget; fields: any[]; gridCols: number; onEdit: () => void; onDelete: () => void;
   onShrink: () => void; onExpand: () => void;
   onResizeStart: (e: React.PointerEvent, dir: 'right' | 'left' | 'bottom' | 'top') => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: widget.id });
-  const heightUnits = Math.max(1, Math.min(4, widget.config.heightUnits || 1));
+  const heightUnits = Math.max(1, Math.min(8, widget.config.heightUnits || 1));
+  const size = widget.config.size || 'md';
+  const colSpanN = sizeToColSpan(size, gridCols);
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-    minHeight: `${heightUnits * 100}px`,
+    gridColumn: `span ${colSpanN}`,
+    gridRow: `span ${heightUnits}`,
   };
   const Icon = WIDGET_ICONS[widget.widgetType];
-  const size = widget.config.size || 'md';
-  const colSpan = SIZE_COL_SPAN[size];
   const sizeIdx = SIZE_ORDER.indexOf(size);
   const canShrink = sizeIdx > 0;
   const canExpand = sizeIdx < SIZE_ORDER.length - 1;
@@ -459,10 +460,9 @@ function SortableWidgetCard({ widget, fields, onEdit, onDelete, onShrink, onExpa
       ref={setNodeRef}
       style={style}
       className={cn(
-        colSpan,
         'group relative rounded-lg border-2 transition-colors',
         isSpacer
-          ? 'border-dashed border-border/40 bg-muted/30 min-h-[80px]'
+          ? 'border-dashed border-border/40 bg-muted/30'
           : cn('bg-card p-3', widget.__virtual ? 'border-dashed border-border/50' : 'border-border/70'),
         'hover:border-primary/50'
       )}
