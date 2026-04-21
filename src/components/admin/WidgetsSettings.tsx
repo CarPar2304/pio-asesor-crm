@@ -204,20 +204,33 @@ export default function WidgetsSettings() {
     });
   };
 
-  // Resize-by-drag handle on the right border of each widget
-  const startResizeDrag = (w: VirtualWidget, e: React.PointerEvent) => {
+  // Resize-by-drag handle. `dir` = 'right' | 'left' | 'bottom' | 'top'.
+  // Right/bottom: positive drag → bigger. Left/top: negative drag → bigger.
+  const startResizeDrag = (
+    w: VirtualWidget,
+    e: React.PointerEvent,
+    dir: 'right' | 'left' | 'bottom' | 'top' = 'right',
+  ) => {
     e.preventDefault();
     e.stopPropagation();
     const grid = gridRef.current;
     if (!grid) return;
     const startX = e.clientX;
+    const startY = e.clientY;
     const startSizeIdx = SIZE_ORDER.indexOf(w.config.size || 'sm');
     const colWidth = grid.getBoundingClientRect().width / 4;
+    const stepPx = Math.max(40, colWidth);
     let appliedIdx = startSizeIdx;
 
     const move = (ev: PointerEvent) => {
       const dx = ev.clientX - startX;
-      const steps = Math.round(dx / colWidth);
+      const dy = ev.clientY - startY;
+      let delta = 0;
+      if (dir === 'right') delta = dx;
+      else if (dir === 'left') delta = -dx;
+      else if (dir === 'bottom') delta = dy;
+      else if (dir === 'top') delta = -dy;
+      const steps = Math.round(delta / stepPx);
       const nextIdx = Math.max(0, Math.min(SIZE_ORDER.length - 1, startSizeIdx + steps));
       if (nextIdx !== appliedIdx) {
         appliedIdx = nextIdx;
