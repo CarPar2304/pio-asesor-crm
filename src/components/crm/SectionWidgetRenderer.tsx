@@ -124,7 +124,7 @@ function PrettyKPI({ title, value, trend, color, breakdown }: { title: string; v
 
 const PIE_COLORS = WIDGET_PALETTE;
 
-export default function SectionWidgetRenderer({ widget, company, fields, viewCurrency }: Props) {
+export default function SectionWidgetRenderer({ widget, company, fields, viewCurrency, gridCols = 4 }: Props) {
   const sources = widget.sources && widget.sources.length > 0
     ? widget.sources
     : [{ sourceType: widget.sourceType, sourceKey: widget.sourceKey } as WidgetSource];
@@ -135,9 +135,12 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
   );
 
   const size = widget.config.size || 'md';
-  const colSpan = SIZE_COL_SPAN[size];
-  const heightUnits = Math.max(1, Math.min(4, widget.config.heightUnits || 1));
-  const heightStyle: React.CSSProperties | undefined = heightUnits > 1 ? { minHeight: `${heightUnits * 100}px` } : undefined;
+  const colSpanN = sizeToColSpan(size, gridCols);
+  const heightUnits = Math.max(1, Math.min(8, widget.config.heightUnits || 1));
+  const wrapperStyle: React.CSSProperties = {
+    gridColumn: `span ${colSpanN}`,
+    gridRow: `span ${heightUnits}`,
+  };
   const baseColor = widget.config.color || PIE_COLORS[0];
 
   // Spacer: invisible in the live profile, only used in the editor canvas
