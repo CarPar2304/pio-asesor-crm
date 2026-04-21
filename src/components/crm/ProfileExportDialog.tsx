@@ -3,14 +3,14 @@ import { Company } from '@/types/crm';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { useWidgets } from '@/contexts/WidgetsContext';
 import { useWidgetGridConfig } from '@/hooks/useWidgetGridConfig';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { FileDown, Loader2 } from 'lucide-react';
+import { FileDown, Loader2, X } from 'lucide-react';
 import SectionWidgetRenderer from './SectionWidgetRenderer';
 import {
   exportProfileToPdf,
