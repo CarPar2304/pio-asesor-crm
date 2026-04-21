@@ -151,7 +151,7 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
   if (resolved.length === 0) {
     if (widget.hideIfEmpty) return null;
     return (
-      <div className={cn(colSpan, 'rounded-lg border border-dashed border-border p-4 text-center')}>
+      <div style={heightStyle} className={cn(colSpan, 'rounded-lg border border-dashed border-border p-4 text-center')}>
         <p className="text-xs text-muted-foreground">Variable no encontrada</p>
       </div>
     );
