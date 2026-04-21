@@ -400,14 +400,18 @@ function SortableWidgetCard({ widget, fields, onEdit, onDelete, onShrink, onExpa
     : fields.find(f => f.id === primarySrc.sourceKey)?.name;
   const hasCondition = !!widget.config.condition?.sourceKey;
 
+  const isSpacer = !!(widget.config as any).isSpacer;
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
         colSpan,
-        'group relative rounded-lg border-2 bg-card p-3 transition-colors',
-        widget.__virtual ? 'border-dashed border-border/50' : 'border-border/70',
+        'group relative rounded-lg border-2 transition-colors',
+        isSpacer
+          ? 'border-dashed border-border/40 bg-muted/30 min-h-[80px]'
+          : cn('bg-card p-3', widget.__virtual ? 'border-dashed border-border/50' : 'border-border/70'),
         'hover:border-primary/50'
       )}
     >
