@@ -20,6 +20,8 @@ import CompanyForm from './CompanyForm';
 import SalesChart from './SalesChart';
 import AddToPipelineDialog from '@/components/portfolio/AddToPipelineDialog';
 import CompanyPipelineNotes from './CompanyPipelineNotes';
+import SectionWidgetRenderer from './SectionWidgetRenderer';
+import { useWidgets } from '@/contexts/WidgetsContext';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -34,6 +36,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
   const [viewCurrency, setViewCurrency] = useState<string>('COP');
   const [trm, setTrm] = useState<number>(4200);
   const { sections, fields } = useCustomFields();
+  const { widgets } = useWidgets();
   const { deleteCompany } = useCRM();
   const { salesCurrency } = useProfile();
 
