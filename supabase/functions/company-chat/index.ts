@@ -77,12 +77,12 @@ const READ_TOOLS = [
     type: "function",
     function: {
       name: "list_companies",
-      description: "Lista empresas filtradas. Usar para 'todas las EBT en Cali', 'empresas de la oferta X en etapa Y'.",
+      description: "Lista empresas filtradas. Usar para 'todas las EBT en Cali', 'empresas de la oferta X en etapa Y'. Si filtras por oferta, PREFIERE pasar offer_id (resuelto por find_offer_by_name) antes que offer (string).",
       parameters: {
         type: "object",
         properties: {
           city: { type: "string" }, vertical: { type: "string" }, sub_vertical: { type: "string" },
-          category: { type: "string" }, offer: { type: "string" }, stage: { type: "string" },
+          category: { type: "string" }, offer: { type: "string" }, offer_id: { type: "string" }, stage: { type: "string" },
           limit: { type: "integer", default: 100 },
         },
       },
@@ -92,13 +92,52 @@ const READ_TOOLS = [
     type: "function",
     function: {
       name: "count_companies",
-      description: "Conteo exacto de empresas con filtros.",
+      description: "Conteo exacto de empresas con filtros. Si filtras por oferta, PREFIERE offer_id (resuelto por find_offer_by_name).",
       parameters: {
         type: "object",
         properties: {
           city: { type: "string" }, vertical: { type: "string" }, sub_vertical: { type: "string" },
-          category: { type: "string" }, offer: { type: "string" }, stage: { type: "string" },
+          category: { type: "string" }, offer: { type: "string" }, offer_id: { type: "string" }, stage: { type: "string" },
         },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "find_offer_by_name",
+      description: "Resuelve un nombre/alias de OFERTA del portafolio a candidatos usando búsqueda aproximada (pg_trgm, tolera typos). USAR SIEMPRE antes de filtrar por nombre de oferta. Devuelve ambiguity si hay candidatos cercanos o low_confidence si el mejor match es débil.",
+      parameters: {
+        type: "object",
+        properties: { name: { type: "string" }, limit: { type: "integer", default: 5 } },
+        required: ["name"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_offers",
+      description: "Lista las ofertas del portafolio (programas/convocatorias/productos). Usar cuando el usuario pida 'ofertas', 'portafolio', 'programas', 'catálogo' sin nombrar empresa.",
+      parameters: {
+        type: "object",
+        properties: {
+          status: { type: "string", description: "Filtra por status (active, draft, ...)" },
+          product: { type: "string", description: "Filtra por product (ilike)" },
+          limit: { type: "integer", default: 100 },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_offer_summary",
+      description: "Devuelve detalle de una oferta + sus etapas (pipeline_stages ordenadas) + total de empresas inscritas y conteo por etapa.",
+      parameters: {
+        type: "object",
+        properties: { offer_id: { type: "string" } },
+        required: ["offer_id"],
       },
     },
   },
