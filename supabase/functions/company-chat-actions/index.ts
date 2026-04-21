@@ -208,7 +208,15 @@ async function createTask(
     if (!notifErr) sideEffects.push(`notification:${assignedTo}`);
   }
 
-  await logHistory(supabase, companyId, "task_created", `Tarea: ${title}`, description, { offerId }, userId);
+  await logHistory(
+    supabase,
+    companyId,
+    "task_created",
+    `Tarea creada: «${title}»`,
+    description,
+    { taskId: task.id, dueDate, assignedTo, offerId },
+    userId,
+  );
   sideEffects.push("history:task_created");
 
   fireVectorize(supabaseUrl, anonKey, "companies", { companyIds: [companyId] });
