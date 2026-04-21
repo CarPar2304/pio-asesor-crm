@@ -296,7 +296,12 @@ export default function WidgetsSettings() {
           <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
             Vista previa del perfil — arrastra para reordenar
           </p>
-          <Button size="sm" onClick={handleAddNew} className="gap-1"><Plus className="h-3.5 w-3.5" /> Widget compuesto</Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={handleAddSpacer} className="gap-1">
+              <Plus className="h-3.5 w-3.5" /> Espacio
+            </Button>
+            <Button size="sm" onClick={handleAddNew} className="gap-1"><Plus className="h-3.5 w-3.5" /> Widget compuesto</Button>
+          </div>
         </div>
 
         {sectionItems.length === 0 ? (
