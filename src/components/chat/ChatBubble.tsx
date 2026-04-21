@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { MessageCircle, X, Send, Trash2, Maximize2, Minimize2, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -6,6 +7,7 @@ import { useChatPersistence } from '@/hooks/useChatPersistence';
 import type { Msg } from '@/hooks/useChatPersistence';
 import { supabase } from '@/integrations/supabase/client';
 import { useCRM } from '@/contexts/CRMContext';
+import { usePortfolio } from '@/contexts/PortfolioContext';
 import ChatMessageList from './ChatMessageList';
 import ConversationList from './ConversationList';
 
@@ -26,6 +28,8 @@ export default function ChatBubble() {
     saveMessage, deleteConversation, startNewChat,
   } = useChatPersistence();
   const { refresh: refreshCRM } = useCRM();
+  const { refresh: refreshPortfolio } = usePortfolio();
+  const location = useLocation();
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -108,7 +112,8 @@ export default function ChatBubble() {
 
       // If the assistant confirmed any action, refresh CRM data so dashboards (tasks, timeline, pipeline) show it
       if (/[✅⚠️]/.test(assistantSoFar)) {
-        refreshCRM().catch(() => {});
+        Promise.allSettled([refreshCRM(), refreshPortfolio()]).catch(() => {});
+        window.dispatchEvent(new CustomEvent('company-chat-refresh'));
       }
     } catch (e) {
       console.error('Chat error:', e);
@@ -153,6 +158,17 @@ export default function ChatBubble() {
     startNewChat();
     if (!fullscreen) setShowSidebar(false);
   };
+
+  useEffect(() => {
+    const onFocus = () => Promise.allSettled([refreshCRM(), refreshPortfolio()]);
+    const onRefresh = () => Promise.allSettled([refreshCRM(), refreshPortfolio()]);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('company-chat-refresh', onRefresh as EventListener);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('company-chat-refresh', onRefresh as EventListener);
+    };
+  }, [refreshCRM, refreshPortfolio, location.pathname]);
 
   const handleClearChat = () => {
     if (activeConversationId) {

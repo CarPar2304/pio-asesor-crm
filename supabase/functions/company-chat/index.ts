@@ -145,6 +145,7 @@ ${contextBlock || "(Sin resultados relevantes en la búsqueda)"}
 
 ═══ FORMATO (principios, no plantillas) ═══
 - Markdown limpio. Negrillas para nombres de empresa y cifras.
+- Cuando menciones una empresa concreta, convierte el nombre en link markdown a su perfil usando la ruta relativa /empresa/{id} si ese id viene en el contexto.
 - Tablas cuando hay varias entidades comparables; prosa cuando es una sola.
 - Cifras con su unidad y moneda (COP/USD). Fechas humanas ("15 mar 2026").
 - Sé conciso. No repitas la pregunta. No inventes secciones de relleno.
@@ -234,11 +235,11 @@ async function retrieveContext(supabase: any, openai: OpenAI, embeddingModel: st
 
   const sections: string[] = [];
 
-  if (grouped.size) {
+    if (grouped.size) {
     const lines: string[] = ["## Empresas relevantes"];
     for (const [cid, chunks] of grouped) {
       const name = companyMap.get(cid) || "(empresa)";
-      lines.push(`\n### ${name}`);
+      lines.push(`\n### [${name}](/empresa/${cid})`);
       // Sort: profile first, then financials, contact, action, milestone, task, pipeline, history
       const order = ["profile", "financials", "contact", "pipeline", "task", "action", "milestone", "history"];
       chunks.sort((a, b) => (order.indexOf(a.chunk_type) - order.indexOf(b.chunk_type)) || (b.similarity - a.similarity));
@@ -381,7 +382,7 @@ serve(async (req) => {
 
     // ---- 1. Build retrieval query: last user message + brief recent context ----
     const recentUserTurns = messages.filter((m: any) => m.role === "user").slice(-3).map((m: any) => m.content).join(" \n ");
-    const retrievalQuery = recentUserTurns || lastUserMessageForLog;
+    const retrievalQuery = `${recentUserTurns || lastUserMessageForLog}\n\nIncluye empresas, etapas de pipeline, ofertas y movimientos recientes relacionados aunque haya variaciones menores de escritura.`;
     const { block: contextBlock, stats } = await retrieveContext(supabase, openai, embeddingModel, retrievalQuery);
     console.log(`[company-chat] model=${chatModel} retrieval stats=`, stats);
 
