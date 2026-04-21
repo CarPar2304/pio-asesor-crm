@@ -147,14 +147,33 @@ export default function ProfileExportDialog({ open, onClose, company, defaultCur
     }
   };
 
+  if (!open) return null;
+
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v && !exporting) onClose(); }}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="profile-export-title">
+      <button
+        type="button"
+        className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+        aria-label="Cerrar exportación"
+        onClick={() => { if (!exporting) onClose(); }}
+      />
+
+      <div className="relative z-[101] grid w-full max-w-2xl gap-4 rounded-lg border border-border bg-background p-6 shadow-lg">
+        <button
+          type="button"
+          className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
+          onClick={onClose}
+          disabled={exporting}
+          aria-label="Cerrar"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        <div className="flex flex-col space-y-1.5 text-center sm:text-left">
+          <h2 id="profile-export-title" className="flex items-center gap-2 text-base font-semibold leading-none tracking-tight">
             <FileDown className="h-4 w-4" /> Exportar perfil a PDF
-          </DialogTitle>
-        </DialogHeader>
+          </h2>
+        </div>
 
         <ScrollArea className="max-h-[60vh] pr-3">
           <div className="space-y-5">
@@ -274,13 +293,13 @@ export default function ProfileExportDialog({ open, onClose, company, defaultCur
           </div>
         </ScrollArea>
 
-        <DialogFooter>
+        <div className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2">
           <Button variant="outline" onClick={onClose} disabled={exporting}>Cancelar</Button>
           <Button onClick={handleExport} disabled={exporting} className="gap-1.5">
             {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
             Exportar PDF
           </Button>
-        </DialogFooter>
+        </div>
 
         {/* Off-screen widget renderers used by html2canvas */}
         <div
@@ -306,8 +325,8 @@ export default function ProfileExportDialog({ open, onClose, company, defaultCur
             />
           ))}
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }
 
