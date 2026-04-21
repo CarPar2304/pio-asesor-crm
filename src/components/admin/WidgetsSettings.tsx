@@ -454,10 +454,25 @@ function SortableWidgetCard({ widget, fields, onEdit, onDelete, onShrink, onExpa
         </div>
       </div>
 
-      {/* Resize handle (right border) */}
+      {/* Resize handles — all four sides + corners */}
       <div
-        onPointerDown={onResizeStart}
-        className="absolute top-0 right-0 h-full w-1.5 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity"
+        onPointerDown={(e) => onResizeStart(e, 'right')}
+        className="absolute top-2 bottom-2 right-0 w-1.5 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded-l"
+        title="Arrastra para cambiar el tamaño"
+      />
+      <div
+        onPointerDown={(e) => onResizeStart(e, 'left')}
+        className="absolute top-2 bottom-2 left-0 w-1.5 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded-r"
+        title="Arrastra para cambiar el tamaño"
+      />
+      <div
+        onPointerDown={(e) => onResizeStart(e, 'bottom')}
+        className="absolute left-2 right-2 bottom-0 h-1.5 cursor-ns-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded-t"
+        title="Arrastra para cambiar el tamaño"
+      />
+      <div
+        onPointerDown={(e) => onResizeStart(e, 'top')}
+        className="absolute left-2 right-2 top-0 h-1.5 cursor-ns-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded-b"
         title="Arrastra para cambiar el tamaño"
       />
     </div>
