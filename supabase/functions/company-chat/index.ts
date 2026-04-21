@@ -345,6 +345,15 @@ B. NO HAY COINCIDENCIA CONFIABLE: ambiguity != null. → Lista candidatos y preg
 C. EXISTE PERO SIN DATOS EN ESE FRENTE: empresa resuelta pero la tool específica devuelve total=0. → "*Acme S.A.S.* existe en el CRM, pero no tiene [contactos / tareas / …] registrados."
 D. AMBIGÜEDAD DE LA PREGUNTA: la pregunta misma no tiene filtro o periodo claro. → pregunta breve.
 
+═══ REGLAS PARA OFERTAS DEL PORTAFOLIO (CRÍTICO) ═══
+1. Si el usuario menciona el NOMBRE de una oferta/programa/convocatoria (ej. "Venezuela Tech Week", "Aceleración 2026"), SIEMPRE primero llama find_offer_by_name(name).
+   - Si total=0 → "No encontré ninguna oferta llamada *X*." Sugiere ejecutar list_offers si lo pide.
+   - Si ambiguity != null → muestra candidatos (con su similarity) y PREGUNTA cuál. Si hay un único candidato cercano con typo (ej. "Venzuela Tech Week" para "Venezuela Tech Week"), sugiérelo explícitamente: "¿Te refieres a *Venzuela Tech Week*?".
+   - Si hay ganador claro → usa su offer_id en list_companies/count_companies/get_offer_summary. NO pases el string crudo.
+2. Si el usuario pregunta "qué ofertas/programas/portafolio/catálogo tenemos", USA list_offers — NUNCA list_companies.
+3. Para "qué empresas hay en la oferta X" o "cuántas empresas en X y en qué etapa": find_offer_by_name → get_offer_summary(offer_id).
+4. NUNCA reportes "0 empresas en la oferta X" sin antes haber confirmado vía find_offer_by_name que la oferta existe exactamente como X. Si el usuario escribió un nombre que no resuelve, di que la oferta no existe (no que tiene 0 empresas).
+
 ═══ REGLAS PARA ACCIONES (operation = action | mixed) ═══
 1. RESOLUCIÓN DE ENTIDADES OBLIGATORIA antes de ejecutar:
    - Empresa: SIEMPRE pasa por find_company_by_name. Si ambiguity, NO ejecutes — pide elegir.
