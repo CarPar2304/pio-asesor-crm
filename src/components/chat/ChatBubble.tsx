@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { useChatPersistence } from '@/hooks/useChatPersistence';
 import type { Msg } from '@/hooks/useChatPersistence';
 import { supabase } from '@/integrations/supabase/client';
+import { useCRM } from '@/contexts/CRMContext';
 import ChatMessageList from './ChatMessageList';
 import ConversationList from './ConversationList';
 
@@ -24,6 +25,7 @@ export default function ChatBubble() {
     loadingConversations, loadMessages, createConversation,
     saveMessage, deleteConversation, startNewChat,
   } = useChatPersistence();
+  const { refresh: refreshCRM } = useCRM();
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -103,13 +105,18 @@ export default function ChatBubble() {
       if (assistantSoFar) {
         await saveMessage(conversationId, 'assistant', assistantSoFar);
       }
+
+      // If the assistant confirmed any action, refresh CRM data so dashboards (tasks, timeline, pipeline) show it
+      if (/[✅⚠️]/.test(assistantSoFar)) {
+        refreshCRM().catch(() => {});
+      }
     } catch (e) {
       console.error('Chat error:', e);
       upsertAssistant(`\n\n⚠️ Error: ${e instanceof Error ? e.message : 'Error desconocido'}`);
     } finally {
       setIsLoading(false);
     }
-  }, [saveMessage, setMessages]);
+  }, [saveMessage, setMessages, refreshCRM]);
 
   const handleSend = async () => {
     const text = input.trim();
