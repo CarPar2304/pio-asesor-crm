@@ -204,6 +204,22 @@ export default function WidgetsSettings() {
     });
   };
 
+  const handleAddSpacer = async () => {
+    if (!activeSection) return;
+    await addWidget({
+      sectionId: activeSection,
+      title: 'Espacio',
+      widgetType: 'kpi',
+      sourceType: 'native',
+      sourceKey: '__spacer',
+      sources: [],
+      calculation: 'last',
+      config: { size: 'sm', isSpacer: true } as any,
+      hideIfEmpty: false,
+    });
+    showSuccess('Espacio añadido');
+  };
+
   // Resize-by-drag handle. `dir` = 'right' | 'left' | 'bottom' | 'top'.
   // Right/bottom: positive drag → bigger. Left/top: negative drag → bigger.
   const startResizeDrag = (
