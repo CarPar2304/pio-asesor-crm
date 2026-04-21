@@ -332,11 +332,27 @@ export default function WidgetsSettings() {
 
       {/* Canvas */}
       <div className="rounded-xl border border-border bg-card p-4">
-        <div className="flex justify-between items-center mb-3">
+        <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
           <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
             Vista previa del perfil — arrastra para reordenar
           </p>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <span>Cols</span>
+              <Select value={String(gridConfig.cols)} onValueChange={(v) => setGridConfig({ ...gridConfig, cols: Number(v) })}>
+                <SelectTrigger className="h-7 w-14 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[2,3,4,5,6,8].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <span className="ml-1">Fila</span>
+              <Select value={String(gridConfig.rowH)} onValueChange={(v) => setGridConfig({ ...gridConfig, rowH: Number(v) })}>
+                <SelectTrigger className="h-7 w-20 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[60,80,100,120,160,200].map(n => <SelectItem key={n} value={String(n)}>{n}px</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <Button size="sm" variant="outline" onClick={handleAddSpacer} className="gap-1">
               <Plus className="h-3.5 w-3.5" /> Espacio
             </Button>
@@ -351,12 +367,22 @@ export default function WidgetsSettings() {
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={sectionItems.map(w => w.id)} strategy={rectSortingStrategy}>
-              <div ref={gridRef} className="grid grid-cols-4 gap-3">
+              <div
+                ref={gridRef}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${gridConfig.cols}, 1fr)`,
+                  gridAutoRows: `${gridConfig.rowH}px`,
+                  gridAutoFlow: 'dense',
+                  gap: '0.75rem',
+                }}
+              >
                 {sectionItems.map(w => (
                   <SortableWidgetCard
                     key={w.id}
                     widget={w}
                     fields={fields}
+                    gridCols={gridConfig.cols}
                     onEdit={() => openEditor(w)}
                     onDelete={() => handleDelete(w)}
                     onShrink={() => stepSize(w, -1)}
