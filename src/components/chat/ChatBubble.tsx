@@ -7,6 +7,7 @@ import { useChatPersistence } from '@/hooks/useChatPersistence';
 import type { Msg } from '@/hooks/useChatPersistence';
 import { supabase } from '@/integrations/supabase/client';
 import { useCRM } from '@/contexts/CRMContext';
+import { usePortfolio } from '@/contexts/PortfolioContext';
 import ChatMessageList from './ChatMessageList';
 import ConversationList from './ConversationList';
 
@@ -27,6 +28,7 @@ export default function ChatBubble() {
     saveMessage, deleteConversation, startNewChat,
   } = useChatPersistence();
   const { refresh: refreshCRM } = useCRM();
+  const { refresh: refreshPortfolio } = usePortfolio();
   const location = useLocation();
 
   useEffect(() => {
@@ -110,7 +112,7 @@ export default function ChatBubble() {
 
       // If the assistant confirmed any action, refresh CRM data so dashboards (tasks, timeline, pipeline) show it
       if (/[✅⚠️]/.test(assistantSoFar)) {
-        Promise.allSettled([refreshCRM()]).catch(() => {});
+        Promise.allSettled([refreshCRM(), refreshPortfolio()]).catch(() => {});
         window.dispatchEvent(new CustomEvent('company-chat-refresh'));
       }
     } catch (e) {
@@ -158,15 +160,15 @@ export default function ChatBubble() {
   };
 
   useEffect(() => {
-    const onFocus = () => refreshCRM().catch(() => {});
-    const onRefresh = () => refreshCRM().catch(() => {});
+    const onFocus = () => Promise.allSettled([refreshCRM(), refreshPortfolio()]);
+    const onRefresh = () => Promise.allSettled([refreshCRM(), refreshPortfolio()]);
     window.addEventListener('focus', onFocus);
     window.addEventListener('company-chat-refresh', onRefresh as EventListener);
     return () => {
       window.removeEventListener('focus', onFocus);
       window.removeEventListener('company-chat-refresh', onRefresh as EventListener);
     };
-  }, [refreshCRM, location.pathname]);
+  }, [refreshCRM, refreshPortfolio, location.pathname]);
 
   const handleClearChat = () => {
     if (activeConversationId) {
