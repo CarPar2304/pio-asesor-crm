@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Company, CustomField, MetricByYear } from '@/types/crm';
-import { SectionWidget, WidgetSource, NATIVE_FIELDS, SIZE_COL_SPAN, WIDGET_PALETTE } from '@/types/widgets';
+import { SectionWidget, WidgetSource, NATIVE_FIELDS, sizeToColSpan, WIDGET_PALETTE } from '@/types/widgets';
 import { formatSales, formatPercentage, formatUSD } from '@/lib/calculations';
 import { cn } from '@/lib/utils';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, ResponsiveContainer, Tooltip as RTooltip, Legend } from 'recharts';
@@ -10,6 +10,7 @@ interface Props {
   company: Company;
   fields: CustomField[];
   viewCurrency: string;
+  gridCols?: number;
 }
 
 interface Resolved {
