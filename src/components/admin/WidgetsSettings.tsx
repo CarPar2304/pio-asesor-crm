@@ -263,7 +263,7 @@ export default function WidgetsSettings() {
               <WidgetEditor
                 widget={draftWidget as VirtualWidget}
                 fields={fields}
-                sections={sections}
+                
                 onChange={setDraftWidget}
                 onSave={handleSaveDraft}
                 onCancel={closeEditor}
