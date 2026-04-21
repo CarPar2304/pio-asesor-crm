@@ -373,6 +373,26 @@ async function vectorizePipeline(supabase: any, openai: OpenAI, embeddingModel: 
     }
     const content = `${header(parent, "pipeline_snapshot", "main")}\n[CONTENIDO]\n${lines.join("\n")}`;
     chunks.push({ parentId: o.id, chunkType: "pipeline_snapshot", chunkKey: "main", content, metadata: { offer_id: o.id, total: offerEntries.length }, hash: await sha256(content) });
+
+    for (const st of offerStages) {
+      const sEntries = offerEntries.filter((e: any) => e.stage_id === st.id);
+      if (!sEntries.length) continue;
+      const stageLines = sEntries.map((e: any) => {
+        const co = companyMap.get(e.company_id) as any;
+        const ass = e.assigned_to ? (profileMap.get(e.assigned_to) || "") : "";
+        const detail = [co?.trade_name || "?", co?.category, co?.vertical, co?.city].filter(Boolean).join(" · ");
+        return `- ${detail}${ass ? ` · Responsable: ${ass}` : ""}`;
+      });
+      const stageContent = `${header(parent, "pipeline_stage", st.id, { etapa: st.name, total: String(sEntries.length) })}\n[CONTENIDO]\nOferta: ${o.name}\nEtapa: ${st.name}\nEmpresas en esta etapa (${sEntries.length}):\n${stageLines.join("\n")}`;
+      chunks.push({
+        parentId: o.id,
+        chunkType: "pipeline_stage",
+        chunkKey: st.id,
+        content: stageContent,
+        metadata: { offer_id: o.id, stage_id: st.id, stage_name: st.name, total: sEntries.length },
+        hash: await sha256(stageContent),
+      });
+    }
   }
   await skipUnchanged(supabase, "pipeline_embeddings", "offer_id", chunks, force);
   const result = await embedAndUpsert(supabase, openai, embeddingModel, chunks, "pipeline_embeddings", "offer_id");
