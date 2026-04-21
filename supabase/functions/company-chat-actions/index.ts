@@ -452,6 +452,7 @@ async function movePipeline(
     userId,
   );
   fireVectorize(supabaseUrl, anonKey, "pipeline", {});
+  fireVectorize(supabaseUrl, anonKey, "companies", { companyIds: [(company as any).id] });
 
   return envelope("move_pipeline", {
     executed: true,
@@ -461,6 +462,6 @@ async function movePipeline(
       from_stage: oldStage?.name || null,
       to_stage: (stage as any).name,
     },
-    side_effects: ["history:pipeline_move", "vectorize:pipeline"],
+    side_effects: ["history:pipeline_move", "vectorize:pipeline", "vectorize:companies"],
   });
 }
