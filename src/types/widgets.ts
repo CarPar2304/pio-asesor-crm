@@ -22,6 +22,8 @@ export interface WidgetCondition {
 export interface WidgetConfig {
   color?: string;
   size?: WidgetSize;
+  /** Vertical units (1-4). Multiplies the base row height. Default 1. */
+  heightUnits?: number;
   showLegend?: boolean;
   prefix?: string;
   suffix?: string;
@@ -29,6 +31,8 @@ export interface WidgetConfig {
   combine?: 'sum' | 'avg';
   /** Conditional visibility: only render when this condition is satisfied */
   condition?: WidgetCondition;
+  /** Editor-only spacer placeholder; not rendered on the live profile. */
+  isSpacer?: boolean;
 }
 
 export interface SectionWidget {

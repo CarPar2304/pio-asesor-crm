@@ -220,8 +220,8 @@ export default function WidgetsSettings() {
     showSuccess('Espacio añadido');
   };
 
-  // Resize-by-drag handle. `dir` = 'right' | 'left' | 'bottom' | 'top'.
-  // Right/bottom: positive drag → bigger. Left/top: negative drag → bigger.
+  // Resize-by-drag handle. Horizontal drag (left/right) → size (col-span).
+  // Vertical drag (top/bottom) → heightUnits (row-span / min-height).
   const startResizeDrag = (
     w: VirtualWidget,
     e: React.PointerEvent,
@@ -233,35 +233,56 @@ export default function WidgetsSettings() {
     if (!grid) return;
     const startX = e.clientX;
     const startY = e.clientY;
-    const startSizeIdx = SIZE_ORDER.indexOf(w.config.size || 'sm');
-    const colWidth = grid.getBoundingClientRect().width / 4;
     const isVertical = dir === 'top' || dir === 'bottom';
-    const stepPx = isVertical ? 60 : Math.max(40, colWidth);
-    let appliedIdx = startSizeIdx;
+
+    const startSizeIdx = SIZE_ORDER.indexOf(w.config.size || 'sm');
+    const startHeight = Math.max(1, Math.min(4, w.config.heightUnits || 1));
+    const colWidth = grid.getBoundingClientRect().width / 4;
+    const stepPxX = Math.max(40, colWidth);
+    const stepPxY = 70;
+    let appliedSizeIdx = startSizeIdx;
+    let appliedHeight = startHeight;
 
     const move = (ev: PointerEvent) => {
-      const dx = ev.clientX - startX;
-      const dy = ev.clientY - startY;
-      let delta = 0;
-      if (dir === 'right') delta = dx;
-      else if (dir === 'left') delta = -dx;
-      else if (dir === 'bottom') delta = dy;
-      else if (dir === 'top') delta = -dy;
-      const steps = Math.round(delta / stepPx);
-      const nextIdx = Math.max(0, Math.min(SIZE_ORDER.length - 1, startSizeIdx + steps));
-      if (nextIdx !== appliedIdx) {
-        appliedIdx = nextIdx;
-        setLocalOrder(prev => {
-          const list = prev || baseSectionItems;
-          return list.map(x => x.id === w.id ? { ...x, config: { ...x.config, size: SIZE_ORDER[nextIdx] } } : x);
-        });
+      if (isVertical) {
+        const dy = ev.clientY - startY;
+        const delta = dir === 'bottom' ? dy : -dy;
+        const steps = Math.round(delta / stepPxY);
+        const nextHeight = Math.max(1, Math.min(4, startHeight + steps));
+        if (nextHeight !== appliedHeight) {
+          appliedHeight = nextHeight;
+          setLocalOrder(prev => {
+            const list = prev || baseSectionItems;
+            return list.map(x => x.id === w.id ? { ...x, config: { ...x.config, heightUnits: nextHeight } } : x);
+          });
+        }
+      } else {
+        const dx = ev.clientX - startX;
+        const delta = dir === 'right' ? dx : -dx;
+        const steps = Math.round(delta / stepPxX);
+        const nextIdx = Math.max(0, Math.min(SIZE_ORDER.length - 1, startSizeIdx + steps));
+        if (nextIdx !== appliedSizeIdx) {
+          appliedSizeIdx = nextIdx;
+          setLocalOrder(prev => {
+            const list = prev || baseSectionItems;
+            return list.map(x => x.id === w.id ? { ...x, config: { ...x.config, size: SIZE_ORDER[nextIdx] } } : x);
+          });
+        }
       }
     };
     const up = async () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
-      if (appliedIdx !== startSizeIdx) {
-        await setSize(w, SIZE_ORDER[appliedIdx]);
+      if (isVertical) {
+        if (appliedHeight !== startHeight) {
+          const updated = { ...w, config: { ...w.config, heightUnits: appliedHeight } };
+          if (w.__virtual) await materializeWidget(updated);
+          else await updateWidget(updated);
+        }
+      } else {
+        if (appliedSizeIdx !== startSizeIdx) {
+          await setSize(w, SIZE_ORDER[appliedSizeIdx]);
+        }
       }
     };
     window.addEventListener('pointermove', move);
@@ -382,10 +403,12 @@ function SortableWidgetCard({ widget, fields, onEdit, onDelete, onShrink, onExpa
   onResizeStart: (e: React.PointerEvent, dir: 'right' | 'left' | 'bottom' | 'top') => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: widget.id });
+  const heightUnits = Math.max(1, Math.min(4, widget.config.heightUnits || 1));
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+    minHeight: `${heightUnits * 100}px`,
   };
   const Icon = WIDGET_ICONS[widget.widgetType];
   const size = widget.config.size || 'md';

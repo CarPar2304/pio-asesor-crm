@@ -135,6 +135,8 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
 
   const size = widget.config.size || 'md';
   const colSpan = SIZE_COL_SPAN[size];
+  const heightUnits = Math.max(1, Math.min(4, widget.config.heightUnits || 1));
+  const heightStyle: React.CSSProperties | undefined = heightUnits > 1 ? { minHeight: `${heightUnits * 100}px` } : undefined;
   const baseColor = widget.config.color || PIE_COLORS[0];
 
   // Spacer: invisible in the live profile, only used in the editor canvas
@@ -149,7 +151,7 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
   if (resolved.length === 0) {
     if (widget.hideIfEmpty) return null;
     return (
-      <div className={cn(colSpan, 'rounded-lg border border-dashed border-border p-4 text-center')}>
+      <div style={heightStyle} className={cn(colSpan, 'rounded-lg border border-dashed border-border p-4 text-center')}>
         <p className="text-xs text-muted-foreground">Variable no encontrada</p>
       </div>
     );
@@ -194,7 +196,7 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
       }
 
       const display = `${widget.config.prefix || ''}${valueStr}${widget.config.suffix || ''}`;
-      return <div className={colSpan}><PrettyKPI title={title} value={display} trend={trend} color={baseColor} /></div>;
+      return <div style={heightStyle} className={colSpan}><PrettyKPI title={title} value={display} trend={trend} color={baseColor} /></div>;
     }
 
     // Multi-source KPI: combine numeric values
@@ -206,7 +208,7 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
 
     if (values.length === 0) {
       if (widget.hideIfEmpty) return null;
-      return <div className={colSpan}><PrettyKPI title={title} value="—" color={baseColor} /></div>;
+      return <div style={heightStyle} className={colSpan}><PrettyKPI title={title} value="—" color={baseColor} /></div>;
     }
 
     const combine = widget.config.combine || 'sum';
@@ -215,7 +217,7 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
       : values.reduce((a, b) => a + b.value, 0);
     const breakdown = values.map(v => `${v.label}: ${fmt(v.value, v.isUSD)}`).join(' · ');
     const display = `${widget.config.prefix || ''}${fmt(total)}${widget.config.suffix || ''}`;
-    return <div className={colSpan}><PrettyKPI title={title} value={display} color={baseColor} breakdown={breakdown} /></div>;
+    return <div style={heightStyle} className={colSpan}><PrettyKPI title={title} value={display} color={baseColor} breakdown={breakdown} /></div>;
   }
 
   // ============ Charts (multi-series) ============
@@ -233,7 +235,7 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
     if (series.length === 0) {
       if (widget.hideIfEmpty) return null;
       return (
-        <div className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
+        <div style={heightStyle} className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
           <p className="text-xs font-medium text-muted-foreground mb-2">{title}</p>
           <p className="text-xs text-muted-foreground">Sin datos por año</p>
         </div>
@@ -253,7 +255,7 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
     });
 
     return (
-      <div className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
+      <div style={heightStyle} className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
         <p className="text-xs font-medium text-muted-foreground mb-3">{title}</p>
         <ResponsiveContainer width="100%" height={200}>
           {widget.widgetType === 'bar' ? (
@@ -299,14 +301,14 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
     if (data.length === 0) {
       if (widget.hideIfEmpty) return null;
       return (
-        <div className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
+        <div style={heightStyle} className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
           <p className="text-xs font-medium text-muted-foreground mb-2">{title}</p>
           <p className="text-xs text-muted-foreground">Sin datos para graficar</p>
         </div>
       );
     }
     return (
-      <div className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
+      <div style={heightStyle} className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
         <p className="text-xs font-medium text-muted-foreground mb-3">{title}</p>
         <ResponsiveContainer width="100%" height={220}>
           <PieChart>
@@ -339,7 +341,7 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
     if (years.length === 0) {
       // Single non-year value table
       return (
-        <div className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
+        <div style={heightStyle} className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
           <p className="text-xs font-medium text-muted-foreground mb-3">{title}</p>
           <div className="space-y-1">
             {series.map((s, i) => {
@@ -357,7 +359,7 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
     }
 
     return (
-      <div className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4 overflow-x-auto')}>
+      <div style={heightStyle} className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4 overflow-x-auto')}>
         <p className="text-xs font-medium text-muted-foreground mb-3">{title}</p>
         <table className="w-full text-xs">
           <thead>
