@@ -518,10 +518,10 @@ function SortableWidgetCard({ widget, fields, gridCols, onEdit, onDelete, onShri
           Espacio
         </div>
       ) : (
-      <div onClick={onEdit} className="cursor-pointer pt-3">
-        <div className="flex items-center gap-1.5 mb-1">
+      <div onClick={onEdit} className="cursor-pointer pt-3 min-w-0 overflow-hidden">
+        <div className="flex items-center gap-1.5 mb-1 min-w-0">
           <Icon className="h-3 w-3 text-primary shrink-0" />
-          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground truncate">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground truncate min-w-0">
             {WIDGET_TYPE_LABELS[widget.widgetType]}
           </span>
         </div>
@@ -529,11 +529,11 @@ function SortableWidgetCard({ widget, fields, gridCols, onEdit, onDelete, onShri
         <p className="text-[10px] text-muted-foreground truncate mt-0.5">
           {sourceCount > 1 ? `${sourceCount} variables` : (sourceLabel || '—')}
         </p>
-        <div className="flex items-center gap-1 mt-2 flex-wrap">
-          <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{size}</span>
-          {widget.__virtual && <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground italic">auto</span>}
-          {widget.hideIfEmpty && <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">oculta vacío</span>}
-          {hasCondition && <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">condicional</span>}
+        <div className="flex items-center gap-1 mt-2 flex-wrap min-w-0 max-w-full">
+          <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground whitespace-nowrap">{size}</span>
+          {widget.__virtual && <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground italic whitespace-nowrap">auto</span>}
+          {widget.hideIfEmpty && <span className="text-[9px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground whitespace-nowrap">oculta vacío</span>}
+          {hasCondition && <span className="text-[9px] px-1.5 py-0.5 rounded bg-primary/10 text-primary whitespace-nowrap">condicional</span>}
         </div>
       </div>
       )}
