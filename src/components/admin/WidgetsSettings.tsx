@@ -356,7 +356,8 @@ export default function WidgetsSettings() {
 // =============== Sortable card ===============
 function SortableWidgetCard({ widget, fields, onEdit, onDelete, onShrink, onExpand, onResizeStart }: {
   widget: VirtualWidget; fields: any[]; onEdit: () => void; onDelete: () => void;
-  onShrink: () => void; onExpand: () => void; onResizeStart: (e: React.PointerEvent) => void;
+  onShrink: () => void; onExpand: () => void;
+  onResizeStart: (e: React.PointerEvent, dir: 'right' | 'left' | 'bottom' | 'top') => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: widget.id });
   const style: React.CSSProperties = {
