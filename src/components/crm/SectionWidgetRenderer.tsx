@@ -208,7 +208,7 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
 
     if (values.length === 0) {
       if (widget.hideIfEmpty) return null;
-      return <div className={colSpan}><PrettyKPI title={title} value="—" color={baseColor} /></div>;
+      return <div style={heightStyle} className={colSpan}><PrettyKPI title={title} value="—" color={baseColor} /></div>;
     }
 
     const combine = widget.config.combine || 'sum';
