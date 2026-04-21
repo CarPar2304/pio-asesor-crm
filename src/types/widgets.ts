@@ -1,0 +1,71 @@
+export type WidgetType = 'kpi' | 'bar' | 'line' | 'pie' | 'table';
+export type WidgetCalculation = 'last' | 'sum' | 'avg' | 'max' | 'min' | 'yoy' | 'count';
+export type WidgetSourceType = 'custom_field' | 'native';
+export type WidgetSize = 'sm' | 'md' | 'lg' | 'full';
+
+export interface WidgetConfig {
+  color?: string;
+  size?: WidgetSize;
+  showLegend?: boolean;
+  prefix?: string;
+  suffix?: string;
+}
+
+export interface SectionWidget {
+  id: string;
+  sectionId: string;
+  title: string;
+  widgetType: WidgetType;
+  sourceType: WidgetSourceType;
+  sourceKey: string; // custom_field id OR native key
+  calculation: WidgetCalculation;
+  config: WidgetConfig;
+  displayOrder: number;
+}
+
+export const WIDGET_TYPE_LABELS: Record<WidgetType, string> = {
+  kpi: 'KPI Card',
+  bar: 'Gráfica de barras',
+  line: 'Gráfica de líneas',
+  pie: 'Gráfica de torta',
+  table: 'Tabla resumen',
+};
+
+export const CALCULATION_LABELS: Record<WidgetCalculation, string> = {
+  last: 'Último valor',
+  sum: 'Suma total',
+  avg: 'Promedio',
+  max: 'Máximo',
+  min: 'Mínimo',
+  yoy: 'Variación YoY (%)',
+  count: 'Conteo',
+};
+
+export const SIZE_LABELS: Record<WidgetSize, string> = {
+  sm: 'Pequeño (1/4)',
+  md: 'Mediano (1/2)',
+  lg: 'Grande (3/4)',
+  full: 'Completo',
+};
+
+export const SIZE_COL_SPAN: Record<WidgetSize, string> = {
+  sm: 'col-span-1',
+  md: 'col-span-2',
+  lg: 'col-span-3',
+  full: 'col-span-4',
+};
+
+// Native fields available as widget sources
+export interface NativeFieldOption {
+  key: string;
+  label: string;
+  type: 'metric_by_year' | 'number' | 'select' | 'text';
+}
+
+export const NATIVE_FIELDS: NativeFieldOption[] = [
+  { key: 'salesByYear', label: 'Ventas por año', type: 'metric_by_year' },
+  { key: 'exportsUSD', label: 'Exportaciones (USD)', type: 'number' },
+  { key: 'vertical', label: 'Vertical', type: 'select' },
+  { key: 'city', label: 'Ciudad', type: 'select' },
+  { key: 'category', label: 'Categoría', type: 'select' },
+];
