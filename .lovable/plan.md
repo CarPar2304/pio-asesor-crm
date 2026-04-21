@@ -1,196 +1,76 @@
 
 
-# Company Chat v4 — Acciones reales, no solo consulta
+# Company Chat v5 — Cobertura completa de Portfolio y resolución difusa de ofertas
 
-Mantengo intacta la arquitectura actual (router 4 caminos, jerarquía de verdad, formato fijo `hybrid`, tools de lectura, panel de salud). Le agrego una capa de **acciones ejecutables** sin duplicar lógica de negocio.
+## Problema detectado
 
----
+Caso real reproducido: el usuario pregunta por la oferta **"Venezuela Tech Week"**. En la BD existe como **"Venzuela Tech Week"** (typo real). El asistente responde "0 empresas en la oferta", técnicamente cierto pero **engañoso**: nunca verifica si la oferta existe, no detecta el typo, no sugiere la oferta similar.
 
-## 1. Principio de no duplicación
+Causas raíz:
+1. **No existe ninguna tool sobre `portfolio_offers`** (find/list/get). El modelo no puede resolver nombres difusos de oferta ni listar el catálogo.
+2. **Filtros con `ilike '%X%'`** sobre nombre de oferta no toleran typos.
+3. **"Lista las ofertas"** cae en `list_companies` porque no hay alternativa.
 
-Toda acción del CRM ya está implementada en el frontend (`CRMContext`, `PortfolioContext`) e incluye efectos colaterales críticos:
-
-| Acción | Lógica actual incluye |
-|---|---|
-| Crear tarea | insert + notificación al asignado + `triggerVectorize` + `logHistory('task_created')` |
-| Cerrar tarea | update status=completed + `triggerVectorize` + `logHistory('task_completed')` |
-| Crear hito | insert + `logHistory('milestone')` |
-| Registrar acción (call/meeting) | insert + `logHistory('action')` |
-| Mover en pipeline | update stage_id + `triggerVectorize('pipeline')` + `logHistory('pipeline_move')` |
-
-**Regla**: el chat NO replica esta lógica en SQL crudo. Se centraliza en una **edge function única `company-chat-actions`** que reproduce exactamente la misma secuencia (insert + notificación + history + vectorize), garantizando que el resultado sea **indistinguible** de hacerlo desde la UI.
-
-Esto evita: timelines inconsistentes, embeddings desactualizados, notificaciones perdidas, tareas que no aparecen en `get_overdue_tasks`.
+Lo que SÍ funciona y se mantiene intacto:
+- Conteos por ciudad, perfil de empresa, contactos, pipeline state, tareas vencidas, timeline, semantic search.
+- Formato fijo hybrid, jerarquía de verdad, router 4 caminos, action tools.
+- Modelo `gpt-5.4-mini` con OpenAI directa (no Lovable AI). Reasoning lo aplica el modelo a su nivel por defecto al combinar con tools en `chat.completions`.
 
 ---
 
-## 2. Router ampliado — 4 modos de operación
+## Cambios
 
-El `chat-router` actual clasifica `exact | semantic | hybrid | clarify`. Lo extiendo con un **eje ortogonal de operación**:
+### 1. Nuevas read-tools de Portfolio en `company-chat`
 
-```json
-{
-  "operation": "query | action | mixed | clarify",
-  "path": "exact | semantic | hybrid | clarify",   // solo aplica si operation incluye query
-  "intent": "...",
-  "actions_intent": [
-    { "kind": "create_task | complete_task | create_milestone | log_action | move_pipeline",
-      "confidence": 0.0-1.0,
-      "missing_fields": [] }
-  ],
-  "entities": { ... },
-  "evidence_level": "...",
-  "clarification_question": null,
-  "rewritten_query": "..."
-}
-```
+- **`find_offer_by_name(name, limit?)`** — resolución fuzzy de ofertas usando `pg_trgm` (mismo patrón que `find_company_by_name`). Devuelve `ambiguity` si hay varios candidatos cercanos o `low_confidence` si el mejor match < 0.4. Con esto, "Venezuela Tech Week" resuelve a "Venzuela Tech Week" como sugerencia.
+- **`list_offers(status?, product?, limit?)`** — lista ofertas del portfolio con filtros opcionales.
+- **`get_offer_summary(offer_id)`** — devuelve la oferta + sus etapas (`pipeline_stages`) + conteo de empresas inscritas. Útil para "qué empresas están en X oferta y en qué etapa".
 
-| operation | Cuándo | Comportamiento |
-|---|---|---|
-| `query` | Solo pregunta. | Igual que hoy. |
-| `action` | Solo ejecuta. | Resuelve entidades → confirma si falta algo → ejecuta vía `company-chat-actions` → confirma con tag `[Ejecutado]`. |
-| `mixed` | Pregunta + ejecuta en un mismo turno. | Primero query (formato fijo hybrid si aplica), luego acción, luego confirmación. |
-| `clarify` | Ambigüedad fuerte (empresa, etapa, fecha, o consulta vs acción). | Pregunta antes de ejecutar. Nunca actúa. |
+### 2. Migración SQL — RPC fuzzy de ofertas
 
-**Disparadores típicos** (el LLM del router los detecta, no regex):
-- Verbos imperativos: *crea, agrega, mueve, pasa, marca, cierra, registra, anota*.
-- Frases híbridas: *"qué pasó con X y créame una tarea para retomar"*.
+Crear `public.find_offer_by_name(_name text, _limit int)` análogo al de empresas (usa `name % _name` con `similarity()` ordenado desc, `search_path=public`).
 
----
+### 3. Reglas adicionales en system prompt de `company-chat`
 
-## 3. Catálogo de action-tools (nuevas)
+- Si el usuario menciona un nombre de oferta:
+  - **SIEMPRE** primero `find_offer_by_name`. Si `ambiguity` → preguntar al usuario cuál es. NO ejecutar `list_companies(offer=...)` con el string crudo.
+- Si la pregunta es "qué ofertas tenemos / lista las ofertas / catálogo" → usar `list_offers`, NUNCA `list_companies`.
+- Cuando `list_companies` reciba `offer`, internamente preferir `offer_id` (resuelto por `find_offer_by_name`) en vez de string fuzzy.
 
-Mismo contrato de envoltura que las tools de lectura, pero con `mutation: true`:
+### 4. `list_companies` y `count_companies` — aceptar `offer_id`
 
-```json
-{
-  "tool": "create_task",
-  "mutation": true,
-  "executed": true,
-  "result": { "task_id": "...", "company_id": "...", "title": "...", "due_date": "..." },
-  "side_effects": ["history:task_created", "vectorize:companies", "notification:user_xyz"],
-  "warnings": [],
-  "ambiguity": null,
-  "timestamp": "ISO"
-}
-```
+Ampliar parámetros: si llega `offer_id`, filtrar por `pipeline_entries.offer_id` directo (exact); si llega `offer` (string), seguir usando `ilike` como hoy (compatibilidad).
 
-| Tool | Reutiliza | Inputs mínimos | Validaciones |
-|---|---|---|---|
-| `create_task` | `CRMContext.addTask` | `company_id`, `title`, `due_date` | empresa existe; due_date válido; `assigned_to` opcional resuelto por nombre |
-| `complete_task` | `CRMContext.updateTask({status:'completed'})` | `task_id` o (`company_id` + match por título) | tarea existe, no completada ya |
-| `create_milestone` | `CRMContext.addMilestone` | `company_id`, `type`, `title`, `date` | type ∈ enum válido |
-| `log_action` | `CRMContext.addAction` | `company_id`, `type` (call/meeting/...), `description`, `date` | type ∈ enum válido |
-| `move_pipeline` | `PortfolioContext.moveCompanyToStage` | `company_id` + `offer_id` (resolver entry_id), `target_stage_id` (resolver por nombre) | la empresa está en esa oferta; etapa pertenece a la oferta |
+### 5. Router (`chat-router`) — nuevo intent
 
-Cada executor llama a la edge function `company-chat-actions` que hace **exactamente** la misma secuencia que el contexto del frontend (inserts + `company_history` + `notifications` + invocación a `vectorize-companies`/`vectorize-pipeline`).
+Agregar `intent: "catalogo_ofertas"` al enum y mejor detección: cuando el usuario diga "ofertas / portfolio / programas / convocatorias", marcar `intent=catalogo_ofertas` y `path=exact`.
+
+### 6. Pruebas end-to-end (curl) que deben pasar
+
+1. "¿Cuántas empresas hay en Cali?" → conteo exacto. ✓ (ya funciona)
+2. "Dame el perfil de TuCash" → formato fijo con datos. ✓ (ya funciona)
+3. **"Hay una oferta que se llama Venezuela Tech Week"** → debe sugerir "¿Te refieres a *Venzuela Tech Week*?" (fuzzy match).
+4. **"Lista las ofertas"** → tabla con ofertas del portfolio (no empresas).
+5. **"Qué empresas están en Venzuela Tech Week"** → resuelve oferta exacta → cuenta/lista empresas inscritas con su etapa.
+6. "¿Cuántas tareas vencidas hay?" → conteo desde `get_overdue_tasks`.
+7. "Cuéntame la historia de TuCash" → timeline + formato hybrid.
+8. **Empresa inexistente "Acme XYZ"** → caso A "no encontré".
+9. **Empresa ambigua "Tech"** → caso B con candidatos.
 
 ---
 
-## 4. Reglas de comportamiento del LLM (system prompt extendido)
+## Archivos tocados
 
-Se añaden estas reglas al prompt actual, sin tocar las existentes:
-
-1. **Distinguir consulta vs acción**: si `operation = query`, prohibido llamar action-tools. Si `operation = action`, solo se llama una tool de lectura para **resolver IDs** (ej. `find_company_by_name`), nunca para componer una respuesta narrativa.
-2. **Confirmación implícita vs explícita**: 
-   - Acciones de bajo riesgo (`create_task`, `log_action`, `create_milestone`) → ejecutar directo si no hay ambigüedad.
-   - Acciones de alto impacto (`move_pipeline`, `complete_task`) → si el router marca `confidence < 0.8` o falta cualquier `missing_field`, **preguntar primero** ("¿Confirmas mover *Acme* de **Diagnóstico** a **Negociación** en la oferta *Aceleración 2026*?").
-3. **Resolución de entidades antes de actuar**: empresa, etapa, oferta, asignado deben pasar por `find_company_by_name` / lookup de taxonomía. Si hay `ambiguity`, no ejecutar — devolver lista y preguntar.
-4. **Datos mínimos faltantes**: si falta `due_date` en una tarea, o `target_stage_id` en un movimiento, preguntar (no inventar fechas como "mañana" sin que el usuario lo diga).
-5. **Trazabilidad obligatoria en respuesta**: toda acción ejecutada se cierra con un bloque:
-   ```
-   ### Acciones ejecutadas
-   - ✅ [Ejecutado] Tarea creada: "Llamar a Juan" para Acme S.A.S. — vence 2026-04-25 — asignada a ti.
-   - ✅ [Ejecutado] Acme S.A.S. movida a Negociación en Aceleración 2026.
-   ```
-   y termina con `Nivel de evidencia` como hoy.
-6. **Modo mixed**: el formato es `query block` (con su formato fijo si es hybrid) + separador + `### Acciones ejecutadas`.
-7. **Si una acción falla** (RLS, validación, conflicto): declarar el error, no esconderlo, no re-intentar silenciosamente.
+- `supabase/functions/company-chat/index.ts` — agregar 3 tools de portfolio + ejecutores + reglas en prompt + soporte `offer_id` en list/count.
+- `supabase/functions/chat-router/index.ts` — nuevo intent `catalogo_ofertas`.
+- Nueva migración SQL — RPC `find_offer_by_name` + índice `gin (name gin_trgm_ops)` en `portfolio_offers` si no existe.
+- (No tocar) `ChatSettings.tsx`, modelo y reasoning ya configurados.
 
 ---
 
-## 5. Garantías de consistencia inmediata
+## Out of scope
 
-Para que `"¿en qué etapa está Acme?"` justo después de `"pásala a negociación"` devuelva el dato nuevo:
-
-- La edge function `company-chat-actions` hace los inserts/updates **y espera confirmación** antes de responder al chat.
-- `company-chat` siempre lee con queries frescas (no hay caché propio: cada turno consulta tablas).
-- El frontend (`ChatBubble`) ya recarga `CRMContext.refresh()` y `PortfolioContext` al detectar `side_effects` en la respuesta del chat → invalida los datos en la UI sin recargar la página.
-- `triggerVectorize` se dispara para que las consultas semánticas posteriores también reflejen el cambio (con el sistema de hash incremental ya en producción, esto es barato).
-
----
-
-## 6. Trazabilidad obligatoria
-
-Toda mutación pasa por `logHistory()` (tabla `company_history`) con el mismo `event_type` que usa la UI:
-- `task_created`, `task_completed`, `milestone`, `action`, `pipeline_move`.
-
-Adicionalmente, la tabla `chat_retrieval_logs` (ya existente) se extiende con dos campos:
-- `actions_executed jsonb` — lista de tools de mutación ejecutadas con sus IDs resultantes.
-- `actions_failed jsonb` — fallidas con motivo.
-
-Esto permite al admin auditar desde el `ChatHealthPanel` qué hace el chat, no solo qué responde.
-
----
-
-## 7. No regresión — qué NO se toca
-
-- Tools de lectura existentes (9 tools): sin cambios.
-- Formato fijo hybrid, política de vacío (4 casos), jerarquía de verdad: intactos.
-- UI del chat (`ChatBubble`, `ChatMessageList`, persistencia, streaming): sin cambios funcionales; solo añade refetch tras `side_effects`.
-- Panel admin de prompt y modelo: intacto.
-- `chat-router` actual: extendido (campos nuevos), no reemplazado. Si el router falla devolviendo los nuevos campos, el chat opera en modo `query` puro como hoy (fallback seguro).
-
----
-
-## 8. Manejo de ambigüedad — matriz de decisión
-
-| Situación | Decisión |
-|---|---|
-| Empresa no resuelta o ambigua (`find_company_by_name.ambiguity`) | Pedir aclaración con candidatos. No ejecutar. |
-| Etapa destino no existe en la oferta | Listar etapas válidas de esa oferta y preguntar. |
-| Empresa no está en la oferta mencionada | Decirlo y ofrecer agregarla (acción explícita aparte). |
-| Tarea a cerrar: múltiples coinciden por título | Listar y preguntar cuál. |
-| Falta `due_date` en `create_task` | Preguntar fecha. No asumir "mañana". |
-| Mensaje borderline ("¿le creo una tarea?" como pregunta) | `clarify` con: "¿Quieres que la cree ahora?" |
-| Mensaje compuesto sin separador claro | Tratar como `mixed` solo si ambas partes son inequívocas; si no, `clarify`. |
-
----
-
-## 9. Mesa de pruebas — 9 escenarios mínimos
-
-| # | Mensaje | operation | path | Tools | Respuesta esperada |
-|---|---|---|---|---|---|
-| 1 | "¿Qué tareas tiene Acme?" | query | exact | `find_company_by_name` → `get_overdue_tasks(company_id)` + lectura tareas | Lista de tareas. Sin acciones. |
-| 2 | "Créame una tarea para llamar a Acme mañana" | action | — | `find_company_by_name` → `create_task` | "✅ Tarea creada: 'Llamar a Acme' — vence 2026-04-21." |
-| 3 | "Pasa a Acme a negociación" (única oferta donde está) | action | — | `find_company_by_name` → `get_pipeline_state` (resuelve entry+oferta) → `move_pipeline` | "✅ Acme movida de **Diagnóstico** a **Negociación** en Aceleración 2026." |
-| 4 | "Pasa a Acme a negociación" (en 2 ofertas distintas) | clarify | — | `find_company_by_name` → `get_pipeline_state` → ambiguity | "Acme está en 2 ofertas. ¿En cuál? - Aceleración 2026 - Mentoría Q2" |
-| 5 | "¿En qué etapa va Acme?" | query | exact | `find_company_by_name` → `get_pipeline_state` | Estado actual con [Pipeline]. |
-| 6 | "Muévela a diagnóstico y deja una nota de seguimiento" | action (compuesta) | — | `move_pipeline` + `log_action(type=other, description=nota)` | 2 líneas en `### Acciones ejecutadas`. |
-| 7 | "Qué ha pasado con Acme y crea una tarea para retomar contacto" | mixed | hybrid | `get_company_timeline` + `search_semantic` (consulta) → `create_task` (acción) | Bloque hybrid completo + `### Acciones ejecutadas`. |
-| 8 | "Marca como hecha la tarea de la propuesta de Acme" (varias coinciden) | clarify | — | `find_company_by_name` → buscar tareas con "propuesta" → ambiguity | Lista de tareas candidatas y pregunta cuál. |
-| 9 | "Registra que tuvimos una reunión con el CEO de Acme ayer" | action | — | `find_company_by_name` → `log_action(type=meeting, date=ayer)` | "✅ Reunión registrada para Acme — 2026-04-19." |
-
-Después de #2, ejecutar #1 debe mostrar la tarea recién creada. Después de #3, ejecutar #5 debe mostrar **Negociación**. Esto es la prueba de consistencia inmediata.
-
----
-
-## 10. Orden de ejecución
-
-1. **Extender `chat-router`**: agregar `operation` y `actions_intent` al tool schema. Sin romper consumidores actuales (campos opcionales con defaults).
-2. **Crear edge function `company-chat-actions`**: 5 endpoints internos (create_task, complete_task, create_milestone, log_action, move_pipeline) que replican exactamente la secuencia de `CRMContext`/`PortfolioContext`. Validación con Zod. Auth por JWT del usuario que invoca el chat.
-3. **Extender `company-chat`**: registrar las 5 nuevas tools, agregar reglas al system prompt, ramificar ejecución según `operation`, componer bloque `### Acciones ejecutadas`, escribir `actions_executed` en `chat_retrieval_logs`.
-4. **Frontend `ChatBubble`**: detectar `side_effects` o `actions_executed` en la respuesta y disparar `CRMContext.refresh()` + `PortfolioContext.refresh()` para que la UI refleje el cambio sin recargar.
-5. **Migración mínima de DB**: agregar `actions_executed jsonb`, `actions_failed jsonb` a `chat_retrieval_logs`. Sin más cambios de schema.
-6. **Panel `ChatHealthPanel`**: nueva pestaña "Acciones" con conteo por tipo, tasa de éxito y últimas 50 acciones ejecutadas.
-7. **Pruebas end-to-end** de los 9 escenarios.
-
----
-
-## Out of scope (para próximas iteraciones)
-
-- Acciones destructivas (`delete_task`, `delete_company`, `remove_pipeline_entry`).
-- Edición masiva (mover varias empresas en un turno).
-- Crear contactos / empresas nuevas desde chat.
-- Asignación inteligente por carga de trabajo.
+- No se cambia el modelo (`gpt-5.4-mini` se queda — funciona y es rápido).
+- No se cambia la conexión a OpenAI (sigue directo con `OPENAI_API_KEY`, sin Lovable AI).
+- No se agregan tools sobre Aliados ni Notas del pipeline (siguiente iteración si se necesita).
 
