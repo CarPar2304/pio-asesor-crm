@@ -1898,6 +1898,16 @@ export type Database = {
           trade_name: string
         }[]
       }
+      find_offer_by_name: {
+        Args: { _limit?: number; _name: string }
+        Returns: {
+          id: string
+          name: string
+          product: string
+          similarity: number
+          status: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

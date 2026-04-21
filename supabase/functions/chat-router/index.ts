@@ -72,7 +72,7 @@ const TOOL = {
           enum: [
             "perfil_empresa", "contacto", "estado_comercial", "tareas_pendientes",
             "historial_seguimiento", "listado_filtrado", "conteo", "comparacion",
-            "resumen_ejecutivo", "otro",
+            "resumen_ejecutivo", "catalogo_ofertas", "otro",
           ],
         },
         actions_intent: {
