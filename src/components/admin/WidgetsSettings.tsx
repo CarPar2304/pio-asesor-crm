@@ -23,6 +23,8 @@ import {
   SortableContext, useSortable, arrayMove, rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useWidgetGridConfig } from '@/hooks/useWidgetGridConfig';
+import { sizeToColSpan } from '@/types/widgets';
 
 const WIDGET_ICONS: Record<WidgetType, any> = {
   kpi: Sparkles, bar: BarChart3, line: LineChart, pie: PieChart, table: TableIcon,
@@ -58,6 +60,7 @@ export default function WidgetsSettings() {
   const [draftWidget, setDraftWidget] = useState<Partial<VirtualWidget> | null>(null);
   const [localOrder, setLocalOrder] = useState<VirtualWidget[] | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  const { config: gridConfig, setConfig: setGridConfig } = useWidgetGridConfig(activeSection);
 
   useEffect(() => {
     if (!activeSection && sections.length > 0) setActiveSection(sections[0].id);
@@ -236,10 +239,10 @@ export default function WidgetsSettings() {
     const isVertical = dir === 'top' || dir === 'bottom';
 
     const startSizeIdx = SIZE_ORDER.indexOf(w.config.size || 'sm');
-    const startHeight = Math.max(1, Math.min(4, w.config.heightUnits || 1));
-    const colWidth = grid.getBoundingClientRect().width / 4;
+    const startHeight = Math.max(1, Math.min(8, w.config.heightUnits || 1));
+    const colWidth = grid.getBoundingClientRect().width / gridConfig.cols;
     const stepPxX = Math.max(40, colWidth);
-    const stepPxY = 70;
+    const stepPxY = Math.max(40, gridConfig.rowH);
     let appliedSizeIdx = startSizeIdx;
     let appliedHeight = startHeight;
 
@@ -248,7 +251,7 @@ export default function WidgetsSettings() {
         const dy = ev.clientY - startY;
         const delta = dir === 'bottom' ? dy : -dy;
         const steps = Math.round(delta / stepPxY);
-        const nextHeight = Math.max(1, Math.min(4, startHeight + steps));
+        const nextHeight = Math.max(1, Math.min(8, startHeight + steps));
         if (nextHeight !== appliedHeight) {
           appliedHeight = nextHeight;
           setLocalOrder(prev => {
@@ -329,11 +332,27 @@ export default function WidgetsSettings() {
 
       {/* Canvas */}
       <div className="rounded-xl border border-border bg-card p-4">
-        <div className="flex justify-between items-center mb-3">
+        <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
           <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
             Vista previa del perfil — arrastra para reordenar
           </p>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <span>Cols</span>
+              <Select value={String(gridConfig.cols)} onValueChange={(v) => setGridConfig({ ...gridConfig, cols: Number(v) })}>
+                <SelectTrigger className="h-7 w-14 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[2,3,4,5,6,8].map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <span className="ml-1">Fila</span>
+              <Select value={String(gridConfig.rowH)} onValueChange={(v) => setGridConfig({ ...gridConfig, rowH: Number(v) })}>
+                <SelectTrigger className="h-7 w-20 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {[60,80,100,120,160,200].map(n => <SelectItem key={n} value={String(n)}>{n}px</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <Button size="sm" variant="outline" onClick={handleAddSpacer} className="gap-1">
               <Plus className="h-3.5 w-3.5" /> Espacio
             </Button>
@@ -348,12 +367,22 @@ export default function WidgetsSettings() {
         ) : (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={sectionItems.map(w => w.id)} strategy={rectSortingStrategy}>
-              <div ref={gridRef} className="grid grid-cols-4 gap-3">
+              <div
+                ref={gridRef}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${gridConfig.cols}, 1fr)`,
+                  gridAutoRows: `${gridConfig.rowH}px`,
+                  gridAutoFlow: 'dense',
+                  gap: '0.75rem',
+                }}
+              >
                 {sectionItems.map(w => (
                   <SortableWidgetCard
                     key={w.id}
                     widget={w}
                     fields={fields}
+                    gridCols={gridConfig.cols}
                     onEdit={() => openEditor(w)}
                     onDelete={() => handleDelete(w)}
                     onShrink={() => stepSize(w, -1)}
@@ -397,22 +426,23 @@ export default function WidgetsSettings() {
 }
 
 // =============== Sortable card ===============
-function SortableWidgetCard({ widget, fields, onEdit, onDelete, onShrink, onExpand, onResizeStart }: {
-  widget: VirtualWidget; fields: any[]; onEdit: () => void; onDelete: () => void;
+function SortableWidgetCard({ widget, fields, gridCols, onEdit, onDelete, onShrink, onExpand, onResizeStart }: {
+  widget: VirtualWidget; fields: any[]; gridCols: number; onEdit: () => void; onDelete: () => void;
   onShrink: () => void; onExpand: () => void;
   onResizeStart: (e: React.PointerEvent, dir: 'right' | 'left' | 'bottom' | 'top') => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: widget.id });
-  const heightUnits = Math.max(1, Math.min(4, widget.config.heightUnits || 1));
+  const heightUnits = Math.max(1, Math.min(8, widget.config.heightUnits || 1));
+  const size = widget.config.size || 'md';
+  const colSpanN = sizeToColSpan(size, gridCols);
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-    minHeight: `${heightUnits * 100}px`,
+    gridColumn: `span ${colSpanN}`,
+    gridRow: `span ${heightUnits}`,
   };
   const Icon = WIDGET_ICONS[widget.widgetType];
-  const size = widget.config.size || 'md';
-  const colSpan = SIZE_COL_SPAN[size];
   const sizeIdx = SIZE_ORDER.indexOf(size);
   const canShrink = sizeIdx > 0;
   const canExpand = sizeIdx < SIZE_ORDER.length - 1;
@@ -430,10 +460,9 @@ function SortableWidgetCard({ widget, fields, onEdit, onDelete, onShrink, onExpa
       ref={setNodeRef}
       style={style}
       className={cn(
-        colSpan,
         'group relative rounded-lg border-2 transition-colors',
         isSpacer
-          ? 'border-dashed border-border/40 bg-muted/30 min-h-[80px]'
+          ? 'border-dashed border-border/40 bg-muted/30'
           : cn('bg-card p-3', widget.__virtual ? 'border-dashed border-border/50' : 'border-border/70'),
         'hover:border-primary/50'
       )}

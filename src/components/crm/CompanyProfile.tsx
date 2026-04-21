@@ -22,6 +22,7 @@ import AddToPipelineDialog from '@/components/portfolio/AddToPipelineDialog';
 import CompanyPipelineNotes from './CompanyPipelineNotes';
 import SectionWidgetRenderer from './SectionWidgetRenderer';
 import { useWidgets } from '@/contexts/WidgetsContext';
+import { useWidgetGridConfig } from '@/hooks/useWidgetGridConfig';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -337,6 +338,9 @@ function UnsectionedFieldsTab({ fields, getFieldValueDisplay }: { company: Compa
 }
 
 function SectionFieldsTab({ company, sectionFields, sectionWidgets, allFields, viewCurrency }: { company: Company; sectionFields: any[]; sectionWidgets: any[]; allFields: any[]; viewCurrency: string; getFieldValueDisplay: (id: string) => string | null }) {
+  const sectionId = sectionFields[0]?.sectionId || sectionWidgets[0]?.sectionId || null;
+  const { config: gridConfig } = useWidgetGridConfig(sectionId);
+
   // Auto-generate virtual widgets for fields not already covered by configured widgets
   const covered = new Set<string>();
   sectionWidgets.forEach((w: any) => {
@@ -366,10 +370,18 @@ function SectionFieldsTab({ company, sectionFields, sectionWidgets, allFields, v
     return <p className="text-xs text-muted-foreground">Sin widgets ni campos en esta sección.</p>;
   }
 
+  const gridStyle: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: `repeat(${gridConfig.cols}, 1fr)`,
+    gridAutoRows: `${gridConfig.rowH}px`,
+    gridAutoFlow: 'dense',
+    gap: '0.75rem',
+  };
+
   return (
-    <div className="grid grid-cols-4 gap-3">
+    <div style={gridStyle}>
       {allWidgets.map(w => (
-        <SectionWidgetRenderer key={w.id} widget={w as any} company={company} fields={allFields} viewCurrency={viewCurrency} />
+        <SectionWidgetRenderer key={w.id} widget={w as any} company={company} fields={allFields} viewCurrency={viewCurrency} gridCols={gridConfig.cols} />
       ))}
     </div>
   );
