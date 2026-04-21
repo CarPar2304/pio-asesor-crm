@@ -1,23 +1,19 @@
 // ============================================================
-// company-chat-actions — Centralized mutation executor for chat
+// company-chat-actions — Centralized mutation executor for chat (v7)
 // ============================================================
-// Replicates EXACTLY the same secuence used by CRMContext /
-// PortfolioContext on the frontend, so a chat-driven action is
-// indistinguishable from a UI-driven one:
+// All actions accept entity NAMES (company_name, offer_name,
+// target_stage_name, task_title) as strings. Resolution to UUIDs
+// happens server-side via fuzzy RPCs (find_company_by_name,
+// find_offer_by_name) and tolerant SQL lookups for stages/tasks.
+// On ambiguity / not found → returns executed:false with a clear
+// human-readable error and candidate list, so the model can ask
+// or correct without guessing.
+//
+// Side effects mirror the manual UI flow:
 //   - DB write
 //   - notifications (when applicable)
 //   - company_history insert (logHistory equivalent)
 //   - vectorize trigger (fire-and-forget)
-//
-// Exposed actions:
-//   - create_task
-//   - complete_task
-//   - create_milestone
-//   - log_action
-//   - move_pipeline
-//
-// Auth: validates the caller JWT, runs DB writes with the user's
-// own auth context (so RLS applies the same way as in the UI).
 // ============================================================
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -44,14 +40,14 @@ function envelope(action: string, partial: any) {
     result: partial.result || null,
     side_effects: partial.side_effects || [],
     warnings: partial.warnings || [],
-    ambiguity: partial.ambiguity || null,
+    candidates: partial.candidates || null,
     error: partial.error || null,
+    message: partial.message || null,
     timestamp: new Date().toISOString(),
   };
 }
 
 async function fireVectorize(supabaseUrl: string, anonKey: string, entity: string, body: any) {
-  // Fire-and-forget: don't await, don't block the response.
   fetch(`${supabaseUrl}/functions/v1/vectorize-companies`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${anonKey}` },
@@ -59,78 +55,68 @@ async function fireVectorize(supabaseUrl: string, anonKey: string, entity: strin
   }).catch((e) => console.error("[vectorize] failed", entity, e));
 }
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-  // ---- Auth ----
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  // Anon client w/ user JWT (for RLS-aware writes, like the frontend does)
-  const supabase = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authHeader } },
-  });
-
-  // Resolve caller user id
-  let userId: string | null = null;
-  try {
-    const { data: { user } } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
-    userId = user?.id || null;
-  } catch { /* */ }
-  if (!userId) {
-    return new Response(JSON.stringify({ error: "Invalid token" }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  // Service-role client only used for cross-user reads (e.g. profile name lookups for notifications)
-  const supabaseSvc = createClient(supabaseUrl, serviceRole);
-
-  let body: any;
-  try { body = await req.json(); } catch {
-    return new Response(JSON.stringify({ error: "invalid json" }), {
-      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  const action = body?.action as string;
-  const args = body?.args || {};
-
-  try {
-    let out: any;
-    switch (action) {
-      case "create_task":      out = await createTask(supabase, supabaseSvc, supabaseUrl, anonKey, userId, args); break;
-      case "complete_task":    out = await completeTask(supabase, supabaseUrl, anonKey, userId, args); break;
-      case "create_milestone": out = await createMilestone(supabase, userId, args); break;
-      case "log_action":       out = await logActionFn(supabase, userId, args); break;
-      case "move_pipeline":    out = await movePipeline(supabase, supabaseUrl, anonKey, userId, args); break;
-      default:
-        return new Response(JSON.stringify(envelope(action || "unknown", { error: "unknown action" })), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-    }
-    return new Response(JSON.stringify(out), {
-      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (e) {
-    console.error("[company-chat-actions]", action, e);
-    return new Response(JSON.stringify(envelope(action, { error: e instanceof Error ? e.message : "unknown error" })), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-});
-
 // ============================================================
-// HELPERS
+// ENTITY RESOLUTION (fuzzy, server-side)
 // ============================================================
+async function resolveCompany(supabase: any, name: string) {
+  if (!name?.trim()) return { error: "missing_company_name", message: "Falta el nombre de la empresa." };
+  const { data, error } = await supabase.rpc("find_company_by_name", { _name: name, _limit: 5 });
+  if (error) return { error: "rpc_error", message: error.message };
+  const rows = data || [];
+  if (!rows.length) return { error: "company_not_found", message: `No tengo a "${name}" en el CRM.`, candidates: [] };
+  const top = rows[0];
+  const second = rows[1];
+  const isClear = top.similarity >= 0.45 && (!second || top.similarity - second.similarity > 0.1);
+  if (!isClear) {
+    return {
+      error: "company_ambiguous",
+      message: `Hay varios candidatos para "${name}".`,
+      candidates: rows.map((r: any) => ({ id: r.id, name: r.trade_name, legal_name: r.legal_name, nit: r.nit })),
+    };
+  }
+  return { id: top.id, name: top.trade_name, legal_name: top.legal_name, nit: top.nit };
+}
+
+async function resolveOffer(supabase: any, name: string) {
+  if (!name?.trim()) return { error: "missing_offer_name", message: "Falta el nombre de la oferta." };
+  const { data, error } = await supabase.rpc("find_offer_by_name", { _name: name, _limit: 5 });
+  if (error) return { error: "rpc_error", message: error.message };
+  const rows = data || [];
+  if (!rows.length) return { error: "offer_not_found", message: `No tengo ninguna oferta llamada "${name}".`, candidates: [] };
+  const top = rows[0];
+  const second = rows[1];
+  const isClear = top.similarity >= 0.4 && (!second || top.similarity - second.similarity > 0.1);
+  if (!isClear) {
+    return {
+      error: "offer_ambiguous",
+      message: `Hay varios candidatos para la oferta "${name}".`,
+      candidates: rows.map((r: any) => ({ id: r.id, name: r.name, product: r.product, status: r.status })),
+    };
+  }
+  return { id: top.id, name: top.name };
+}
+
+async function resolveStage(supabase: any, offerId: string, stageName: string) {
+  if (!stageName?.trim()) return { error: "missing_stage_name", message: "Falta el nombre de la etapa destino." };
+  const { data } = await supabase.from("pipeline_stages").select("id, name").eq("offer_id", offerId);
+  const stages = data || [];
+  if (!stages.length) return { error: "no_stages", message: "Esa oferta no tiene etapas configuradas." };
+  // exact ci first
+  const lower = stageName.trim().toLowerCase();
+  const exact = stages.find((s: any) => s.name.toLowerCase() === lower);
+  if (exact) return { id: exact.id, name: exact.name };
+  // contains
+  const contains = stages.filter((s: any) => s.name.toLowerCase().includes(lower) || lower.includes(s.name.toLowerCase()));
+  if (contains.length === 1) return { id: contains[0].id, name: contains[0].name };
+  return {
+    error: contains.length ? "stage_ambiguous" : "stage_not_found",
+    message: contains.length
+      ? `Hay varias etapas que se parecen a "${stageName}".`
+      : `No encontré la etapa "${stageName}" en esa oferta. Etapas disponibles: ${stages.map((s: any) => s.name).join(", ")}.`,
+    candidates: (contains.length ? contains : stages).map((s: any) => ({ id: s.id, name: s.name })),
+  };
+}
+
 async function logHistory(
   supabase: any,
   companyId: string,
@@ -152,13 +138,77 @@ async function logHistory(
   if (error) console.error("[history] insert failed", error);
 }
 
-async function getCompanyMeta(supabase: any, companyId: string) {
-  const { data } = await supabase.from("companies").select("id, trade_name").eq("id", companyId).maybeSingle();
-  return data;
-}
+// ============================================================
+// SERVE
+// ============================================================
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // Anon client w/ user JWT (RLS-aware writes — same as the UI does)
+  const supabase = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  let userId: string | null = null;
+  try {
+    const { data: { user } } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
+    userId = user?.id || null;
+  } catch { /* */ }
+  if (!userId) {
+    return new Response(JSON.stringify({ error: "Invalid token" }), {
+      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const supabaseSvc = createClient(supabaseUrl, serviceRole);
+
+  let body: any;
+  try { body = await req.json(); } catch {
+    return new Response(JSON.stringify({ error: "invalid json" }), {
+      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const action = body?.action as string;
+  const args = body?.args || {};
+
+  try {
+    let out: any;
+    switch (action) {
+      case "create_task":      out = await createTask(supabase, supabaseSvc, supabaseUrl, anonKey, userId, args); break;
+      case "complete_task":    out = await completeTask(supabase, supabaseUrl, anonKey, userId, args); break;
+      case "create_milestone": out = await createMilestone(supabase, userId, args); break;
+      case "log_action":       out = await logActionFn(supabase, userId, args); break;
+      case "move_pipeline":    out = await movePipeline(supabase, supabaseUrl, anonKey, userId, args); break;
+      default:
+        return new Response(JSON.stringify(envelope(action || "unknown", { error: "unknown_action", message: "Acción desconocida." })), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+    }
+    return new Response(JSON.stringify(out), {
+      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  } catch (e) {
+    console.error("[company-chat-actions]", action, e);
+    return new Response(JSON.stringify(envelope(action, { error: "internal", message: e instanceof Error ? e.message : "unknown error" })), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});
 
 // ============================================================
-// create_task — mirrors CRMContext.addTask
+// create_task
 // ============================================================
 async function createTask(
   supabase: any,
@@ -168,76 +218,59 @@ async function createTask(
   userId: string,
   args: any,
 ) {
-  const companyId: string = args.company_id;
   const title: string = (args.title || "").trim();
   const description: string = args.description || "";
   const dueDate: string = args.due_date;
-  const assignedTo: string | null = args.assigned_to || userId;
-  const offerId: string | null = args.offer_id || null;
 
-  if (!companyId)  return envelope("create_task", { error: "missing_company_id", message: "Falta identificar la empresa." });
-  if (!title)      return envelope("create_task", { error: "missing_title", message: "Falta el título de la tarea." });
-  if (!isISODate(dueDate)) return envelope("create_task", { error: "missing_due_date", message: "Falta la fecha de vencimiento (formato YYYY-MM-DD)." });
+  if (!title) return envelope("create_task", { error: "missing_title", message: "Falta el título de la tarea." });
+  if (!isISODate(dueDate)) return envelope("create_task", { error: "missing_due_date", message: "Falta la fecha de vencimiento exacta (YYYY-MM-DD). No asumas 'mañana' ni 'la próxima semana' — pregunta al usuario." });
 
-  const company = await getCompanyMeta(supabase, companyId);
-  if (!company) return envelope("create_task", { error: "company_not_found", message: "No encontré esa empresa." });
+  const company = await resolveCompany(supabase, args.company_name);
+  if ((company as any).error) return envelope("create_task", company as any);
+
+  let offerId: string | null = null;
+  if (args.offer_name) {
+    const offer = await resolveOffer(supabase, args.offer_name);
+    if (!(offer as any).error) offerId = (offer as any).id;
+  }
 
   const { data: task, error } = await supabase.from("company_tasks").insert({
-    company_id: companyId,
+    company_id: (company as any).id,
     title,
     description,
     status: "pending",
     due_date: dueDate,
     created_by: userId,
-    assigned_to: assignedTo,
+    assigned_to: userId,
     offer_id: offerId,
   }).select().single();
-  if (error || !task) return envelope("create_task", { error: error?.message || "insert failed" });
-
-  const sideEffects: string[] = [];
-
-  // Notification (if assigned to someone else)
-  if (assignedTo && assignedTo !== userId) {
-    const { error: notifErr } = await supabaseSvc.from("notifications").insert({
-      user_id: assignedTo,
-      type: "task_assigned",
-      title: "Nueva tarea asignada",
-      message: `Te asignaron la tarea "${title}"`,
-      reference_id: task.id,
-    });
-    if (!notifErr) sideEffects.push(`notification:${assignedTo}`);
-  }
+  if (error || !task) return envelope("create_task", { error: "insert_failed", message: error?.message || "No pude crear la tarea." });
 
   await logHistory(
     supabase,
-    companyId,
+    (company as any).id,
     "task_created",
     `Tarea creada: «${title}»`,
     description,
-    { taskId: task.id, dueDate, assignedTo, offerId },
+    { taskId: task.id, dueDate, offerId },
     userId,
   );
-  sideEffects.push("history:task_created");
-
-  fireVectorize(supabaseUrl, anonKey, "companies", { companyIds: [companyId] });
-  sideEffects.push("vectorize:companies");
+  fireVectorize(supabaseUrl, anonKey, "companies", { companyIds: [(company as any).id] });
 
   return envelope("create_task", {
     executed: true,
     result: {
       task_id: task.id,
-      company_id: companyId,
-      company_name: company.trade_name,
+      company_name: (company as any).name,
       title,
       due_date: dueDate,
-      assigned_to: assignedTo,
     },
-    side_effects: sideEffects,
+    side_effects: ["history:task_created", "vectorize:companies"],
   });
 }
 
 // ============================================================
-// complete_task — mirrors CRMContext.updateTask({status:'completed'})
+// complete_task
 // ============================================================
 async function completeTask(
   supabase: any,
@@ -246,105 +279,115 @@ async function completeTask(
   userId: string,
   args: any,
 ) {
-  const taskId: string = args.task_id;
-  if (!taskId) return envelope("complete_task", { error: "task_id required" });
+  const taskTitle: string = (args.task_title || "").trim();
+  if (!taskTitle) return envelope("complete_task", { error: "missing_task_title", message: "Falta el título de la tarea a completar." });
 
-  const { data: existing } = await supabase.from("company_tasks").select("id, title, company_id, status").eq("id", taskId).maybeSingle();
-  if (!existing) return envelope("complete_task", { error: "task not found" });
-  if (existing.status === "completed") {
-    return envelope("complete_task", { warnings: ["task already completed"], result: { task_id: taskId, company_id: existing.company_id, title: existing.title } });
+  const company = await resolveCompany(supabase, args.company_name);
+  if ((company as any).error) return envelope("complete_task", company as any);
+
+  const { data: tasks } = await supabase.from("company_tasks")
+    .select("id, title, status")
+    .eq("company_id", (company as any).id)
+    .neq("status", "completed");
+
+  const list = tasks || [];
+  if (!list.length) return envelope("complete_task", { error: "no_open_tasks", message: `*${(company as any).name}* no tiene tareas pendientes.` });
+
+  const lower = taskTitle.toLowerCase();
+  const exact = list.find((t: any) => t.title.toLowerCase() === lower);
+  const contains = list.filter((t: any) => t.title.toLowerCase().includes(lower) || lower.includes(t.title.toLowerCase()));
+  const candidate = exact || (contains.length === 1 ? contains[0] : null);
+
+  if (!candidate) {
+    return envelope("complete_task", {
+      error: contains.length ? "task_ambiguous" : "task_not_found",
+      message: contains.length
+        ? `Varias tareas pendientes en *${(company as any).name}* coinciden con "${taskTitle}".`
+        : `No encontré una tarea pendiente llamada "${taskTitle}" en *${(company as any).name}*.`,
+      candidates: (contains.length ? contains : list).map((t: any) => ({ id: t.id, title: t.title })),
+    });
   }
 
   const today = new Date().toISOString().split("T")[0];
   const { error } = await supabase.from("company_tasks")
     .update({ status: "completed", completed_date: today })
-    .eq("id", taskId);
-  if (error) return envelope("complete_task", { error: error.message });
+    .eq("id", candidate.id);
+  if (error) return envelope("complete_task", { error: "update_failed", message: error.message });
 
-  const sideEffects: string[] = [];
-  await logHistory(supabase, existing.company_id, "task_completed", `Tarea completada: ${existing.title}`, "", {}, userId);
-  sideEffects.push("history:task_completed");
-
-  fireVectorize(supabaseUrl, anonKey, "companies", { companyIds: [existing.company_id] });
-  sideEffects.push("vectorize:companies");
+  await logHistory(supabase, (company as any).id, "task_completed", `Tarea completada: ${candidate.title}`, "", { taskId: candidate.id }, userId);
+  fireVectorize(supabaseUrl, anonKey, "companies", { companyIds: [(company as any).id] });
 
   return envelope("complete_task", {
     executed: true,
-    result: { task_id: taskId, company_id: existing.company_id, title: existing.title, completed_date: today },
-    side_effects: sideEffects,
+    result: { task_id: candidate.id, company_name: (company as any).name, title: candidate.title, completed_date: today },
+    side_effects: ["history:task_completed", "vectorize:companies"],
   });
 }
 
 // ============================================================
-// create_milestone — mirrors CRMContext.addMilestone
+// create_milestone
 // ============================================================
 async function createMilestone(supabase: any, userId: string, args: any) {
-  const companyId: string = args.company_id;
   const type: string = args.type || "other";
   const title: string = (args.title || "").trim();
   const description: string = args.description || "";
   const date: string = args.date || new Date().toISOString().split("T")[0];
 
-  if (!companyId) return envelope("create_milestone", { error: "company_id required" });
-  if (!title)     return envelope("create_milestone", { error: "title required" });
-  if (!MILESTONE_TYPES.includes(type)) return envelope("create_milestone", { error: `type must be one of ${MILESTONE_TYPES.join(",")}` });
-  if (!isISODate(date)) return envelope("create_milestone", { error: "date must be YYYY-MM-DD" });
+  if (!title) return envelope("create_milestone", { error: "missing_title", message: "Falta el título del hito." });
+  if (!MILESTONE_TYPES.includes(type)) return envelope("create_milestone", { error: "bad_type", message: `Tipo inválido. Debe ser uno de: ${MILESTONE_TYPES.join(", ")}.` });
+  if (!isISODate(date)) return envelope("create_milestone", { error: "bad_date", message: "Fecha inválida (YYYY-MM-DD)." });
 
-  const company = await getCompanyMeta(supabase, companyId);
-  if (!company) return envelope("create_milestone", { error: "company not found" });
+  const company = await resolveCompany(supabase, args.company_name);
+  if ((company as any).error) return envelope("create_milestone", company as any);
 
   const { data: row, error } = await supabase.from("milestones").insert({
-    company_id: companyId, type, title, description, date, created_by: userId,
+    company_id: (company as any).id, type, title, description, date, created_by: userId,
   }).select().single();
-  if (error || !row) return envelope("create_milestone", { error: error?.message || "insert failed" });
+  if (error || !row) return envelope("create_milestone", { error: "insert_failed", message: error?.message || "No pude registrar el hito." });
 
-  await logHistory(supabase, companyId, "milestone", `Hito: ${title}`, description, { milestoneId: row.id, type, date }, userId);
+  await logHistory(supabase, (company as any).id, "milestone", `Hito: ${title}`, description, { milestoneId: row.id, type, date }, userId);
 
   return envelope("create_milestone", {
     executed: true,
-    result: { milestone_id: row.id, company_id: companyId, company_name: company.trade_name, type, title, date },
+    result: { milestone_id: row.id, company_name: (company as any).name, type, title, date },
     side_effects: ["history:milestone"],
   });
 }
 
 // ============================================================
-// log_action — mirrors CRMContext.addAction
+// log_action
 // ============================================================
 async function logActionFn(supabase: any, userId: string, args: any) {
-  const companyId: string = args.company_id;
   const type: string = args.type;
   const description: string = (args.description || "").trim();
   const date: string = args.date || new Date().toISOString().split("T")[0];
   const notes: string | null = args.notes || null;
 
-  if (!companyId)  return envelope("log_action", { error: "company_id required" });
   if (!type || !ACTION_TYPES.includes(type)) {
-    return envelope("log_action", { error: `type must be one of ${ACTION_TYPES.join(",")}` });
+    return envelope("log_action", { error: "bad_type", message: `Tipo inválido. Debe ser uno de: ${ACTION_TYPES.join(", ")}.` });
   }
-  if (!description) return envelope("log_action", { error: "description required" });
-  if (!isISODate(date)) return envelope("log_action", { error: "date must be YYYY-MM-DD" });
+  if (!description) return envelope("log_action", { error: "missing_description", message: "Falta la descripción de la acción." });
+  if (!isISODate(date)) return envelope("log_action", { error: "bad_date", message: "Fecha inválida (YYYY-MM-DD)." });
 
-  const company = await getCompanyMeta(supabase, companyId);
-  if (!company) return envelope("log_action", { error: "company not found" });
+  const company = await resolveCompany(supabase, args.company_name);
+  if ((company as any).error) return envelope("log_action", company as any);
 
   const { data: row, error } = await supabase.from("company_actions").insert({
-    company_id: companyId, type, description, date, notes, created_by: userId,
+    company_id: (company as any).id, type, description, date, notes, created_by: userId,
   }).select().single();
-  if (error || !row) return envelope("log_action", { error: error?.message || "insert failed" });
+  if (error || !row) return envelope("log_action", { error: "insert_failed", message: error?.message || "No pude registrar la acción." });
 
-  await logHistory(supabase, companyId, "action", `Acción: ${type}`, description, { actionId: row.id, type, notes, date }, userId);
+  await logHistory(supabase, (company as any).id, "action", `Acción: ${type}`, description, { actionId: row.id, type, notes, date }, userId);
 
   return envelope("log_action", {
     executed: true,
-    result: { action_id: row.id, company_id: companyId, company_name: company.trade_name, type, description, date },
+    result: { action_id: row.id, company_name: (company as any).name, type, description, date },
     side_effects: ["history:action"],
   });
 }
 
 // ============================================================
-// move_pipeline — mirrors PortfolioContext.moveCompanyToStage
-// Accepts either entry_id, or (company_id + offer_id) to resolve it.
-// target_stage_id required (caller resolves stage by name beforehand).
+// move_pipeline — resolves company + offer + stage by name
 // ============================================================
 async function movePipeline(
   supabase: any,
@@ -353,70 +396,69 @@ async function movePipeline(
   userId: string,
   args: any,
 ) {
-  const targetStageId: string = args.target_stage_id;
-  if (!targetStageId) return envelope("move_pipeline", { error: "target_stage_id required" });
+  const company = await resolveCompany(supabase, args.company_name);
+  if ((company as any).error) return envelope("move_pipeline", company as any);
 
-  // Resolve entry
-  let entryId: string | null = args.entry_id || null;
-  let entry: any = null;
+  const offer = await resolveOffer(supabase, args.offer_name);
+  if ((offer as any).error) return envelope("move_pipeline", offer as any);
 
-  if (entryId) {
-    const { data } = await supabase.from("pipeline_entries").select("id, company_id, offer_id, stage_id").eq("id", entryId).maybeSingle();
-    entry = data;
-  } else {
-    const companyId = args.company_id;
-    const offerId = args.offer_id;
-    if (!companyId || !offerId) return envelope("move_pipeline", { error: "entry_id OR (company_id + offer_id) required" });
-    const { data } = await supabase.from("pipeline_entries")
-      .select("id, company_id, offer_id, stage_id")
-      .eq("company_id", companyId).eq("offer_id", offerId).maybeSingle();
-    entry = data;
-    entryId = data?.id || null;
+  // Verify the company is enrolled in that offer
+  const { data: entry } = await supabase.from("pipeline_entries")
+    .select("id, stage_id")
+    .eq("company_id", (company as any).id)
+    .eq("offer_id", (offer as any).id)
+    .maybeSingle();
+
+  if (!entry) {
+    // Look up which offers the company IS enrolled in
+    const { data: otherEntries } = await supabase.from("pipeline_entries")
+      .select("offer_id, portfolio_offers!inner(name)")
+      .eq("company_id", (company as any).id);
+    const offerNames = (otherEntries || []).map((e: any) => e.portfolio_offers?.name).filter(Boolean);
+    return envelope("move_pipeline", {
+      error: "not_enrolled",
+      message: offerNames.length
+        ? `*${(company as any).name}* no está inscrita en *${(offer as any).name}*. Sí aparece en: ${offerNames.join(", ")}.`
+        : `*${(company as any).name}* no está inscrita en ninguna oferta del portafolio.`,
+      candidates: offerNames.map((n: string) => ({ name: n })),
+    });
   }
 
-  if (!entry || !entryId) return envelope("move_pipeline", { error: "pipeline entry not found for that company/offer" });
+  const stage = await resolveStage(supabase, (offer as any).id, args.target_stage_name);
+  if ((stage as any).error) return envelope("move_pipeline", stage as any);
 
-  // Validate stage belongs to the same offer
-  const { data: stage } = await supabase.from("pipeline_stages").select("id, name, offer_id").eq("id", targetStageId).maybeSingle();
-  if (!stage)                       return envelope("move_pipeline", { error: "target stage not found" });
-  if (stage.offer_id !== entry.offer_id) return envelope("move_pipeline", { error: "target stage does not belong to the entry's offer" });
-
-  if (entry.stage_id === targetStageId) {
-    return envelope("move_pipeline", { warnings: ["already in that stage"], result: { entry_id: entryId, company_id: entry.company_id, stage_id: targetStageId } });
+  if (entry.stage_id === (stage as any).id) {
+    return envelope("move_pipeline", {
+      executed: false,
+      warnings: ["already_in_stage"],
+      message: `*${(company as any).name}* ya está en la etapa «${(stage as any).name}» de *${(offer as any).name}*.`,
+    });
   }
 
   const { data: oldStage } = await supabase.from("pipeline_stages").select("name").eq("id", entry.stage_id).maybeSingle();
-  const { data: offer } = await supabase.from("portfolio_offers").select("name").eq("id", entry.offer_id).maybeSingle();
 
-  const { error } = await supabase.from("pipeline_entries").update({ stage_id: targetStageId }).eq("id", entryId);
-  if (error) return envelope("move_pipeline", { error: error.message });
+  const { error } = await supabase.from("pipeline_entries").update({ stage_id: (stage as any).id }).eq("id", entry.id);
+  if (error) return envelope("move_pipeline", { error: "update_failed", message: error.message });
 
-  const sideEffects: string[] = [];
   await logHistory(
     supabase,
-    entry.company_id,
+    (company as any).id,
     "pipeline_move",
-    `Movida en ${offer?.name || ""}`,
-    `${oldStage?.name || ""} → ${stage.name}`,
-    { offerId: entry.offer_id, fromStageId: entry.stage_id, toStageId: targetStageId, entryId },
+    `Movida en ${(offer as any).name}`,
+    `${oldStage?.name || ""} → ${(stage as any).name}`,
+    { offerId: (offer as any).id, fromStageId: entry.stage_id, toStageId: (stage as any).id, entryId: entry.id },
     userId,
   );
-  sideEffects.push("history:pipeline_move");
-
   fireVectorize(supabaseUrl, anonKey, "pipeline", {});
-  sideEffects.push("vectorize:pipeline");
 
   return envelope("move_pipeline", {
     executed: true,
     result: {
-      entry_id: entryId,
-      company_id: entry.company_id,
-      offer_id: entry.offer_id,
-      offer_name: offer?.name || null,
+      company_name: (company as any).name,
+      offer_name: (offer as any).name,
       from_stage: oldStage?.name || null,
-      to_stage: stage.name,
-      to_stage_id: targetStageId,
+      to_stage: (stage as any).name,
     },
-    side_effects: sideEffects,
+    side_effects: ["history:pipeline_move", "vectorize:pipeline"],
   });
 }
