@@ -248,22 +248,30 @@ export default function WidgetsSettings() {
       </div>
 
       {/* Editor panel */}
-      <Sheet open={!!editId} onOpenChange={(o) => !o && closeEditor()}>
-        <SheetContent className="w-full sm:max-w-md overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>{editId === '__new' ? 'Nuevo widget compuesto' : 'Editar widget'}</SheetTitle>
-          </SheetHeader>
-          {draftWidget && (
-            <WidgetEditor
-              widget={draftWidget as VirtualWidget}
-              onChange={setDraftWidget}
-              fields={fields}
-              onSave={handleSaveDraft}
-              onCancel={closeEditor}
-            />
-          )}
-        </SheetContent>
-      </Sheet>
+      <Dialog open={!!editId} onOpenChange={(o) => !o && closeEditor()}>
+        <DialogPortal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-50 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+          <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg max-h-[85vh] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-y-auto border bg-background p-6 shadow-lg rounded-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
+            <div className="flex items-center justify-between">
+              <DialogTitle>{editId === '__new' ? 'Nuevo widget compuesto' : 'Editar widget'}</DialogTitle>
+              <DialogPrimitive.Close className="rounded-sm opacity-70 hover:opacity-100 focus:outline-none">
+                <X className="h-4 w-4" />
+                <span className="sr-only">Close</span>
+              </DialogPrimitive.Close>
+            </div>
+            {draftWidget && (
+              <WidgetEditor
+                widget={draftWidget}
+                fields={customFields}
+                sections={sections}
+                onChange={setDraftWidget}
+                onSave={handleSave}
+                onCancel={closeEditor}
+              />
+            )}
+          </DialogPrimitive.Content>
+        </DialogPortal>
+      </Dialog>
     </div>
   );
 }
