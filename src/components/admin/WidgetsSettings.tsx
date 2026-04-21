@@ -204,20 +204,33 @@ export default function WidgetsSettings() {
     });
   };
 
-  // Resize-by-drag handle on the right border of each widget
-  const startResizeDrag = (w: VirtualWidget, e: React.PointerEvent) => {
+  // Resize-by-drag handle. `dir` = 'right' | 'left' | 'bottom' | 'top'.
+  // Right/bottom: positive drag → bigger. Left/top: negative drag → bigger.
+  const startResizeDrag = (
+    w: VirtualWidget,
+    e: React.PointerEvent,
+    dir: 'right' | 'left' | 'bottom' | 'top' = 'right',
+  ) => {
     e.preventDefault();
     e.stopPropagation();
     const grid = gridRef.current;
     if (!grid) return;
     const startX = e.clientX;
+    const startY = e.clientY;
     const startSizeIdx = SIZE_ORDER.indexOf(w.config.size || 'sm');
     const colWidth = grid.getBoundingClientRect().width / 4;
+    const stepPx = Math.max(40, colWidth);
     let appliedIdx = startSizeIdx;
 
     const move = (ev: PointerEvent) => {
       const dx = ev.clientX - startX;
-      const steps = Math.round(dx / colWidth);
+      const dy = ev.clientY - startY;
+      let delta = 0;
+      if (dir === 'right') delta = dx;
+      else if (dir === 'left') delta = -dx;
+      else if (dir === 'bottom') delta = dy;
+      else if (dir === 'top') delta = -dy;
+      const steps = Math.round(delta / stepPx);
       const nextIdx = Math.max(0, Math.min(SIZE_ORDER.length - 1, startSizeIdx + steps));
       if (nextIdx !== appliedIdx) {
         appliedIdx = nextIdx;
@@ -302,7 +315,7 @@ export default function WidgetsSettings() {
                     onDelete={() => handleDelete(w)}
                     onShrink={() => stepSize(w, -1)}
                     onExpand={() => stepSize(w, 1)}
-                    onResizeStart={(e) => startResizeDrag(w, e)}
+                    onResizeStart={(e, dir) => startResizeDrag(w, e, dir)}
                   />
                 ))}
               </div>
@@ -343,7 +356,8 @@ export default function WidgetsSettings() {
 // =============== Sortable card ===============
 function SortableWidgetCard({ widget, fields, onEdit, onDelete, onShrink, onExpand, onResizeStart }: {
   widget: VirtualWidget; fields: any[]; onEdit: () => void; onDelete: () => void;
-  onShrink: () => void; onExpand: () => void; onResizeStart: (e: React.PointerEvent) => void;
+  onShrink: () => void; onExpand: () => void;
+  onResizeStart: (e: React.PointerEvent, dir: 'right' | 'left' | 'bottom' | 'top') => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: widget.id });
   const style: React.CSSProperties = {
@@ -440,10 +454,25 @@ function SortableWidgetCard({ widget, fields, onEdit, onDelete, onShrink, onExpa
         </div>
       </div>
 
-      {/* Resize handle (right border) */}
+      {/* Resize handles — all four sides + corners */}
       <div
-        onPointerDown={onResizeStart}
-        className="absolute top-0 right-0 h-full w-1.5 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity"
+        onPointerDown={(e) => onResizeStart(e, 'right')}
+        className="absolute top-2 bottom-2 right-0 w-1.5 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded-l"
+        title="Arrastra para cambiar el tamaño"
+      />
+      <div
+        onPointerDown={(e) => onResizeStart(e, 'left')}
+        className="absolute top-2 bottom-2 left-0 w-1.5 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded-r"
+        title="Arrastra para cambiar el tamaño"
+      />
+      <div
+        onPointerDown={(e) => onResizeStart(e, 'bottom')}
+        className="absolute left-2 right-2 bottom-0 h-1.5 cursor-ns-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded-t"
+        title="Arrastra para cambiar el tamaño"
+      />
+      <div
+        onPointerDown={(e) => onResizeStart(e, 'top')}
+        className="absolute left-2 right-2 top-0 h-1.5 cursor-ns-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded-b"
         title="Arrastra para cambiar el tamaño"
       />
     </div>
