@@ -10,12 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Camera, Plus, X, Save, User, Settings2, Shield, Sparkles, FolderTree, Radar, MessageCircle, DollarSign } from 'lucide-react';
+import { Camera, Plus, X, Save, User, Settings2, Shield, Sparkles, FolderTree, Radar, MessageCircle, DollarSign, BarChart3 } from 'lucide-react';
 import CompanyFitSettings from '@/components/admin/CompanyFitSettings';
 import TaxonomySettings from '@/components/admin/TaxonomySettings';
 import CompanyRadarSettings from '@/components/admin/CompanyRadarSettings';
 import ChatSettings from '@/components/admin/ChatSettings';
 import CurrencySettings from '@/components/admin/CurrencySettings';
+import WidgetsSettings from '@/components/admin/WidgetsSettings';
 import { cn } from '@/lib/utils';
 
 const FEATURES = [
@@ -24,6 +25,7 @@ const FEATURES = [
   { id: 'company_radar', label: 'Company Radar', icon: Radar, description: 'Filtro inteligente con IA' },
   { id: 'company_chat', label: 'Company Chat', icon: MessageCircle, description: 'Chat con base vectorial' },
   { id: 'currency', label: 'Moneda', icon: DollarSign, description: 'Moneda principal de ventas' },
+  { id: 'widgets', label: 'Visualizaciones', icon: BarChart3, description: 'Gráficas y KPIs por sección' },
 ] as const;
 
 type FeatureId = typeof FEATURES[number]['id'];
@@ -192,6 +194,7 @@ export default function ProfilePage() {
         {activeFeature === 'company_radar' && <CompanyRadarSettings />}
         {activeFeature === 'company_chat' && <ChatSettings />}
         {activeFeature === 'currency' && <CurrencySettings />}
+        {activeFeature === 'widgets' && <WidgetsSettings />}
       </div>
     </div>
   );
