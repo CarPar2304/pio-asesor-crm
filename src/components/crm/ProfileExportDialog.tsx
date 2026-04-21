@@ -1,4 +1,4 @@
-import { useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { Company } from '@/types/crm';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { useWidgets } from '@/contexts/WidgetsContext';
@@ -71,13 +71,17 @@ export default function ProfileExportDialog({ open, onClose, company, defaultCur
   });
 
   // Re-sync if the section list changes
-  useMemo(() => {
+  useEffect(() => {
     setSectionState(prev => {
       const next = { ...prev };
+      let changed = false;
       sectionRows.forEach(r => {
-        if (!next[r.id]) next[r.id] = { fields: r.hasFields, widgets: r.hasWidgets };
+        if (!next[r.id]) {
+          next[r.id] = { fields: r.hasFields, widgets: r.hasWidgets };
+          changed = true;
+        }
       });
-      return next;
+      return changed ? next : prev;
     });
   }, [sectionRows]);
 
