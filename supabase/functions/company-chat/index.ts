@@ -643,6 +643,9 @@ function buildExecutors(supabase: any, openai: OpenAI, embeddingModel: string) {
     get_overdue_tasks: (a: any) => overdueTasks(a),
     get_company_timeline: (a: any) => timeline(a),
     search_semantic: (a: any) => semantic(a),
+    find_offer_by_name: (a: any) => findOfferByName(a.name, a.limit),
+    list_offers: (a: any) => listOffers(a),
+    get_offer_summary: (a: any) => getOfferSummary(a.offer_id),
   } as Record<string, (a: any) => Promise<any>>;
 }
 
