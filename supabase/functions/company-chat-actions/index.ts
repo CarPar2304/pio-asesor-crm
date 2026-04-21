@@ -140,12 +140,13 @@ async function logHistory(
   metadata: any,
   performedBy: string | null,
 ) {
+  const meta = { source: "chat_agent", ...(metadata || {}) };
   const { error } = await supabase.from("company_history").insert({
     company_id: companyId,
     event_type: eventType,
     title,
     description: description || "",
-    metadata: metadata || {},
+    metadata: meta,
     performed_by: performedBy || null,
   });
   if (error) console.error("[history] insert failed", error);
@@ -174,12 +175,12 @@ async function createTask(
   const assignedTo: string | null = args.assigned_to || userId;
   const offerId: string | null = args.offer_id || null;
 
-  if (!companyId)  return envelope("create_task", { error: "company_id required" });
-  if (!title)      return envelope("create_task", { error: "title required" });
-  if (!isISODate(dueDate)) return envelope("create_task", { error: "due_date must be YYYY-MM-DD" });
+  if (!companyId)  return envelope("create_task", { error: "missing_company_id", message: "Falta identificar la empresa." });
+  if (!title)      return envelope("create_task", { error: "missing_title", message: "Falta el título de la tarea." });
+  if (!isISODate(dueDate)) return envelope("create_task", { error: "missing_due_date", message: "Falta la fecha de vencimiento (formato YYYY-MM-DD)." });
 
   const company = await getCompanyMeta(supabase, companyId);
-  if (!company) return envelope("create_task", { error: "company not found" });
+  if (!company) return envelope("create_task", { error: "company_not_found", message: "No encontré esa empresa." });
 
   const { data: task, error } = await supabase.from("company_tasks").insert({
     company_id: companyId,
@@ -207,7 +208,15 @@ async function createTask(
     if (!notifErr) sideEffects.push(`notification:${assignedTo}`);
   }
 
-  await logHistory(supabase, companyId, "task_created", `Tarea: ${title}`, description, { offerId }, userId);
+  await logHistory(
+    supabase,
+    companyId,
+    "task_created",
+    `Tarea creada: «${title}»`,
+    description,
+    { taskId: task.id, dueDate, assignedTo, offerId },
+    userId,
+  );
   sideEffects.push("history:task_created");
 
   fireVectorize(supabaseUrl, anonKey, "companies", { companyIds: [companyId] });
@@ -289,7 +298,7 @@ async function createMilestone(supabase: any, userId: string, args: any) {
   }).select().single();
   if (error || !row) return envelope("create_milestone", { error: error?.message || "insert failed" });
 
-  await logHistory(supabase, companyId, "milestone", `Hito: ${title}`, description, { type }, userId);
+  await logHistory(supabase, companyId, "milestone", `Hito: ${title}`, description, { milestoneId: row.id, type, date }, userId);
 
   return envelope("create_milestone", {
     executed: true,
@@ -323,7 +332,7 @@ async function logActionFn(supabase: any, userId: string, args: any) {
   }).select().single();
   if (error || !row) return envelope("log_action", { error: error?.message || "insert failed" });
 
-  await logHistory(supabase, companyId, "action", `Acción: ${type}`, description, { type, notes }, userId);
+  await logHistory(supabase, companyId, "action", `Acción: ${type}`, description, { actionId: row.id, type, notes, date }, userId);
 
   return envelope("log_action", {
     executed: true,
@@ -389,7 +398,7 @@ async function movePipeline(
     "pipeline_move",
     `Movida en ${offer?.name || ""}`,
     `${oldStage?.name || ""} → ${stage.name}`,
-    { offerId: entry.offer_id, fromStageId: entry.stage_id, toStageId: targetStageId },
+    { offerId: entry.offer_id, fromStageId: entry.stage_id, toStageId: targetStageId, entryId },
     userId,
   );
   sideEffects.push("history:pipeline_move");
