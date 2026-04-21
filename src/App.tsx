@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { CRMProvider } from "@/contexts/CRMContext";
 import { CustomFieldsProvider } from "@/contexts/CustomFieldsContext";
+import { WidgetsProvider } from "@/contexts/WidgetsContext";
 import { PortfolioProvider } from "@/contexts/PortfolioContext";
 import { ProfileProvider } from "@/contexts/ProfileContext";
 import { TaxonomyProvider } from "@/contexts/TaxonomyContext";
@@ -31,6 +32,7 @@ const App = () => (
         <CRMProvider>
           <TaxonomyProvider>
           <CustomFieldsProvider>
+          <WidgetsProvider>
           <PortfolioProvider>
           <Toaster position="bottom-right" options={{ fill: "#171717", roundness: 14, duration: 3000, styles: { title: "!text-white", description: "!text-white/75" } }} />
           <BrowserRouter>
@@ -50,6 +52,7 @@ const App = () => (
             </Routes>
           </BrowserRouter>
           </PortfolioProvider>
+          </WidgetsProvider>
           </CustomFieldsProvider>
           </TaxonomyProvider>
         </CRMProvider>

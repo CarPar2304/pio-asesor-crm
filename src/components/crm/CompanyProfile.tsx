@@ -20,6 +20,8 @@ import CompanyForm from './CompanyForm';
 import SalesChart from './SalesChart';
 import AddToPipelineDialog from '@/components/portfolio/AddToPipelineDialog';
 import CompanyPipelineNotes from './CompanyPipelineNotes';
+import SectionWidgetRenderer from './SectionWidgetRenderer';
+import { useWidgets } from '@/contexts/WidgetsContext';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -34,6 +36,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
   const [viewCurrency, setViewCurrency] = useState<string>('COP');
   const [trm, setTrm] = useState<number>(4200);
   const { sections, fields } = useCustomFields();
+  const { widgets } = useWidgets();
   const { deleteCompany } = useCRM();
   const { salesCurrency } = useProfile();
 
@@ -88,7 +91,8 @@ export default function CompanyProfile({ company, onBack }: Props) {
     sections.forEach(s => {
       const sectionFields = fields.filter(f => f.sectionId === s.id);
       const hasData = sectionFields.some(f => getFieldValueDisplay(f.id));
-      if (hasData) {
+      const hasWidgets = widgets.some(w => w.sectionId === s.id);
+      if (hasData || hasWidgets) {
         items.push({ id: s.id, label: s.name, type: 'section' });
       }
     });
@@ -97,7 +101,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
     items.push({ id: '__timeline', label: 'Timeline', type: 'activity' });
 
     return items;
-  }, [company, sections, fields]);
+  }, [company, sections, fields, widgets]);
 
   const defaultTab = tabItems.length > 0 ? tabItems[0].id : '__activity';
 
@@ -281,6 +285,9 @@ export default function CompanyProfile({ company, onBack }: Props) {
                 <SectionFieldsTab
                   company={company}
                   sectionFields={fields.filter(f => f.sectionId === tab.id)}
+                  sectionWidgets={widgets.filter(w => w.sectionId === tab.id).sort((a, b) => a.displayOrder - b.displayOrder)}
+                  allFields={fields}
+                  viewCurrency={viewCurrency}
                   getFieldValueDisplay={getFieldValueDisplay}
                 />
               )}
@@ -330,19 +337,30 @@ function UnsectionedFieldsTab({ fields, getFieldValueDisplay }: { company: Compa
   );
 }
 
-function SectionFieldsTab({ sectionFields, getFieldValueDisplay }: { company: Company; sectionFields: any[]; getFieldValueDisplay: (id: string) => string | null }) {
+function SectionFieldsTab({ company, sectionFields, sectionWidgets, allFields, viewCurrency, getFieldValueDisplay }: { company: Company; sectionFields: any[]; sectionWidgets: any[]; allFields: any[]; viewCurrency: string; getFieldValueDisplay: (id: string) => string | null }) {
   return (
-    <div className="grid gap-2 sm:grid-cols-2">
-      {sectionFields.map(f => {
-        const display = getFieldValueDisplay(f.id);
-        if (!display) return null;
-        return (
-          <div key={f.id} className="rounded-lg border border-border/50 p-3">
-            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{f.name}</p>
-            <p className="mt-1 text-sm font-medium">{display}</p>
-          </div>
-        );
-      })}
+    <div className="space-y-4">
+      {sectionWidgets.length > 0 && (
+        <div className="grid grid-cols-4 gap-3">
+          {sectionWidgets.map(w => (
+            <SectionWidgetRenderer key={w.id} widget={w} company={company} fields={allFields} viewCurrency={viewCurrency} />
+          ))}
+        </div>
+      )}
+      {sectionFields.length > 0 && (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {sectionFields.map(f => {
+            const display = getFieldValueDisplay(f.id);
+            if (!display) return null;
+            return (
+              <div key={f.id} className="rounded-lg border border-border/50 p-3">
+                <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{f.name}</p>
+                <p className="mt-1 text-sm font-medium">{display}</p>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
