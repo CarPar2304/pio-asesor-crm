@@ -146,6 +146,21 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
     );
   }
 
+  // Conditional visibility — independent of hideIfEmpty
+  if (widget.config.condition?.sourceKey) {
+    const ok = evaluateCondition(widget.config.condition, company, fields);
+    if (!ok) return null;
+  }
+
+  if (resolved.length === 0) {
+    if (widget.hideIfEmpty) return null;
+    return (
+      <div className={cn(colSpan, 'rounded-lg border border-dashed border-border p-4 text-center')}>
+        <p className="text-xs text-muted-foreground">Variable no encontrada</p>
+      </div>
+    );
+  }
+
   const allEmpty = resolved.every(r => isEmpty(r.res));
   if (allEmpty && widget.hideIfEmpty) return null;
 
