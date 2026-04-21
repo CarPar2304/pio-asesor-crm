@@ -1843,6 +1843,56 @@ export type Database = {
         }
         Relationships: []
       }
+      section_widgets: {
+        Row: {
+          calculation: string
+          config: Json
+          created_at: string
+          display_order: number
+          id: string
+          section_id: string
+          source_key: string
+          source_type: string
+          title: string
+          updated_at: string
+          widget_type: string
+        }
+        Insert: {
+          calculation?: string
+          config?: Json
+          created_at?: string
+          display_order?: number
+          id?: string
+          section_id: string
+          source_key?: string
+          source_type?: string
+          title?: string
+          updated_at?: string
+          widget_type?: string
+        }
+        Update: {
+          calculation?: string
+          config?: Json
+          created_at?: string
+          display_order?: number
+          id?: string
+          section_id?: string
+          source_key?: string
+          source_type?: string
+          title?: string
+          updated_at?: string
+          widget_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "section_widgets_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "custom_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       segments: {
         Row: {
           created_at: string
