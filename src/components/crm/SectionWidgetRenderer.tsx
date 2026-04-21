@@ -236,6 +236,8 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
       if (widget.hideIfEmpty) return null;
       return (
         <div style={heightStyle} className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
+          <p className="text-xs font-medium text-muted-foreground mb-2">{title}</p>
+          <p className="text-xs text-muted-foreground">Sin datos por año</p>
         </div>
       );
     }
@@ -254,6 +256,8 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
 
     return (
       <div style={heightStyle} className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
+        <p className="text-xs font-medium text-muted-foreground mb-3">{title}</p>
+        <ResponsiveContainer width="100%" height={200}>
           {widget.widgetType === 'bar' ? (
             <BarChart data={data}>
               <XAxis dataKey="year" fontSize={11} tick={{ fill: 'hsl(var(--muted-foreground))' }} />
@@ -298,11 +302,15 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
       if (widget.hideIfEmpty) return null;
       return (
         <div style={heightStyle} className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
+          <p className="text-xs font-medium text-muted-foreground mb-2">{title}</p>
+          <p className="text-xs text-muted-foreground">Sin datos para graficar</p>
         </div>
       );
     }
     return (
       <div style={heightStyle} className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
+        <p className="text-xs font-medium text-muted-foreground mb-3">{title}</p>
+        <ResponsiveContainer width="100%" height={220}>
           <PieChart>
             <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={75} label={(e: any) => e.name}>
               {data.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
@@ -334,6 +342,8 @@ export default function SectionWidgetRenderer({ widget, company, fields, viewCur
       // Single non-year value table
       return (
         <div style={heightStyle} className={cn(colSpan, 'rounded-lg border border-border/50 bg-card p-4')}>
+          <p className="text-xs font-medium text-muted-foreground mb-3">{title}</p>
+          <div className="space-y-1">
             {series.map((s, i) => {
               const display = s.textValue ?? (s.numberValue !== null && s.numberValue !== undefined ? formatSales(s.numberValue, s.isUSD ? 'USD' : viewCurrency) : '—');
               return (
