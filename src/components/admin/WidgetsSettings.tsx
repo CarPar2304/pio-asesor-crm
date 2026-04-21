@@ -454,25 +454,29 @@ function SortableWidgetCard({ widget, fields, onEdit, onDelete, onShrink, onExpa
         </div>
       </div>
 
-      {/* Resize handles — all four sides + corners */}
+      {/* Resize handles — all four sides */}
       <div
         onPointerDown={(e) => onResizeStart(e, 'right')}
-        className="absolute top-2 bottom-2 right-0 w-1.5 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded-l"
+        style={{ touchAction: 'none' }}
+        className="absolute top-2 bottom-2 -right-1 w-3 z-20 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded"
         title="Arrastra para cambiar el tamaño"
       />
       <div
         onPointerDown={(e) => onResizeStart(e, 'left')}
-        className="absolute top-2 bottom-2 left-0 w-1.5 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded-r"
+        style={{ touchAction: 'none' }}
+        className="absolute top-2 bottom-2 -left-1 w-3 z-20 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded"
         title="Arrastra para cambiar el tamaño"
       />
       <div
         onPointerDown={(e) => onResizeStart(e, 'bottom')}
-        className="absolute left-2 right-2 bottom-0 h-1.5 cursor-ns-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded-t"
+        style={{ touchAction: 'none' }}
+        className="absolute left-2 right-2 -bottom-1 h-3 z-20 cursor-ns-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded"
         title="Arrastra para cambiar el tamaño"
       />
       <div
         onPointerDown={(e) => onResizeStart(e, 'top')}
-        className="absolute left-2 right-2 top-0 h-1.5 cursor-ns-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded-b"
+        style={{ touchAction: 'none' }}
+        className="absolute left-2 right-2 -top-1 h-3 z-20 cursor-ns-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 transition-opacity rounded"
         title="Arrastra para cambiar el tamaño"
       />
     </div>
