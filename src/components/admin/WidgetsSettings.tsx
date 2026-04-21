@@ -331,7 +331,7 @@ export default function WidgetsSettings() {
       </div>
 
       {/* Canvas */}
-      <div className="rounded-xl border border-border bg-card p-4">
+      <div className="rounded-xl border border-border bg-card p-4 overflow-hidden">
         <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
           <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
             Vista previa del perfil — arrastra para reordenar
@@ -460,7 +460,7 @@ function SortableWidgetCard({ widget, fields, gridCols, onEdit, onDelete, onShri
       ref={setNodeRef}
       style={style}
       className={cn(
-        'group relative rounded-lg border-2 transition-colors',
+        'group relative rounded-lg border-2 transition-colors min-w-0 overflow-hidden',
         isSpacer
           ? 'border-dashed border-border/40 bg-muted/30'
           : cn('bg-card p-3', widget.__virtual ? 'border-dashed border-border/50' : 'border-border/70'),
