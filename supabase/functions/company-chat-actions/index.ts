@@ -47,12 +47,12 @@ function envelope(action: string, partial: any) {
   };
 }
 
-async function fireVectorize(supabaseUrl: string, anonKey: string, entity: string, body: any) {
+async function fireVectorize(supabaseUrl: string, anonKey: string, mode: string, body: any) {
   fetch(`${supabaseUrl}/functions/v1/vectorize-companies`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${anonKey}` },
-    body: JSON.stringify({ entity, ...body }),
-  }).catch((e) => console.error("[vectorize] failed", entity, e));
+    body: JSON.stringify({ mode, ...body }),
+  }).catch((e) => console.error("[vectorize] failed", mode, e));
 }
 
 // ============================================================
@@ -188,8 +188,8 @@ serve(async (req) => {
     switch (action) {
       case "create_task":      out = await createTask(supabase, supabaseSvc, supabaseUrl, anonKey, userId, args); break;
       case "complete_task":    out = await completeTask(supabase, supabaseUrl, anonKey, userId, args); break;
-      case "create_milestone": out = await createMilestone(supabase, userId, args); break;
-      case "log_action":       out = await logActionFn(supabase, userId, args); break;
+      case "create_milestone": out = await createMilestone(supabase, supabaseUrl, anonKey, userId, args); break;
+      case "log_action":       out = await logActionFn(supabase, supabaseUrl, anonKey, userId, args); break;
       case "move_pipeline":    out = await movePipeline(supabase, supabaseUrl, anonKey, userId, args); break;
       default:
         return new Response(JSON.stringify(envelope(action || "unknown", { error: "unknown_action", message: "Acción desconocida." })), {
