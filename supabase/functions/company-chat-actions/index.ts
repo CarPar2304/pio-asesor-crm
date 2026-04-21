@@ -298,7 +298,7 @@ async function createMilestone(supabase: any, userId: string, args: any) {
   }).select().single();
   if (error || !row) return envelope("create_milestone", { error: error?.message || "insert failed" });
 
-  await logHistory(supabase, companyId, "milestone", `Hito: ${title}`, description, { type }, userId);
+  await logHistory(supabase, companyId, "milestone", `Hito: ${title}`, description, { milestoneId: row.id, type, date }, userId);
 
   return envelope("create_milestone", {
     executed: true,
