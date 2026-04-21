@@ -327,7 +327,7 @@ async function completeTask(
 // ============================================================
 // create_milestone
 // ============================================================
-async function createMilestone(supabase: any, userId: string, args: any) {
+async function createMilestone(supabase: any, supabaseUrl: string, anonKey: string, userId: string, args: any) {
   const type: string = args.type || "other";
   const title: string = (args.title || "").trim();
   const description: string = args.description || "";
@@ -346,18 +346,19 @@ async function createMilestone(supabase: any, userId: string, args: any) {
   if (error || !row) return envelope("create_milestone", { error: "insert_failed", message: error?.message || "No pude registrar el hito." });
 
   await logHistory(supabase, (company as any).id, "milestone", `Hito: ${title}`, description, { milestoneId: row.id, type, date }, userId);
+  fireVectorize(supabaseUrl, anonKey, "companies", { companyIds: [(company as any).id] });
 
   return envelope("create_milestone", {
     executed: true,
     result: { milestone_id: row.id, company_name: (company as any).name, type, title, date },
-    side_effects: ["history:milestone"],
+    side_effects: ["history:milestone", "vectorize:companies"],
   });
 }
 
 // ============================================================
 // log_action
 // ============================================================
-async function logActionFn(supabase: any, userId: string, args: any) {
+async function logActionFn(supabase: any, supabaseUrl: string, anonKey: string, userId: string, args: any) {
   const type: string = args.type;
   const description: string = (args.description || "").trim();
   const date: string = args.date || new Date().toISOString().split("T")[0];
@@ -378,11 +379,12 @@ async function logActionFn(supabase: any, userId: string, args: any) {
   if (error || !row) return envelope("log_action", { error: "insert_failed", message: error?.message || "No pude registrar la acción." });
 
   await logHistory(supabase, (company as any).id, "action", `Acción: ${type}`, description, { actionId: row.id, type, notes, date }, userId);
+  fireVectorize(supabaseUrl, anonKey, "companies", { companyIds: [(company as any).id] });
 
   return envelope("log_action", {
     executed: true,
     result: { action_id: row.id, company_name: (company as any).name, type, description, date },
-    side_effects: ["history:action"],
+    side_effects: ["history:action", "vectorize:companies"],
   });
 }
 
