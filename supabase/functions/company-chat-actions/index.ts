@@ -398,7 +398,7 @@ async function movePipeline(
     "pipeline_move",
     `Movida en ${offer?.name || ""}`,
     `${oldStage?.name || ""} → ${stage.name}`,
-    { offerId: entry.offer_id, fromStageId: entry.stage_id, toStageId: targetStageId },
+    { offerId: entry.offer_id, fromStageId: entry.stage_id, toStageId: targetStageId, entryId },
     userId,
   );
   sideEffects.push("history:pipeline_move");
