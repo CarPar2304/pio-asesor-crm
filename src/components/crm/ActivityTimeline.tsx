@@ -40,7 +40,7 @@ export default function ActivityTimeline({ company }: Props) {
         <Tabs value={tab} onValueChange={v => setTab(v as TabType)}>
           <TabsList className="h-8">
             <TabsTrigger value="all" className="text-xs">Todo</TabsTrigger>
-            <TabsTrigger value="actions" className="text-xs">Acciones</TabsTrigger>
+            <TabsTrigger value="actions" className="text-xs">Toques</TabsTrigger>
             <TabsTrigger value="milestones" className="text-xs">Hitos</TabsTrigger>
             <TabsTrigger value="tasks" className="text-xs">Tareas</TabsTrigger>
             <TabsTrigger value="portfolio" className="text-xs gap-1"><Layers className="h-3 w-3" />Portafolio</TabsTrigger>
@@ -56,7 +56,7 @@ export default function ActivityTimeline({ company }: Props) {
       <Tabs value={tab} onValueChange={v => setTab(v as TabType)}>
         <TabsList className="h-8">
           <TabsTrigger value="all" className="text-xs">Todo</TabsTrigger>
-          <TabsTrigger value="actions" className="text-xs">Acciones</TabsTrigger>
+          <TabsTrigger value="actions" className="text-xs">Toques</TabsTrigger>
           <TabsTrigger value="milestones" className="text-xs">Hitos</TabsTrigger>
           <TabsTrigger value="tasks" className="text-xs">Tareas</TabsTrigger>
           <TabsTrigger value="portfolio" className="text-xs gap-1"><Layers className="h-3 w-3" />Portafolio</TabsTrigger>
