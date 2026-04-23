@@ -446,6 +446,7 @@ export type Database = {
           company_id: string
           created_at: string
           description: string
+          event_date: string | null
           event_type: string
           id: string
           metadata: Json | null
@@ -456,6 +457,7 @@ export type Database = {
           company_id: string
           created_at?: string
           description?: string
+          event_date?: string | null
           event_type?: string
           id?: string
           metadata?: Json | null
@@ -466,6 +468,7 @@ export type Database = {
           company_id?: string
           created_at?: string
           description?: string
+          event_date?: string | null
           event_type?: string
           id?: string
           metadata?: Json | null

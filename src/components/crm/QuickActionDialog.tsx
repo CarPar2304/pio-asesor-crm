@@ -29,6 +29,7 @@ export default function QuickActionDialog({ type, companyId, onClose }: Props) {
   const [date, setDate] = useState<Date>(new Date());
   const [dueDate, setDueDate] = useState<Date>(new Date());
   const [actionType, setActionType] = useState<ActionType>('meeting');
+  const [otherSpecify, setOtherSpecify] = useState('');
   const [milestoneType, setMilestoneType] = useState<MilestoneType>('capital');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -39,6 +40,7 @@ export default function QuickActionDialog({ type, companyId, onClose }: Props) {
     setDate(new Date());
     setDueDate(new Date());
     setActionType('meeting');
+    setOtherSpecify('');
     setMilestoneType('capital');
     setTitle('');
     setDescription('');
@@ -48,15 +50,22 @@ export default function QuickActionDialog({ type, companyId, onClose }: Props) {
 
   const handleSave = async () => {
     if (type === 'action') {
+      if (actionType === 'other' && !otherSpecify.trim()) {
+        return;
+      }
+      const finalDescription = actionType === 'other'
+        ? `Otro (${otherSpecify.trim()})${description ? ': ' + description : ''}`
+        : description;
       const action: CompanyAction = {
         id: crypto.randomUUID(),
         type: actionType,
-        description,
+        description: finalDescription,
         date: format(date, 'yyyy-MM-dd'),
         notes: notes || undefined,
       };
       await addAction(companyId, action);
-      showSuccess('Acción registrada', `${ACTION_TYPE_LABELS[actionType]} guardada exitosamente`);
+      const label = actionType === 'other' ? otherSpecify.trim() : ACTION_TYPE_LABELS[actionType];
+      showSuccess('Toque registrado', `${label} guardado exitosamente`);
     } else if (type === 'milestone') {
       const milestone: Milestone = {
         id: crypto.randomUUID(),
@@ -84,7 +93,7 @@ export default function QuickActionDialog({ type, companyId, onClose }: Props) {
   };
 
   const titles: Record<string, string> = {
-    action: 'Registrar acción',
+    action: 'Registrar toque',
     task: 'Crear tarea',
     milestone: 'Registrar hito',
   };
@@ -113,7 +122,7 @@ export default function QuickActionDialog({ type, companyId, onClose }: Props) {
           {type === 'action' && (
             <>
               <div>
-                <label className="text-xs font-medium text-muted-foreground">Tipo de acción</label>
+                <label className="text-xs font-medium text-muted-foreground">Tipo de toque</label>
                 <Select value={actionType} onValueChange={v => setActionType(v as ActionType)}>
                   <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -121,12 +130,23 @@ export default function QuickActionDialog({ type, companyId, onClose }: Props) {
                   </SelectContent>
                 </Select>
               </div>
+              {actionType === 'other' && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Especificar tipo de toque *</label>
+                  <Input
+                    className="mt-1 h-9 text-sm"
+                    placeholder="Ej: Webinar, demo, intro vía contacto…"
+                    value={otherSpecify}
+                    onChange={e => setOtherSpecify(e.target.value)}
+                  />
+                </div>
+              )}
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Descripción</label>
                 <Textarea className="mt-1 text-sm" rows={2} value={description} onChange={e => setDescription(e.target.value)} />
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground">Fecha</label>
+                <label className="text-xs font-medium text-muted-foreground">Fecha del toque</label>
                 <div className="mt-1"><DatePicker value={date} onSelect={d => d && setDate(d)} /></div>
               </div>
               <div>

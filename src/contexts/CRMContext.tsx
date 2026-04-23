@@ -222,7 +222,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       created_by: session?.user.id,
     });
     await fetchAll();
-    logHistory(companyId, 'action', `Acción: ${action.type}`, action.description, { type: action.type, notes: action.notes }, session?.user.id);
+    logHistory(companyId, 'action', `Toque: ${action.type}`, action.description, { type: action.type, notes: action.notes }, session?.user.id, action.date);
   }, [fetchAll, session]);
 
   const addMilestone = useCallback(async (companyId: string, milestone: Milestone) => {
@@ -235,7 +235,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
       created_by: session?.user.id,
     });
     await fetchAll();
-    logHistory(companyId, 'milestone', `Hito: ${milestone.title}`, milestone.description || '', { type: milestone.type }, session?.user.id);
+    logHistory(companyId, 'milestone', `Hito: ${milestone.title}`, milestone.description || '', { type: milestone.type }, session?.user.id, milestone.date);
   }, [fetchAll, session]);
 
   const addTask = useCallback(async (companyId: string, task: CompanyTask) => {
@@ -263,7 +263,7 @@ export function CRMProvider({ children }: { children: React.ReactNode }) {
 
     await fetchAll();
     triggerVectorize('companies', { companyIds: [companyId] });
-    logHistory(companyId, 'task_created', `Tarea: ${task.title}`, task.description || '', { offerId: task.offerId }, session?.user.id);
+    logHistory(companyId, 'task_created', `Tarea: ${task.title}`, task.description || '', { offerId: task.offerId }, session?.user.id, task.dueDate);
   }, [fetchAll, session]);
 
   const updateTask = useCallback(async (companyId: string, taskId: string, updates: Partial<CompanyTask>) => {

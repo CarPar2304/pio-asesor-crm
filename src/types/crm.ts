@@ -2,7 +2,7 @@ export type CompanyCategory = string;
 
 export const CATEGORIES = ['EBT', 'Startup'];
 
-export type ActionType = 'call' | 'meeting' | 'email' | 'mentoring' | 'diagnostic' | 'routing' | 'other';
+export type ActionType = 'call' | 'meeting' | 'email' | 'whatsapp' | 'visit' | 'event' | 'linkedin' | 'proposal' | 'follow_up' | 'mentoring' | 'diagnostic' | 'routing' | 'other';
 
 export type MilestoneType = 'capital' | 'new-markets' | 'alliances' | 'awards' | 'other';
 
@@ -163,6 +163,12 @@ export const ACTION_TYPE_LABELS: Record<ActionType, string> = {
   call: 'Llamada',
   meeting: 'Reunión',
   email: 'Email',
+  whatsapp: 'WhatsApp',
+  visit: 'Visita presencial',
+  event: 'Evento / Networking',
+  linkedin: 'LinkedIn / Redes',
+  proposal: 'Propuesta enviada',
+  follow_up: 'Seguimiento',
   mentoring: 'Mentoría',
   diagnostic: 'Diagnóstico',
   routing: 'Enrutamiento',
