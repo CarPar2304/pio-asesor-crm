@@ -29,6 +29,7 @@ export default function QuickActionDialog({ type, companyId, onClose }: Props) {
   const [date, setDate] = useState<Date>(new Date());
   const [dueDate, setDueDate] = useState<Date>(new Date());
   const [actionType, setActionType] = useState<ActionType>('meeting');
+  const [otherSpecify, setOtherSpecify] = useState('');
   const [milestoneType, setMilestoneType] = useState<MilestoneType>('capital');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -39,6 +40,7 @@ export default function QuickActionDialog({ type, companyId, onClose }: Props) {
     setDate(new Date());
     setDueDate(new Date());
     setActionType('meeting');
+    setOtherSpecify('');
     setMilestoneType('capital');
     setTitle('');
     setDescription('');
@@ -48,15 +50,22 @@ export default function QuickActionDialog({ type, companyId, onClose }: Props) {
 
   const handleSave = async () => {
     if (type === 'action') {
+      if (actionType === 'other' && !otherSpecify.trim()) {
+        return;
+      }
+      const finalDescription = actionType === 'other'
+        ? `Otro (${otherSpecify.trim()})${description ? ': ' + description : ''}`
+        : description;
       const action: CompanyAction = {
         id: crypto.randomUUID(),
         type: actionType,
-        description,
+        description: finalDescription,
         date: format(date, 'yyyy-MM-dd'),
         notes: notes || undefined,
       };
       await addAction(companyId, action);
-      showSuccess('Acción registrada', `${ACTION_TYPE_LABELS[actionType]} guardada exitosamente`);
+      const label = actionType === 'other' ? otherSpecify.trim() : ACTION_TYPE_LABELS[actionType];
+      showSuccess('Toque registrado', `${label} guardado exitosamente`);
     } else if (type === 'milestone') {
       const milestone: Milestone = {
         id: crypto.randomUUID(),
