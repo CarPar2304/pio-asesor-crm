@@ -6,7 +6,7 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ExpandableTabs } from '@/components/ui/expandable-tabs';
-import { User, Phone, CheckSquare, Flag, ChevronRight, TrendingUp, TrendingDown, Minus, Trash2, GitBranch } from 'lucide-react';
+import { User, MousePointerClick, CheckSquare, Flag, ChevronRight, TrendingUp, TrendingDown, Minus, Trash2, GitBranch } from 'lucide-react';
 import AddToPipelineDialog from '@/components/portfolio/AddToPipelineDialog';
 
 interface Props {
@@ -17,7 +17,7 @@ interface Props {
 }
 
 const QUICK_TABS = [
-  { title: 'Acción', icon: Phone },
+  { title: 'Toques', icon: MousePointerClick },
   { title: 'Tarea', icon: CheckSquare },
   { title: 'Hito', icon: Flag },
 ];
