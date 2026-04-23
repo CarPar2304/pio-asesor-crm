@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Phone, CheckSquare, Flag, Pencil, Mail, User, Star, Globe, Trash2, GitBranch, FileDown } from 'lucide-react';
+import { ArrowLeft, Phone, CheckSquare, Flag, Pencil, Mail, User, Star, Globe, Trash2, GitBranch, FileDown, MousePointerClick } from 'lucide-react';
 import ProfileExportDialog from './ProfileExportDialog';
 import ActivityTimeline from './ActivityTimeline';
 import CompanyTimeline from './CompanyTimeline';
@@ -136,7 +136,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setQuickAction('action')}>
-            <Phone className="h-3.5 w-3.5" /> Acción
+            <MousePointerClick className="h-3.5 w-3.5" /> Toques
           </Button>
           <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setQuickAction('task')}>
             <CheckSquare className="h-3.5 w-3.5" /> Tarea

@@ -93,7 +93,7 @@ export default function QuickActionDialog({ type, companyId, onClose }: Props) {
   };
 
   const titles: Record<string, string> = {
-    action: 'Registrar acción',
+    action: 'Registrar toque',
     task: 'Crear tarea',
     milestone: 'Registrar hito',
   };
@@ -122,7 +122,7 @@ export default function QuickActionDialog({ type, companyId, onClose }: Props) {
           {type === 'action' && (
             <>
               <div>
-                <label className="text-xs font-medium text-muted-foreground">Tipo de acción</label>
+                <label className="text-xs font-medium text-muted-foreground">Tipo de toque</label>
                 <Select value={actionType} onValueChange={v => setActionType(v as ActionType)}>
                   <SelectTrigger className="mt-1 h-9 text-sm"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -130,12 +130,23 @@ export default function QuickActionDialog({ type, companyId, onClose }: Props) {
                   </SelectContent>
                 </Select>
               </div>
+              {actionType === 'other' && (
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">Especificar tipo de toque *</label>
+                  <Input
+                    className="mt-1 h-9 text-sm"
+                    placeholder="Ej: Webinar, demo, intro vía contacto…"
+                    value={otherSpecify}
+                    onChange={e => setOtherSpecify(e.target.value)}
+                  />
+                </div>
+              )}
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Descripción</label>
                 <Textarea className="mt-1 text-sm" rows={2} value={description} onChange={e => setDescription(e.target.value)} />
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground">Fecha</label>
+                <label className="text-xs font-medium text-muted-foreground">Fecha del toque</label>
                 <div className="mt-1"><DatePicker value={date} onSelect={d => d && setDate(d)} /></div>
               </div>
               <div>

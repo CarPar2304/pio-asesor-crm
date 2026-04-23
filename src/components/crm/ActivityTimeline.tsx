@@ -4,7 +4,7 @@ import { useCRM } from '@/contexts/CRMContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Phone, Flag, CheckSquare, Check, Calendar as CalIcon, Layers } from 'lucide-react';
+import { Phone, Flag, CheckSquare, Check, Calendar as CalIcon, Layers, MousePointerClick } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import CompanyPortfolioTab from './CompanyPortfolioTab';
 
@@ -32,7 +32,7 @@ export default function ActivityTimeline({ company }: Props) {
     return all.sort((a, b) => b.date.localeCompare(a.date));
   }, [company, tab]);
 
-  const icons = { action: Phone, milestone: Flag, task: CheckSquare };
+  const icons = { action: MousePointerClick, milestone: Flag, task: CheckSquare };
 
   if (tab === 'portfolio') {
     return (
