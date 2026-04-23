@@ -1,58 +1,74 @@
 
 
-## Ajustes al editor de widgets
+## Plan: Mejorar el módulo de "Toques"
 
-### 1. Blur del modal más sutil
-En `src/components/ui/dialog.tsx` (o el override local del overlay del editor), bajar `backdrop-blur-md` → `backdrop-blur-sm` y reducir la opacidad del fondo a `bg-background/30`. Solo afecta al `DialogOverlay` del editor de widgets, no a otros diálogos críticos.
+### 1. Renombrar "Acción" → "Toques" con ícono nuevo
 
-### 2. Visibilidad condicional entre campos
-Nuevo bloque en el editor de widget: **"Mostrar solo si…"**
-- Selector de campo de la misma sección (custom o nativo) → `conditionFieldKey`
-- Operador: `is_set` / `is_empty` / `equals` / `not_equals`
-- Valor (input/select según tipo) → `conditionValue`
+**`src/components/crm/CompanyProfile.tsx`**
+- Reemplazar el ícono `Phone` por `MousePointerClick` (ícono tipo "botón/clic" de lucide-react) en el botón del header.
+- Cambiar el texto del botón a `Toques`.
 
-**Persistencia**: se guarda dentro de `WidgetConfig.condition` (JSON dentro de la columna `config` ya existente — sin migración nueva).
+**`src/components/crm/CompanyTimeline.tsx`** y **`src/components/crm/ActivityTimeline.tsx`**
+- Cambiar el label de la entrada `action` en `EVENT_CONFIG` a `Toque`.
+- Cambiar el ícono `Phone` → `MousePointerClick` para los eventos `action`.
+- En las pestañas/labels de actividad, "Acciones" → "Toques".
 
-```ts
-config.condition = { fieldKey, sourceType, operator, value? }
+**`src/components/crm/QuickActionDialog.tsx`**
+- Título del diálogo: `Registrar acción` → `Registrar toque`.
+- Toast: "Acción registrada" → "Toque registrado".
+
+### 2. Especificar texto libre cuando se selecciona "Otro"
+
+**`src/components/crm/QuickActionDialog.tsx`**
+- Cuando `actionType === 'other'`, mostrar un input nuevo `Especificar tipo de toque` (obligatorio).
+- Guardar ese texto al inicio del campo `description` o `notes` para que el timeline lo muestre. Propuesta: anteponerlo a `description` con formato `Otro (texto especificado): descripción...`.
+- Validar que no se pueda guardar sin completarlo.
+
+### 3. Más opciones en tipos de toque
+
+**`src/types/crm.ts`**
+- Ampliar `ActionType` y `ACTION_TYPE_LABELS` con nuevas opciones útiles:
+  - `whatsapp` → "WhatsApp"
+  - `visit` → "Visita presencial"
+  - `event` → "Evento / Networking"
+  - `linkedin` → "LinkedIn / Redes"
+  - `proposal` → "Propuesta enviada"
+  - `follow_up` → "Seguimiento"
+- Mantener las existentes (`call`, `meeting`, `email`, `mentoring`, `diagnostic`, `routing`, `other`).
+- Como la columna `company_actions.type` es `text` libre en DB, no requiere migración.
+
+### 4. Timeline ordenado por fecha del toque (no por fecha de creación)
+
+Hoy `company_history.created_at` se llena con `now()`, lo que ignora la fecha real del toque. Solución: agregar columna opcional `event_date` para representar la fecha "de negocio" del evento.
+
+**Migración SQL**
+```sql
+ALTER TABLE public.company_history
+  ADD COLUMN event_date timestamptz;
+CREATE INDEX idx_company_history_event_date
+  ON public.company_history(company_id, event_date DESC);
 ```
 
-**Render** (`SectionWidgetRenderer.tsx`): antes de renderizar, evaluar `condition` contra los valores actuales de la empresa. Si no se cumple → return null (independiente de `hideIfEmpty`).
+**`src/lib/historyHelper.ts`**
+- Añadir parámetro opcional `eventDate?: string` a `logHistory`. Si se pasa, insertar también `event_date`.
+- En `HistoryEvent` exponer `eventDate: string | null` y devolver `event_date` desde el fetch.
+- Cambiar el `order` del fetch para usar `coalesce(event_date, created_at)` mediante una query que ordene por ambos (orden por `event_date NULLS LAST` y luego `created_at`).
 
-**Ejemplo**: widget "Tipo de inversión" con `condition = { fieldKey: '<id Inversión>', operator: 'is_set' }` → solo aparece cuando hay valor en Inversión.
+**`src/contexts/CRMContext.tsx`**
+- En `addAction`, `addMilestone` y `addTask` pasar la fecha respectiva (`action.date`, `milestone.date`, `task.dueDate`) como `eventDate` en `logHistory`.
 
-### 3. Conexión con secciones / campos / formularios
-Validación del comportamiento actual + ajustes:
+**`src/components/crm/CompanyTimeline.tsx`**
+- Usar `ev.eventDate || ev.createdAt` como fecha mostrada y como base para ordenamiento y para los `monthOptions`.
 
-- **Crear sección nueva** (`TaxonomySettings` / `CustomFieldsContext`): aparece automáticamente en el dropdown de secciones del editor de widgets (ya conectado vía `useCustomFields`). ✔
-- **Crear campo nuevo en una sección**: aparece como **widget virtual KPI sm** automáticamente en `WidgetsSettings` y en el perfil. Verificar en `WidgetsSettings.tsx` que el merge de `virtualWidgets + persistedWidgets` re-corra cuando cambia `fields`. Ajustar `useMemo` deps si es necesario.
-- **Formularios externos** (`external_form_fields`): NO están conectados. Son un sistema aparte para captura pública. Confirmar al usuario que los widgets son solo para el perfil interno; los formularios siguen su propio flujo de `crm_field_id`. (Si quiere conexión, sería otro alcance).
+### 5. Filtro por rango de fechas en el Timeline
 
-### 4. Resize por arrastre + permitir disminuir
-Reemplazar el botón cíclico actual por:
+**`src/components/crm/CompanyTimeline.tsx`**
+- Añadir junto al selector "Ir a mes…" dos popovers con `Calendar` (shadcn): `Desde` y `Hasta`.
+- Filtrar `events` por la fecha efectiva (`eventDate || createdAt`) antes del render.
+- Botón pequeño `Limpiar` para resetear el rango.
+- Si el rango está vacío de eventos, mostrar mensaje "Sin eventos en el rango seleccionado".
 
-- **Botón shrink (←)** y **botón expand (→)** en cada widget — cada uno mueve un paso en `SIZE_ORDER` (`sm → md → lg → full`). Deshabilitados en los extremos.
-- **Handle de resize lateral** (borde derecho del widget) que se arrastra horizontalmente: por cada ~`containerWidth/4` pixeles arrastrados, sube/baja un nivel de tamaño. Implementado con un `pointerdown` + listeners locales `pointermove`/`pointerup` sobre el contenedor del grid del canvas.
-
-Esto da control bidireccional sin obligar al ciclo completo.
-
-### 5. Drag-and-drop que no respeta el destino
-Bug en el `onDragEnd` de `WidgetsSettings.tsx`: el `arrayMove` se calcula sobre el array completo de la sección pero el `sortable` context está mezclando virtuales + persistidos con IDs heterogéneos, así que al regresar un item al hueco original, el índice destino se recalcula contra una lista ya mutada localmente y "rebota".
-
-**Fix**:
-1. Usar **un solo array unificado** (virtual+persisted) como source-of-truth del SortableContext, indexado por un `displayOrder` calculado.
-2. En `handleDragEnd`: 
-   - Materializar virtuales tocados (insert en DB) **antes** de reordenar, para que todos tengan ID estable.
-   - Calcular `arrayMove(items, oldIndex, newIndex)` sobre el array final.
-   - Persistir `display_order` de **todos** los widgets de la sección con los nuevos índices vía `reorderWidgets`.
-3. Forzar `setItems(newOrder)` localmente antes del fetch del context para que el preview no "rebote" mientras la red responde (optimistic update).
-
-### Archivos a tocar
-- `src/components/ui/dialog.tsx` — overlay blur (o override puntual en el editor)
-- `src/types/widgets.ts` — añadir `condition` a `WidgetConfig`
-- `src/components/admin/WidgetsSettings.tsx` — UI condicional, botones shrink/expand, handle de resize, fix drag-and-drop optimista
-- `src/components/crm/SectionWidgetRenderer.tsx` — evaluar `condition` antes de render
-
-### Sin migración nueva
-Todo cabe en la columna `config jsonb` ya existente.
+### Resumen de archivos
+- **Migración**: agregar `event_date` a `company_history`.
+- **Editar**: `src/types/crm.ts`, `src/lib/historyHelper.ts`, `src/contexts/CRMContext.tsx`, `src/components/crm/QuickActionDialog.tsx`, `src/components/crm/CompanyProfile.tsx`, `src/components/crm/CompanyTimeline.tsx`, `src/components/crm/ActivityTimeline.tsx`.
 
