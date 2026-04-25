@@ -80,13 +80,14 @@ export default function CompanyProfile({ company, onBack }: Props) {
   const tipoClienteField = fields.find(f => f.name.toLowerCase().includes('tipo de cliente'));
   const tipoClienteValue = tipoClienteField ? getFieldValueDisplay(tipoClienteField.id) : null;
 
-  // Build tabs: any section with fields OR widgets is shown (auto-virtual widgets handle empty filtering)
+  // Build tabs: cualquier sección con campos definidos (aunque vacíos) o widgets se muestra.
+  // Los campos sin sección (CRM principal extendido) siempre tienen pestaña "Campos personalizados"
+  // si existe al menos uno definido, aunque su valor esté vacío.
   const tabItems = useMemo(() => {
     const items: { id: string; label: string; type: 'section' | 'activity' }[] = [];
 
     const unsectionedFields = fields.filter(f => !f.sectionId && f.id !== tipoClienteField?.id);
-    const hasUnsectioned = unsectionedFields.some(f => getFieldValueDisplay(f.id));
-    if (hasUnsectioned) {
+    if (unsectionedFields.length > 0) {
       items.push({ id: '__unsectioned', label: 'Campos personalizados', type: 'section' });
     }
 
