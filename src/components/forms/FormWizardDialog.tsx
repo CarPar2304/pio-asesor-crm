@@ -992,11 +992,31 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                     dragOverIdx === idx && dragIdx !== idx && "border-primary border-2"
                   )}>
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <GripVertical className="h-3.5 w-3.5 text-muted-foreground cursor-grab active:cursor-grabbing" />
                       <span className="text-xs font-medium">Campo {idx + 1}</span>
-                      {field.preload_from_crm && <Badge variant="outline" className="text-[9px]">CRM</Badge>}
-                      {field.section_name && <Badge variant="secondary" className="text-[9px]">{field.section_name}</Badge>}
+                      {/* Origin badge: where does this field save? */}
+                      {field.crm_table === 'companies' && (
+                        <Badge variant="outline" className="text-[9px] bg-blue-50 text-blue-700 border-blue-200" title="Este dato se guarda en el bloque Datos básicos del perfil principal del CRM">
+                          Perfil principal · Datos básicos
+                        </Badge>
+                      )}
+                      {field.crm_field_id && (() => {
+                        const cf = customFields.find(c => c.id === field.crm_field_id);
+                        const sec = cf ? customSections.find(s => s.id === cf.sectionId) : null;
+                        return (
+                          <Badge variant="outline" className="text-[9px] bg-violet-50 text-violet-700 border-violet-200" title={`Campo personalizado del CRM en la sección «${sec?.name || 'Sin sección'}». Edítalo desde el módulo de Custom Fields del CRM.`}>
+                            CRM · sección «{sec?.name || 'sin sección'}»
+                          </Badge>
+                        );
+                      })()}
+                      {!field.crm_table && !field.crm_field_id && (
+                        <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-200" title="Este campo NO se guarda en el CRM. Solo queda en las respuestas del formulario.">
+                          Solo formulario (no se guarda en CRM)
+                        </Badge>
+                      )}
+                      {field.preload_from_crm && <Badge variant="outline" className="text-[9px]">Precarga CRM</Badge>}
+                      {field.section_name && <Badge variant="secondary" className="text-[9px]" title="Agrupador visual del formulario público (no afecta el CRM)">📂 {field.section_name}</Badge>}
                       {field.condition_field_key && <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-200">Condicional</Badge>}
                       {field.only_for_new && <Badge variant="outline" className="text-[9px] bg-emerald-50 text-emerald-700 border-emerald-200">Editable solo nuevas</Badge>}
                     </div>
