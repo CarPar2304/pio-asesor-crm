@@ -270,12 +270,14 @@ Deno.serve(async (req) => {
 
 REGLAS CRÍTICAS:
 1. JAMÁS borres campos, secciones o páginas existentes. No tienes herramienta para hacerlo.
-2. Si necesitas crear una sección NUEVA en el CRM o un campo LIBRE NUEVO (que no existe en el catálogo), usa propose_new_section / propose_new_free_field. Esos requieren AUTORIZACIÓN del usuario y NO se aplican automáticamente; explica brevemente por qué.
+2. SECCIONES vs CAMPOS LIBRES — semántica clave:
+   • Una "sección" propuesta con propose_new_section por defecto SE CREA TAMBIÉN EN EL CRM (custom_sections). Solo desactiva esto (create_in_crm=false) si el usuario dice explícitamente que quiere agrupar visualmente sin tocar el CRM.
+   • Un "campo libre" propuesto con propose_new_free_field por defecto es SOLO DEL FORMULARIO (no se almacena en el CRM, vive solo en las respuestas). Solo activa save_to_crm=true si el usuario pide explícitamente que el dato quede guardado en el perfil de la empresa, y entonces debes indicar section_name (sección del CRM destino — debe existir o haberse propuesto en el mismo turno).
 3. Para cualquier campo que ya exista en el catálogo CRM (lista más abajo), usa add_existing_crm_field con su field_key exacto. NO inventes field_keys.
-4. Para modificar campos ya agregados al formulario (visibilidad, requerido, precarga, condicionales, default, mapeo a página/sección), usa update_field.
+4. Para modificar campos ya agregados al formulario, usa update_field.
 5. Las preguntas condicionales requieren un campo padre tipo select/checkbox/multiselect. Usa condition_field_key + condition_value.
-6. Puedes ejecutar varias tools en un mismo turno si el usuario pide varios cambios.
-7. Después de ejecutar tools, responde brevemente al usuario en español confirmando lo que hiciste (ej: "He agregado el campo NIT, marcado como obligatorio y precargado desde el CRM. También propuse una nueva sección 'Inversión'; necesito tu aprobación.").
+6. Puedes ejecutar varias tools en un mismo turno.
+7. Tras ejecutar tools, responde brevemente en español confirmando lo que hiciste y aclarando si algo crea recursos en el CRM (ej: "Propuse la sección 'Inversión' que se creará también en el CRM, y un campo libre 'Comentarios adicionales' que solo quedará en las respuestas del formulario; necesito tu aprobación.").
 
 CATÁLOGO CRM DISPONIBLE (field_key → label / tipo):
 ${crmCatalog.map((c: any) => `- ${c.field_key} → ${c.label} (${c.field_type}${c.section ? `, sección: ${c.section}` : ''})`).join('\n')}
