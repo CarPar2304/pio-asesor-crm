@@ -31,7 +31,7 @@ async function callFormApi(action: string, body?: any, params?: Record<string, s
   return res.json();
 }
 
-type Step = 'identify' | 'select-contact' | 'code' | 'form' | 'success' | 'error';
+type Step = 'identify' | 'collect-email' | 'select-contact' | 'code' | 'form' | 'success' | 'error';
 
 function FileUploadField({ value, onChange, placeholder }: { value: string | null; onChange: (v: string | null) => void; placeholder?: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -166,6 +166,9 @@ export default function PublicFormPage() {
    const [availableContacts, setAvailableContacts] = useState<{id: string; masked_email: string; position: string; is_primary: boolean}[]>([]);
    const [selectedContactId, setSelectedContactId] = useState('');
 
+  // Collect email (when company not found and allow_creation)
+  const [newCompanyEmail, setNewCompanyEmail] = useState('');
+
   // Code
   const [code, setCode] = useState('');
 
@@ -190,7 +193,24 @@ export default function PublicFormPage() {
         if (data.form) {
           setFormMeta(data.form);
           if (data.taxonomy) setTaxonomy(data.taxonomy);
-          if (data.form.form_type === 'creation' && data.form.verification_mode === 'none') {
+          // If verification is "none", skip identify entirely (any form_type)
+          if (data.form.verification_mode === 'none') {
+            // Create the session via identify (server creates a verified one without key_value)
+            try {
+              const idData = await callFormApi('identify', {
+                form_id: data.form.id,
+                key_value: '',
+                ip_address: '',
+                test_mode: isTestMode,
+                test_email: isTestMode ? testEmail : undefined,
+              });
+              if (idData.session_token) {
+                setSessionToken(idData.session_token);
+                await loadForm(idData.session_token);
+                return;
+              }
+            } catch {}
+            // Fallback: load preview without session (creation forms)
             setForm(data.form);
             setFields(data.fields || []);
             setPages(data.pages || []);
@@ -200,6 +220,7 @@ export default function PublicFormPage() {
         }
       } catch {}
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, isTestMode]);
 
   const handleIdentify = async () => {
@@ -217,7 +238,17 @@ export default function PublicFormPage() {
       });
       if (data.error) { setErrorMsg(data.error); setLoading(false); return; }
 
+      // Empresa no encontrada y se permite creación → pedir email
+      if (data.requires_email_input) {
+        setIsNewCompany(true);
+        setStep('collect-email');
+        setLoading(false);
+        return;
+      }
+
       setSessionToken(data.session_token);
+      if (data.is_new_company) setIsNewCompany(true);
+
       if (data.requires_contact_selection) {
         setAvailableContacts(data.contacts || []);
         setCompanyName(data.company_name);
@@ -231,6 +262,31 @@ export default function PublicFormPage() {
         await loadForm(data.session_token);
       }
     } catch (e: any) {
+      setErrorMsg('Error de conexión');
+    }
+    setLoading(false);
+  };
+
+  const handleSendNewCompanyEmail = async () => {
+    if (!newCompanyEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newCompanyEmail.trim())) {
+      setErrorMsg('Ingresa un email válido');
+      return;
+    }
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const data = await callFormApi('register-new-company-email', {
+        form_id: formMeta?.id,
+        email: newCompanyEmail.trim(),
+        ip_address: '',
+      });
+      if (data.error) { setErrorMsg(data.error); setLoading(false); return; }
+      setSessionToken(data.session_token);
+      setRequiresCode(true);
+      setMaskedEmail(data.masked_email);
+      setCompanyName('Empresa nueva');
+      setStep('code');
+    } catch {
       setErrorMsg('Error de conexión');
     }
     setLoading(false);
@@ -429,6 +485,11 @@ export default function PublicFormPage() {
                   <label htmlFor="no-nit" className="text-sm cursor-pointer">No tengo NIT</label>
                 </div>
               )}
+              {formMeta?.allow_creation && (
+                <p className="text-[11px] text-muted-foreground italic">
+                  Si tu empresa no aparece en nuestro CRM, podrás registrarla a continuación.
+                </p>
+              )}
               <div>
                 <Label>{useNameFallback ? 'Razón social o Nombre comercial' : formMeta?.verification_key_field === 'legal_name' ? 'Razón social de la empresa' : 'NIT de la empresa'}</Label>
                 <Input value={keyValue} onChange={e => setKeyValue(e.target.value)} 
@@ -449,7 +510,46 @@ export default function PublicFormPage() {
           </>
         )}
 
-        {/* Select contact step */}
+        {/* Collect email step (new company, not found in CRM) */}
+        {step === 'collect-email' && (
+          <>
+            <CardHeader className="text-center">
+              <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-12 mx-auto mb-2 object-contain" />
+              <CardTitle className="text-lg">No encontramos esa empresa</CardTitle>
+              <CardDescription>
+                Continuarás como <strong>empresa nueva</strong>. Te enviaremos un código a tu email para verificar tu identidad y luego podrás completar el formulario.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>Tu email</Label>
+                <Input
+                  type="email"
+                  value={newCompanyEmail}
+                  onChange={e => setNewCompanyEmail(e.target.value)}
+                  placeholder="ejemplo@empresa.com"
+                  onKeyDown={e => e.key === 'Enter' && handleSendNewCompanyEmail()}
+                />
+              </div>
+              {errorMsg && (
+                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-950/30 rounded-md p-3">
+                  <AlertCircle className="h-4 w-4 shrink-0" /> {errorMsg}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => { setStep('identify'); setErrorMsg(''); setNewCompanyEmail(''); setIsNewCompany(false); }} disabled={loading}>
+                  Volver
+                </Button>
+                <Button className="flex-1" onClick={handleSendNewCompanyEmail} disabled={loading || !newCompanyEmail.trim()}
+                  style={{ backgroundColor: primaryColor }}>
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
+                  Enviar código
+                </Button>
+              </div>
+            </CardContent>
+          </>
+        )}
+
         {step === 'select-contact' && (
           <>
             <CardHeader className="text-center">

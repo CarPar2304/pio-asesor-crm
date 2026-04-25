@@ -56,9 +56,31 @@ Deno.serve(async (req) => {
 
     if (req.method === "POST" && action === "identify") {
       const { form_id, key_value, ip_address, test_mode, test_email, use_name_fallback } = await req.json();
-      if (!form_id || !key_value) return jsonRes({ error: "form_id y key_value son requeridos" }, 400);
+      if (!form_id) return jsonRes({ error: "form_id es requerido" }, 400);
 
       const isTestMode = test_mode === true && !!test_email;
+
+      // Get form first — needed to know if verification_mode is "none"
+      let formQuery = supabaseAdmin.from("external_forms").select("*").eq("id", form_id);
+      if (!isTestMode) formQuery = formQuery.eq("status", "active");
+      const { data: form, error: formErr } = await formQuery.single();
+      if (formErr || !form) return jsonRes({ error: isTestMode ? "Formulario no encontrado" : "Formulario no encontrado o no está activo" }, 404);
+
+      // For "none" mode, no key_value required: just create a verified session
+      if (form.verification_mode === "none") {
+        if (!isTestMode) {
+          await supabaseAdmin.from("external_forms").update({ access_count: (form.access_count || 0) + 1 }).eq("id", form_id);
+        }
+        const token = crypto.randomUUID();
+        await supabaseAdmin.from("external_form_sessions").insert({
+          form_id, company_id: null, is_verified: true, verified_at: new Date().toISOString(),
+          session_token: token, ip_address, expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+        });
+        await supabaseAdmin.from("external_forms").update({ started_count: (form.started_count || 0) + 1 }).eq("id", form_id);
+        return jsonRes({ success: true, session_token: token, requires_code: false });
+      }
+
+      if (!key_value) return jsonRes({ error: "key_value es requerido" }, 400);
 
       // Rate limit by IP (skip in test mode)
       if (!isTestMode) {
@@ -67,12 +89,6 @@ Deno.serve(async (req) => {
         const nitKey = `nit:${key_value}`;
         if (!checkRateLimit(nitKey, 5, 60000)) return jsonRes({ error: "Demasiados intentos para este NIT. Intenta de nuevo en un minuto." }, 429);
       }
-
-      // Get form — in test mode allow any status (draft, paused, etc.)
-      let formQuery = supabaseAdmin.from("external_forms").select("*").eq("id", form_id);
-      if (!isTestMode) formQuery = formQuery.eq("status", "active");
-      const { data: form, error: formErr } = await formQuery.single();
-      if (formErr || !form) return jsonRes({ error: isTestMode ? "Formulario no encontrado" : "Formulario no encontrado o no está activo" }, 404);
 
       // Increment access count (skip in test mode)
       if (!isTestMode)
@@ -99,9 +115,42 @@ Deno.serve(async (req) => {
         company = data;
       }
 
-      if (form.form_type !== "creation" && !company) {
-        const msg = keyField === "legal_name" 
-          ? "No se encontró una empresa con esa razón social. Verifica e intenta de nuevo." 
+      // No company found
+      if (!company) {
+        // If creation flow allowed (allow_creation), let user proceed as new company
+        if (form.allow_creation) {
+          // For key_only and key_and_code we need an email to send the OTP / verify identity.
+          // Return requires_email_input so the public page collects it before issuing the session.
+          if (form.verification_mode === "key_and_code" && !isTestMode) {
+            return jsonRes({
+              success: true,
+              is_new_company: true,
+              requires_email_input: true,
+              key_value_used: key_value,
+              use_name_fallback: !!use_name_fallback,
+            });
+          }
+          // For key_only or test mode → just create session as new company
+          const token = crypto.randomUUID();
+          await supabaseAdmin.from("external_form_sessions").insert({
+            form_id, company_id: null, is_verified: true, verified_at: new Date().toISOString(),
+            session_token: token, ip_address, expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+          });
+          await supabaseAdmin.from("external_forms").update({ started_count: (form.started_count || 0) + 1 }).eq("id", form_id);
+          return jsonRes({ success: true, session_token: token, requires_code: false, is_new_company: true });
+        }
+        // Otherwise (creation form type also lands here without allow_creation context — but that's unusual)
+        if (form.form_type === "creation") {
+          // creation form without verification_mode none — proceed without company
+          const token = crypto.randomUUID();
+          await supabaseAdmin.from("external_form_sessions").insert({
+            form_id, company_id: null, is_verified: form.verification_mode === "key_only", verified_at: form.verification_mode === "key_only" ? new Date().toISOString() : null,
+            session_token: token, ip_address, expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+          });
+          return jsonRes({ success: true, session_token: token, requires_code: false, is_new_company: true });
+        }
+        const msg = keyField === "legal_name"
+          ? "No se encontró una empresa con esa razón social. Verifica e intenta de nuevo."
           : "No se encontró una empresa con ese NIT. Verifica e intenta de nuevo.";
         return jsonRes({ error: msg }, 404);
       }
@@ -283,6 +332,40 @@ Deno.serve(async (req) => {
         success: true, requires_code: true,
         masked_email: maskEmail(contact.email), company_name: company?.trade_name
       });
+    }
+
+    // Register email for a new (not-found) company and send OTP
+    if (req.method === "POST" && action === "register-new-company-email") {
+      const { form_id, email, ip_address } = await req.json();
+      if (!form_id || !email) return jsonRes({ error: "form_id y email son requeridos" }, 400);
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return jsonRes({ error: "Email inválido" }, 400);
+
+      const { data: form } = await supabaseAdmin.from("external_forms").select("*").eq("id", form_id).eq("status", "active").single();
+      if (!form) return jsonRes({ error: "Formulario no encontrado o no está activo" }, 404);
+      if (!form.allow_creation) return jsonRes({ error: "Este formulario no permite registrar empresas nuevas" }, 403);
+
+      const token = crypto.randomUUID();
+      const { data: session } = await supabaseAdmin.from("external_form_sessions").insert({
+        form_id, company_id: null, is_verified: false,
+        session_token: token, ip_address,
+        pending_email: email,
+        expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+      }).select("id").single();
+
+      const verCode = generateCode();
+      const codeHash = await hashCode(verCode);
+      const expiresAt = new Date(Date.now() + (form.code_expiration_minutes || 10) * 60 * 1000).toISOString();
+      await supabaseAdmin.from("external_form_verification_codes").insert({
+        session_id: session!.id, code_hash: codeHash, expires_at: expiresAt,
+        max_attempts: form.max_code_attempts || 5
+      });
+
+      let webhookUrl = N8N_WEBHOOK_URL_DEFAULT;
+      const { data: settings } = await supabaseAdmin.from("feature_settings").select("config").eq("feature_key", "external_forms").maybeSingle();
+      if (settings?.config && typeof settings.config === "object" && (settings.config as any).webhook_url) webhookUrl = (settings.config as any).webhook_url;
+      try { await fetch(webhookUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ company_id: null, company_name: "Empresa nueva", nit: null, destination_email: email, masked_email: maskEmail(email), verification_code: verCode, form_id, form_name: form.name, test_mode: false, is_new_company: true }) }); } catch (e) { console.error("Webhook error:", e); }
+
+      return jsonRes({ success: true, session_token: token, requires_code: true, masked_email: maskEmail(email), is_new_company: true });
     }
 
     if (req.method === "GET" && action === "load-form") {
