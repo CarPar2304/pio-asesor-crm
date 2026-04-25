@@ -1141,6 +1141,68 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                       <p className="text-[9px] text-muted-foreground mt-0.5">Visual del formulario. No afecta al CRM.</p>
                     </div>
                   </div>
+                  {field.crm_field_id && (() => {
+                    const cf = customFields.find(c => c.id === field.crm_field_id);
+                    if (!cf) return null;
+                    const currentSecId = cf.sectionId || '__none';
+                    return (
+                      <div className="rounded-md border border-violet-200 bg-violet-50/50 dark:bg-violet-950/20 p-2 space-y-1">
+                        <Label className="text-[11px] font-medium text-violet-900 dark:text-violet-200">
+                          Sección en el CRM
+                        </Label>
+                        <Select
+                          value={currentSecId}
+                          onValueChange={async (v) => {
+                            if (v === '__create') {
+                              const name = prompt('Nombre de la nueva sección del CRM:');
+                              if (!name?.trim()) return;
+                              const created = await addSection(name.trim());
+                              if (created) {
+                                await updateCustomField({ ...cf, sectionId: created.id });
+                                showSuccess('Sección creada', `"${cf.name}" ahora vive en la sección «${created.name}» del CRM`);
+                              }
+                              return;
+                            }
+                            if (v === '__rename_unsectioned') {
+                              const name = prompt('Nuevo nombre del bloque sin sección (perfil principal):', unsectionedLabel);
+                              if (!name?.trim()) return;
+                              await setUnsectionedLabel(name.trim());
+                              showSuccess('Renombrado', `Ahora se llama «${name.trim()}» en el perfil`);
+                              return;
+                            }
+                            if (v === '__rename_current' && cf.sectionId) {
+                              const sec = customSections.find(s => s.id === cf.sectionId);
+                              if (!sec) return;
+                              const name = prompt('Nuevo nombre de la sección del CRM:', sec.name);
+                              if (!name?.trim() || name.trim() === sec.name) return;
+                              await updateCustomSection(sec.id, name.trim());
+                              showSuccess('Sección renombrada', `«${sec.name}» → «${name.trim()}»`);
+                              return;
+                            }
+                            const newSecId = v === '__none' ? null : v;
+                            await updateCustomField({ ...cf, sectionId: newSecId });
+                            const secName = newSecId ? customSections.find(s => s.id === newSecId)?.name : unsectionedLabel;
+                            showSuccess('Campo movido', `"${cf.name}" ahora aparece en «${secName}» del perfil CRM`);
+                          }}
+                        >
+                          <SelectTrigger className="h-8 text-xs bg-background"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="__none">📌 {unsectionedLabel} (perfil principal)</SelectItem>
+                            {customSections.map(s => (
+                              <SelectItem key={s.id} value={s.id}>📁 {s.name}</SelectItem>
+                            ))}
+                            <SelectItem value="__create">➕ Crear nueva sección CRM…</SelectItem>
+                            {cf.sectionId
+                              ? <SelectItem value="__rename_current">✎ Renombrar sección actual…</SelectItem>
+                              : <SelectItem value="__rename_unsectioned">✎ Renombrar «{unsectionedLabel}»…</SelectItem>}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-[9px] text-violet-700/80 dark:text-violet-300/80">
+                          Cambia dónde aparece este campo dentro del perfil del CRM. Afecta a todas las empresas.
+                        </p>
+                      </div>
+                    );
+                  })()}
                   {(() => {
                     const liveCrmOpts = getLiveCrmOptions(field.crm_table, field.crm_column);
                     const effectiveOptions = liveCrmOpts ?? field.options;
