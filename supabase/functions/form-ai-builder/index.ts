@@ -331,6 +331,7 @@ Campos actuales (${currentFields.length}): ${JSON.stringify(currentFields.map((f
     // Separar autoChanges (aplican directo) vs pendingProposals (requieren aprobación)
     const autoChanges: any[] = [];
     const pendingProposals: any[] = [];
+    const catalogKeys = new Set((crmCatalog || []).map((c: any) => c.field_key));
 
     for (const tc of toolCalls) {
       const name = tc.function?.name;
@@ -339,6 +340,23 @@ Campos actuales (${currentFields.length}): ${JSON.stringify(currentFields.map((f
 
       if (name === 'propose_new_section' || name === 'propose_new_free_field') {
         pendingProposals.push({ id: tc.id, type: name, args });
+      } else if (name === 'add_existing_crm_field' && args?.field_key && !catalogKeys.has(args.field_key)) {
+        // The model invented a field_key not present in the CRM catalog → convert to a free-field proposal
+        const inferredLabel = args.field_key
+          .replace(/^companies_|^contacts_|^custom_/, '')
+          .replace(/_/g, ' ')
+          .replace(/^./, (c: string) => c.toUpperCase());
+        pendingProposals.push({
+          id: tc.id,
+          type: 'propose_new_free_field',
+          args: {
+            label: inferredLabel,
+            field_type: 'short_text',
+            help_text: args.help_text || '',
+            is_required: !!args.is_required,
+            reason: `La IA quiso agregar "${args.field_key}", pero ese campo no existe en el CRM. Confirma para crearlo como campo libre.`,
+          },
+        });
       } else {
         autoChanges.push({ id: tc.id, type: name, args });
       }
