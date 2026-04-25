@@ -238,7 +238,17 @@ export default function PublicFormPage() {
       });
       if (data.error) { setErrorMsg(data.error); setLoading(false); return; }
 
+      // Empresa no encontrada y se permite creación → pedir email
+      if (data.requires_email_input) {
+        setIsNewCompany(true);
+        setStep('collect-email');
+        setLoading(false);
+        return;
+      }
+
       setSessionToken(data.session_token);
+      if (data.is_new_company) setIsNewCompany(true);
+
       if (data.requires_contact_selection) {
         setAvailableContacts(data.contacts || []);
         setCompanyName(data.company_name);
@@ -252,6 +262,31 @@ export default function PublicFormPage() {
         await loadForm(data.session_token);
       }
     } catch (e: any) {
+      setErrorMsg('Error de conexión');
+    }
+    setLoading(false);
+  };
+
+  const handleSendNewCompanyEmail = async () => {
+    if (!newCompanyEmail.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newCompanyEmail.trim())) {
+      setErrorMsg('Ingresa un email válido');
+      return;
+    }
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const data = await callFormApi('register-new-company-email', {
+        form_id: formMeta?.id,
+        email: newCompanyEmail.trim(),
+        ip_address: '',
+      });
+      if (data.error) { setErrorMsg(data.error); setLoading(false); return; }
+      setSessionToken(data.session_token);
+      setRequiresCode(true);
+      setMaskedEmail(data.masked_email);
+      setCompanyName('Empresa nueva');
+      setStep('code');
+    } catch {
       setErrorMsg('Error de conexión');
     }
     setLoading(false);
