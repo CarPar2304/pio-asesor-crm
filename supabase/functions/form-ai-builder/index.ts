@@ -142,24 +142,8 @@ const tools = [
   {
     type: 'function',
     function: {
-      name: 'propose_new_section',
-      description: 'PROPONE crear una nueva sección. SIEMPRE se crea en custom_sections del CRM y aparece como pestaña en el perfil de empresas. Requiere aprobación del usuario.',
-      parameters: {
-        type: 'object',
-        properties: {
-          name: { type: 'string' },
-          reason: { type: 'string' },
-        },
-        required: ['name'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
       name: 'propose_new_crm_field',
-      description: 'PROPONE crear un campo NUEVO que se almacene en el CRM dentro de una sección. El campo aparecerá en el perfil de la empresa Y en el formulario. target_section_name DEBE ser una sección existente o una propuesta en el mismo turno con propose_new_section. Requiere aprobación.',
+      description: 'PROPONE crear un campo NUEVO en el CRM. Si target_section_name está presente, el campo se crea dentro de esa sección (custom_sections). Si target_section_name es null o se omite, el campo se crea como CAMPO CRM PRINCIPAL sin sección — aparecerá en el perfil de la empresa en la pestaña "Campos personalizados". Requiere aprobación. Usa CRM principal (sin sección) para datos generales como "Antigüedad", "Número de socios", "Principales clientes". Usa sección solo cuando agrupes varios campos relacionados (ej: "Financiamiento", "Mercado").',
       parameters: {
         type: 'object',
         properties: {
@@ -170,14 +154,30 @@ const tools = [
             description: 'Tipos soportados por el CRM custom_fields',
           },
           options: { type: 'array', items: { type: 'string' } },
-          target_section_name: { type: 'string', description: 'Nombre de la sección CRM destino' },
+          target_section_name: { type: ['string', 'null'], description: 'Nombre de la sección CRM destino. Null = CRM principal sin sección.' },
           is_required: { type: 'boolean' },
           help_text: { type: 'string' },
           condition_field_key: { type: ['string', 'null'] },
           condition_value: { type: ['string', 'null'] },
           reason: { type: 'string' },
         },
-        required: ['label', 'field_type', 'target_section_name'],
+        required: ['label', 'field_type'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_new_section',
+      description: 'PROPONE crear una nueva sección. SIEMPRE se crea en custom_sections del CRM y aparece como pestaña en el perfil de empresas. Úsalo solo si vas a agrupar varios campos relacionados; si es un solo dato general, usa propose_new_crm_field sin sección. Requiere aprobación.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          reason: { type: 'string' },
+        },
+        required: ['name'],
         additionalProperties: false,
       },
     },
@@ -202,15 +202,15 @@ const tools = [
     type: 'function',
     function: {
       name: 'promote_field_to_crm',
-      description: 'PROPONE convertir un campo solo-formulario en un campo del CRM dentro de una sección. Requiere aprobación.',
+      description: 'PROPONE convertir un campo solo-formulario en un campo del CRM. Si target_section_name es null, se convierte en campo CRM principal sin sección. Requiere aprobación.',
       parameters: {
         type: 'object',
         properties: {
           field_key: { type: 'string' },
-          target_section_name: { type: 'string' },
+          target_section_name: { type: ['string', 'null'] },
           reason: { type: 'string' },
         },
-        required: ['field_key', 'target_section_name'],
+        required: ['field_key'],
         additionalProperties: false,
       },
     },
@@ -268,24 +268,26 @@ Deno.serve(async (req) => {
 
 # MODELO MENTAL (memorízalo)
 
-Cada pregunta del formulario tiene UN ORIGEN:
-- **crm_native**: campo nativo de la tabla companies/contacts (NIT, razón social, ciudad...). Existe en el catálogo. Usa add_existing_crm_field.
-- **crm_custom_field**: campo personalizado del CRM dentro de una sección (custom_sections). Existe en el catálogo. Usa add_existing_crm_field.
-- **form_only**: pregunta auxiliar que NO se guarda en el CRM, solo en las respuestas del formulario. Usa add_form_only_field.
+Cada pregunta del formulario tiene UNO de cuatro destinos posibles:
+- **crm_native**: campo nativo de companies/contacts (NIT, razón social, ciudad...). Existe en el catálogo.
+- **crm_main_custom**: campo personalizado del CRM SIN sección. Aparece en "Campos personalizados" del perfil. Se crea con propose_new_crm_field SIN target_section_name.
+- **crm_section_custom**: campo personalizado del CRM dentro de una sección custom_sections. Aparece en la pestaña de esa sección. Se crea con propose_new_crm_field CON target_section_name.
+- **form_only**: pregunta auxiliar que solo vive en respuestas del formulario.
 
 # REGLAS DURAS
 
-1. **Las SECCIONES son SIEMPRE del CRM.** No existen "agrupadores visuales aparte". Si propones una sección, se crea en custom_sections y aparece como pestaña en el perfil de TODAS las empresas. Usa propose_new_section.
-2. **Para crear un campo nuevo en una sección CRM**: usa propose_new_crm_field con target_section_name. Si la sección no existe, propónla en el MISMO turno con propose_new_section.
-3. **Para preguntas auxiliares del formulario** (¿cómo te enteraste?, comentarios, encuesta de satisfacción): usa add_form_only_field. Es AUTO, no requiere aprobación.
-4. **NUNCA inventes field_keys**. Si quieres un campo CRM ya existente, búscalo en el catálogo y usa su field_key exacto. Si necesitas algo que no existe en el CRM, usa propose_new_crm_field.
-5. **Aprobaciones**: propose_new_section, propose_new_crm_field, promote_field_to_crm y delete_field (cuando es CRM) REQUIEREN aprobación. Todo lo demás es AUTO.
-6. **Condicionales**: usa condition_field_key + condition_value. El padre debe ser select/checkbox/multiselect.
-7. **Puedes ejecutar varias tools en un mismo turno** (ej: 1 propose_new_section + 3 propose_new_crm_field + 2 add_existing_crm_field + 1 reorder_fields).
-8. **Tras ejecutar tools**, escribe un mensaje breve en español confirmando qué hiciste, separando claramente "✓ Aplicado" vs "⏳ Pendiente de tu aprobación".
+1. **No crees una sección si el usuario solo pide un par de datos generales.** Para datos generales sueltos (Antigüedad, Número de socios, Principales clientes, Estado de empresa) → propose_new_crm_field SIN target_section_name. Aparecerán en el perfil bajo "Campos personalizados".
+2. **Crea sección solo si el usuario lo pide explícitamente o si vas a agregar 3+ campos del mismo tema.** Las secciones SIEMPRE se materializan en custom_sections del CRM y aparecen como pestaña en el perfil.
+3. **Para crear un campo nuevo dentro de una sección CRM**: usa propose_new_crm_field con target_section_name. Si la sección no existe, propónla en el MISMO turno con propose_new_section.
+4. **Para preguntas auxiliares del formulario** (¿cómo te enteraste?, comentarios, encuesta de satisfacción): usa add_form_only_field. Es AUTO, no requiere aprobación.
+5. **NUNCA inventes field_keys**. Si quieres un campo CRM ya existente, búscalo en el catálogo y usa su field_key exacto. Si necesitas algo que no existe en el CRM, usa propose_new_crm_field.
+6. **Aprobaciones**: propose_new_section, propose_new_crm_field, promote_field_to_crm y delete_field (cuando es CRM) REQUIEREN aprobación. Todo lo demás es AUTO.
+7. **Condicionales**: usa condition_field_key + condition_value. El padre debe ser select/checkbox/multiselect.
+8. **Puedes ejecutar varias tools en un mismo turno**.
+9. **Tras ejecutar tools**, escribe un mensaje breve en español confirmando qué hiciste, separando claramente "✓ Aplicado" vs "⏳ Pendiente de tu aprobación".
 
 # CATÁLOGO CRM (field_key → label, tipo, sección)
-${crmCatalog.map((c: any) => `- ${c.field_key} → ${c.label} (${c.field_type}${c.section ? `, sección CRM: ${c.section}` : ''})`).join('\n')}
+${crmCatalog.map((c: any) => `- ${c.field_key} → ${c.label} (${c.field_type}${c.section ? `, sección CRM: ${c.section}` : ', CRM principal sin sección'})`).join('\n')}
 
 # SECCIONES CRM EXISTENTES
 ${existingSections.map((s: any) => `- "${s.name}"`).join('\n') || '(ninguna todavía)'}
@@ -303,14 +305,18 @@ Campos (${currentFields.length}): ${JSON.stringify(enrichedFields)}
 Usuario: "Agrega NIT, razón social y email obligatorios"
 → add_existing_crm_field(companies_nit, is_required=true) + add_existing_crm_field(companies_legal_name, is_required=true) + add_existing_crm_field(contacts_email, is_required=true)
 
-Usuario: "Crea una sección Información General con número de empleados y antigüedad"
-→ propose_new_section('Información General') + propose_new_crm_field(label='Número de empleados', field_type='number', target_section_name='Información General') + propose_new_crm_field(label='Antigüedad de la empresa (años)', field_type='number', target_section_name='Información General')
+Usuario: "Agrega antigüedad de la empresa y número de socios como información general"
+→ propose_new_crm_field(label='Antigüedad de la empresa (años)', field_type='number')  +  propose_new_crm_field(label='Número de socios', field_type='number')
+   (Sin target_section_name → aparecen en "Campos personalizados" del perfil. NO crear sección.)
+
+Usuario: "Crea una sección Financiamiento con EBITDA, deuda actual y monto buscado"
+→ propose_new_section('Financiamiento') + propose_new_crm_field(label='EBITDA último año', field_type='number', target_section_name='Financiamiento') + propose_new_crm_field(label='Deuda actual', field_type='number', target_section_name='Financiamiento') + propose_new_crm_field(label='Monto buscado', field_type='number', target_section_name='Financiamiento')
 
 Usuario: "Agrega una pregunta opcional: ¿cómo te enteraste de nosotros?"
-→ add_form_only_field(label='¿Cómo te enteraste de nosotros?', field_type='short_text')  (sin sección CRM, no requiere aprobación)
+→ add_form_only_field(label='¿Cómo te enteraste de nosotros?', field_type='short_text')  (sin CRM, no requiere aprobación)
 
-Usuario: "Pasa la pregunta de antigüedad al CRM en la sección Información General"
-→ promote_field_to_crm(field_key='antiguedad_de_la_empresa', target_section_name='Información General')
+Usuario: "Pasa la pregunta de antigüedad al CRM"
+→ promote_field_to_crm(field_key='antiguedad_de_la_empresa')   (sin sección = CRM principal)
 
 Usuario: "Elimina la pregunta de hitos"
 → delete_field(field_key='hitos_alcanzados_como_empresa')`;
@@ -390,25 +396,23 @@ Usuario: "Elimina la pregunta de hitos"
       if (name === 'propose_new_section') {
         pendingProposals.push({ id: tc.id, type: name, args });
       } else if (name === 'propose_new_crm_field') {
-        const targetLower = String(args.target_section_name || '').toLowerCase();
-        if (!targetLower) {
-          continue; // skip silently, schema requires it
-        }
-        const sectionWillExist = existingSectionNames.has(targetLower) || proposedSectionNamesThisTurn.has(targetLower);
-        if (!sectionWillExist) {
-          // Auto-add a section proposal so the field has a destination
-          if (!proposedSectionNamesThisTurn.has(targetLower)) {
+        const target = args.target_section_name;
+        const targetLower = target ? String(target).toLowerCase() : '';
+        if (targetLower) {
+          const sectionWillExist = existingSectionNames.has(targetLower) || proposedSectionNamesThisTurn.has(targetLower);
+          if (!sectionWillExist) {
             pendingProposals.push({
               id: `auto-section-${tc.id}`,
               type: 'propose_new_section',
               args: {
-                name: args.target_section_name,
+                name: target,
                 reason: `Necesaria para alojar el campo "${args.label}".`,
               },
             });
             proposedSectionNamesThisTurn.add(targetLower);
           }
         }
+        // target_section_name null/missing → CRM principal sin sección (válido)
         pendingProposals.push({ id: tc.id, type: name, args });
       } else if (name === 'promote_field_to_crm') {
         pendingProposals.push({ id: tc.id, type: name, args });
@@ -433,20 +437,12 @@ Usuario: "Elimina la pregunta de hitos"
             args: {
               label: inferredLabel,
               field_type: 'short_text',
-              target_section_name: 'General',
+              target_section_name: null,
               help_text: args.help_text || '',
               is_required: !!args.is_required,
-              reason: `La IA quiso agregar "${args.field_key}", pero ese campo no existe. Confírmalo para crearlo en el CRM.`,
+              reason: `La IA quiso agregar "${args.field_key}", pero ese campo no existe. Confírmalo para crearlo en el CRM (sin sección).`,
             },
           });
-          if (!existingSectionNames.has('general') && !proposedSectionNamesThisTurn.has('general')) {
-            pendingProposals.push({
-              id: `auto-section-${tc.id}`,
-              type: 'propose_new_section',
-              args: { name: 'General', reason: 'Sección por defecto para campos sin sección explícita.' },
-            });
-            proposedSectionNamesThisTurn.add('general');
-          }
         } else {
           autoChanges.push({
             id: tc.id,
