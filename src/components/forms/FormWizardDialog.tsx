@@ -690,19 +690,31 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       }
 
       if (formFields.length > 0) {
-        const fieldsToInsert = formFields.map((f, i) => ({
-          form_id: formId, label: f.label, field_key: f.field_key || f.label.toLowerCase().replace(/\s+/g, '_'),
-          field_type: f.field_type, placeholder: f.placeholder, help_text: f.help_text, section_name: f.section_name,
-          is_required: f.is_required, is_visible: f.is_visible, is_editable: f.is_editable, is_readonly: f.is_readonly,
-          preload_from_crm: f.preload_from_crm, crm_table: f.crm_table, crm_column: f.crm_column,
-          crm_field_id: f.crm_field_id, options: getLiveCrmOptions(f.crm_table, f.crm_column) ?? f.options, display_order: i,
-          condition_field_key: f.condition_field_key || null,
-          condition_value: f.condition_value || null,
-          only_for_new: f.only_for_new || false,
-          page_id: f.page_id ? (localToPersistedPageId[f.page_id] || f.page_id) : null,
-          default_value: f.default_value ?? '',
-          default_value_editable: f.default_value_editable ?? true,
-        }));
+        const fieldsToInsert = formFields.map((f, i) => {
+          // Sync section_name to actual CRM section name when field is a custom CRM field
+          let syncedSectionName = f.section_name;
+          if (f.crm_field_id) {
+            const cf = customFields.find(cf => cf.id === f.crm_field_id);
+            const sec = cf ? customSections.find(s => s.id === cf.sectionId) : null;
+            if (sec) syncedSectionName = sec.name;
+          } else if (f.crm_table === 'companies' || f.crm_table === 'contacts') {
+            // Native CRM fields belong to "Datos básicos", no custom section
+            syncedSectionName = '';
+          }
+          return {
+            form_id: formId, label: f.label, field_key: f.field_key || f.label.toLowerCase().replace(/\s+/g, '_'),
+            field_type: f.field_type, placeholder: f.placeholder, help_text: f.help_text, section_name: syncedSectionName,
+            is_required: f.is_required, is_visible: f.is_visible, is_editable: f.is_editable, is_readonly: f.is_readonly,
+            preload_from_crm: f.preload_from_crm, crm_table: f.crm_table, crm_column: f.crm_column,
+            crm_field_id: f.crm_field_id, options: getLiveCrmOptions(f.crm_table, f.crm_column) ?? f.options, display_order: i,
+            condition_field_key: f.condition_field_key || null,
+            condition_value: f.condition_value || null,
+            only_for_new: f.only_for_new || false,
+            page_id: f.page_id ? (localToPersistedPageId[f.page_id] || f.page_id) : null,
+            default_value: f.default_value ?? '',
+            default_value_editable: f.default_value_editable ?? true,
+          };
+        });
         const { error } = await supabase.from('external_form_fields').insert(fieldsToInsert as any);
         if (error) throw error;
       }
