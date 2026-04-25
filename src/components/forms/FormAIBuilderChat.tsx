@@ -23,7 +23,7 @@ export interface AutoChange {
 
 export interface PendingProposal {
   id: string;
-  type: 'propose_new_section' | 'propose_new_free_field';
+  type: 'propose_new_section' | 'propose_new_crm_field' | 'promote_field_to_crm' | 'delete_field';
   args: any;
   resolved?: 'accepted' | 'rejected';
 }
@@ -34,6 +34,7 @@ interface Props {
   currentPages: any[];
   currentFields: any[];
   crmCatalog: CRMCatalogEntry[];
+  existingSections: { id: string; name: string }[];
   onAutoChanges: (changes: AutoChange[]) => void;
   onAcceptProposal: (proposal: PendingProposal) => void | Promise<void>;
 }
@@ -41,7 +42,7 @@ interface Props {
 const storageKey = (formId?: string | null) => `form-ai-chat-${formId || 'new'}`;
 
 export default function FormAIBuilderChat({
-  formId, currentForm, currentPages, currentFields, crmCatalog,
+  formId, currentForm, currentPages, currentFields, crmCatalog, existingSections,
   onAutoChanges, onAcceptProposal,
 }: Props) {
   const [messages, setMessages] = useState<ChatMsg[]>(() => {
@@ -91,6 +92,8 @@ export default function FormAIBuilderChat({
           currentPages,
           currentFields,
           crmCatalog,
+          existingSections,
+          formGroups: Array.from(new Set(currentFields.map((f: any) => f.section_name).filter(Boolean))),
         },
       });
 
@@ -185,12 +188,21 @@ export default function FormAIBuilderChat({
                         <span>⚠</span> Requiere tu autorización.
                       </div>
                       {m.proposals.map((p, j) => {
-                        const isSection = p.type === 'propose_new_section';
-                        const sectionGoesToCrm = isSection && p.args.create_in_crm !== false;
-                        const fieldGoesToCrm = !isSection && p.args.save_to_crm === true;
-                        const headline = isSection
-                          ? (sectionGoesToCrm ? '📁 Nueva sección · se creará también en el CRM' : '📂 Nuevo agrupador visual · solo formulario')
-                          : (fieldGoesToCrm ? `➕ Nuevo campo · se guardará en el CRM (sección "${p.args.section_name}")` : '➕ Nuevo campo libre · solo formulario (no se guarda en CRM)');
+                        let headline = '';
+                        let titleText = '';
+                        if (p.type === 'propose_new_section') {
+                          headline = '📁 Nueva sección en el CRM';
+                          titleText = `«${p.args.name}» — aparecerá como pestaña en el perfil de TODAS las empresas`;
+                        } else if (p.type === 'propose_new_crm_field') {
+                          headline = '➕ Nuevo campo CRM';
+                          titleText = `«${p.args.label}» en sección «${p.args.target_section_name}» — quedará visible en el perfil`;
+                        } else if (p.type === 'promote_field_to_crm') {
+                          headline = '↗ Promover al CRM';
+                          titleText = `«${p.args.field_key}» → sección «${p.args.target_section_name}»`;
+                        } else if (p.type === 'delete_field') {
+                          headline = '🗑 Quitar del formulario (campo CRM)';
+                          titleText = `«${p.args.field_key}» — solo se quita del formulario, NO se borra del CRM`;
+                        }
                         return (
                         <div key={p.id} className={cn(
                           'rounded-md border-2 p-3 text-[11px] bg-amber-50 border-amber-400 shadow-sm',
@@ -198,11 +210,9 @@ export default function FormAIBuilderChat({
                           p.resolved === 'rejected' && 'opacity-60 line-through bg-muted/50 border-muted'
                         )}>
                           <div className="font-semibold text-foreground mb-1 text-[12px]">{headline}</div>
-                          <div className="text-foreground mb-1">
-                            <strong>{p.args.name || p.args.label}</strong>
-                            {p.args.field_type && <span className="text-muted-foreground"> · {p.args.field_type}</span>}
-                          </div>
-                          {p.args.reason && <p className="text-muted-foreground italic mb-2">{p.args.reason}</p>}
+                          <div className="text-foreground mb-1">{titleText}</div>
+                          {p.args.field_type && <div className="text-muted-foreground text-[10px]">tipo: {p.args.field_type}</div>}
+                          {p.args.reason && <p className="text-muted-foreground italic mb-2 mt-1">{p.args.reason}</p>}
                           {!p.resolved && (
                             <div className="flex gap-2 mt-2">
                               <Button size="sm" className="h-7 text-[11px] px-3 bg-amber-600 hover:bg-amber-700 text-white" onClick={() => resolveProposal(i, j, 'accepted')}>

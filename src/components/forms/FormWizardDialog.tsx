@@ -533,6 +533,23 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
             ...(typeof a.title === 'string' ? { title: a.title } : {}),
             ...(typeof a.description === 'string' ? { description: a.description } : {}),
           } : p));
+        } else if (ch.type === 'add_form_only_field') {
+          // Free form-only field (no CRM). Auto-applied.
+          setFormFields(prev => [...prev, {
+            label: a.label,
+            field_key: (a.label || 'campo').toLowerCase().replace(/\s+/g, '_').replace(/[^\w_]/g, '') + '_' + Math.random().toString(36).slice(2, 6),
+            field_type: a.field_type || 'short_text',
+            placeholder: '', help_text: a.help_text || '', section_name: a.group_name || '',
+            is_required: !!a.is_required, is_visible: true, is_editable: true, is_readonly: false,
+            preload_from_crm: false, crm_table: null, crm_column: null, crm_field_id: null,
+            options: a.options || [], display_order: prev.length,
+            condition_field_key: a.condition_field_key || null,
+            condition_value: a.condition_value || null,
+            only_for_new: false, default_value: '', default_value_editable: true,
+          }]);
+        } else if (ch.type === 'delete_field') {
+          // Auto only when origin is form_only (server already filtered CRM ones into proposals)
+          setFormFields(prev => prev.filter(f => f.field_key !== a.field_key));
         }
       } catch (err) {
         console.error('Error applying AI change', ch, err);
@@ -544,66 +561,86 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
     const a = p.args || {};
     try {
       if (p.type === 'propose_new_section') {
-        // Default: create in CRM. Only skip if explicitly create_in_crm === false.
-        const createInCrm = a.create_in_crm !== false;
-        if (createInCrm) {
-          const section = await addSection(a.name);
-          if (section) {
-            showSuccess('Sección creada en CRM', `"${section.name}" disponible en el CRM y como agrupador del formulario`);
-          }
+        const section = await addSection(a.name);
+        if (section) {
+          showSuccess('Sección creada en CRM', `"${section.name}" disponible como pestaña en el perfil de empresas`);
         } else {
-          showSuccess('Agrupador visual añadido', `"${a.name}" usado solo en el formulario; no se creó en el CRM`);
+          showError('Error', 'No se pudo crear la sección');
         }
-      } else if (p.type === 'propose_new_free_field') {
-        // Default: form-only. Only persist to CRM if save_to_crm === true.
-        const saveToCrm = a.save_to_crm === true;
-        if (saveToCrm && a.section_name) {
-          const sectionObj = customSections.find(s => s.name === a.section_name);
-          if (sectionObj) {
-            const crmType = a.field_type === 'number' ? 'number' : a.field_type === 'select' ? 'select' : 'text';
-            const created = await addCustomField({
-              sectionId: sectionObj.id,
-              name: a.label,
-              fieldType: crmType as any,
-              options: a.options || [],
-              displayOrder: 0,
-            });
-            if (created) {
-              setFormFields(prev => [...prev, {
-                label: created.name, field_key: `custom_${created.id}`,
-                field_type: a.field_type,
-                placeholder: '', help_text: a.help_text || '', section_name: sectionObj.name,
-                is_required: !!a.is_required, is_visible: true, is_editable: true, is_readonly: false,
-                preload_from_crm: true, crm_table: 'custom_field_values', crm_column: null, crm_field_id: created.id,
-                options: a.options || [], display_order: prev.length,
-                condition_field_key: null, condition_value: null, only_for_new: false,
-                default_value: '', default_value_editable: true,
-              }]);
-              showSuccess('Campo creado en CRM', `"${created.name}" añadido al CRM (sección "${sectionObj.name}") y al formulario`);
-            }
-          } else {
-            showError('Sección no existe', `No encontré la sección CRM "${a.section_name}". Crea primero la sección o desactiva save_to_crm.`);
-            return;
-          }
-        } else {
-          // Form-only field (default)
+      } else if (p.type === 'propose_new_crm_field') {
+        // Resolve section by name (must exist after any prior propose_new_section accepted in same flow)
+        const targetName: string = a.target_section_name;
+        let sectionObj = customSections.find(s => s.name.toLowerCase() === String(targetName || '').toLowerCase());
+        // If not found yet, try to create it (defensive)
+        if (!sectionObj && targetName) {
+          const created = await addSection(targetName);
+          if (created) sectionObj = created as any;
+        }
+        if (!sectionObj) {
+          showError('Sección no encontrada', `No pude resolver la sección "${targetName}". Acepta primero la propuesta de sección.`);
+          return;
+        }
+        const crmType = a.field_type === 'number' ? 'number' : a.field_type === 'select' ? 'select' : 'text';
+        const created = await addCustomField({
+          sectionId: sectionObj.id,
+          name: a.label,
+          fieldType: crmType as any,
+          options: a.options || [],
+          displayOrder: 0,
+        });
+        if (created) {
           setFormFields(prev => [...prev, {
-            label: a.label, field_key: a.label.toLowerCase().replace(/\s+/g, '_'),
-            field_type: a.field_type,
-            placeholder: '', help_text: a.help_text || '', section_name: a.section_name || '',
+            label: created.name, field_key: `custom_${created.id}`,
+            field_type: a.field_type === 'number' ? 'number' : a.field_type === 'select' ? 'select' : a.field_type === 'long_text' ? 'long_text' : 'short_text',
+            placeholder: '', help_text: a.help_text || '', section_name: sectionObj!.name,
             is_required: !!a.is_required, is_visible: true, is_editable: true, is_readonly: false,
-            preload_from_crm: false, crm_table: null, crm_column: null, crm_field_id: null,
+            preload_from_crm: true, crm_table: 'custom_field_values', crm_column: null, crm_field_id: created.id,
             options: a.options || [], display_order: prev.length,
-            condition_field_key: null, condition_value: null, only_for_new: false,
-            default_value: '', default_value_editable: true,
+            condition_field_key: a.condition_field_key || null,
+            condition_value: a.condition_value || null,
+            only_for_new: false, default_value: '', default_value_editable: true,
           }]);
-          showSuccess('Campo añadido', `"${a.label}" agregado solo al formulario (no se guarda en CRM)`);
+          showSuccess('Campo creado en CRM', `"${created.name}" → sección "${sectionObj!.name}". Ya visible en el perfil de empresas y en este formulario.`);
+        } else {
+          showError('Error', 'No se pudo crear el campo en el CRM');
         }
+      } else if (p.type === 'promote_field_to_crm') {
+        const key: string = a.field_key;
+        const field = formFields.find(f => f.field_key === key);
+        if (!field) { showError('Error', `No encontré el campo "${key}"`); return; }
+        if (field.crm_table) {
+          showError('Ya está en CRM', `"${field.label}" ya está conectado al CRM.`);
+          return;
+        }
+        const targetName: string = a.target_section_name;
+        let sectionObj = customSections.find(s => s.name.toLowerCase() === String(targetName || '').toLowerCase());
+        if (!sectionObj && targetName) {
+          const createdSec = await addSection(targetName);
+          if (createdSec) sectionObj = createdSec as any;
+        }
+        if (!sectionObj) { showError('Sección no encontrada', `No pude resolver la sección "${targetName}".`); return; }
+        const crmType = field.field_type === 'number' ? 'number' : field.field_type === 'select' ? 'select' : 'text';
+        const created = await addCustomField({
+          sectionId: sectionObj.id, name: field.label,
+          fieldType: crmType as any, options: field.options || [], displayOrder: 0,
+        });
+        if (created) {
+          setFormFields(prev => prev.map(f => f.field_key === key ? {
+            ...f, field_key: `custom_${created.id}`, section_name: sectionObj!.name,
+            preload_from_crm: true, crm_table: 'custom_field_values', crm_field_id: created.id,
+          } : f));
+          showSuccess('Campo promovido al CRM', `"${field.label}" ahora vive en la sección "${sectionObj!.name}" del CRM`);
+        }
+      } else if (p.type === 'delete_field') {
+        // CRM-backed field: remove from form only, do not delete in CRM
+        const key: string = a.field_key;
+        setFormFields(prev => prev.filter(f => f.field_key !== key));
+        showSuccess('Campo quitado del formulario', `Sigue existiendo en el CRM. Para borrarlo del CRM hazlo desde Configuración > Campos personalizados.`);
       }
     } catch (err: any) {
       showError('Error', err.message || 'No se pudo aplicar la propuesta');
     }
-  }, [addSection, addCustomField, customSections]);
+  }, [addSection, addCustomField, customSections, formFields]);
 
 
   const handleSave = async () => {
@@ -653,19 +690,31 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       }
 
       if (formFields.length > 0) {
-        const fieldsToInsert = formFields.map((f, i) => ({
-          form_id: formId, label: f.label, field_key: f.field_key || f.label.toLowerCase().replace(/\s+/g, '_'),
-          field_type: f.field_type, placeholder: f.placeholder, help_text: f.help_text, section_name: f.section_name,
-          is_required: f.is_required, is_visible: f.is_visible, is_editable: f.is_editable, is_readonly: f.is_readonly,
-          preload_from_crm: f.preload_from_crm, crm_table: f.crm_table, crm_column: f.crm_column,
-          crm_field_id: f.crm_field_id, options: getLiveCrmOptions(f.crm_table, f.crm_column) ?? f.options, display_order: i,
-          condition_field_key: f.condition_field_key || null,
-          condition_value: f.condition_value || null,
-          only_for_new: f.only_for_new || false,
-          page_id: f.page_id ? (localToPersistedPageId[f.page_id] || f.page_id) : null,
-          default_value: f.default_value ?? '',
-          default_value_editable: f.default_value_editable ?? true,
-        }));
+        const fieldsToInsert = formFields.map((f, i) => {
+          // Sync section_name to actual CRM section name when field is a custom CRM field
+          let syncedSectionName = f.section_name;
+          if (f.crm_field_id) {
+            const cf = customFields.find(cf => cf.id === f.crm_field_id);
+            const sec = cf ? customSections.find(s => s.id === cf.sectionId) : null;
+            if (sec) syncedSectionName = sec.name;
+          } else if (f.crm_table === 'companies' || f.crm_table === 'contacts') {
+            // Native CRM fields belong to "Datos básicos", no custom section
+            syncedSectionName = '';
+          }
+          return {
+            form_id: formId, label: f.label, field_key: f.field_key || f.label.toLowerCase().replace(/\s+/g, '_'),
+            field_type: f.field_type, placeholder: f.placeholder, help_text: f.help_text, section_name: syncedSectionName,
+            is_required: f.is_required, is_visible: f.is_visible, is_editable: f.is_editable, is_readonly: f.is_readonly,
+            preload_from_crm: f.preload_from_crm, crm_table: f.crm_table, crm_column: f.crm_column,
+            crm_field_id: f.crm_field_id, options: getLiveCrmOptions(f.crm_table, f.crm_column) ?? f.options, display_order: i,
+            condition_field_key: f.condition_field_key || null,
+            condition_value: f.condition_value || null,
+            only_for_new: f.only_for_new || false,
+            page_id: f.page_id ? (localToPersistedPageId[f.page_id] || f.page_id) : null,
+            default_value: f.default_value ?? '',
+            default_value_editable: f.default_value_editable ?? true,
+          };
+        });
         const { error } = await supabase.from('external_form_fields').insert(fieldsToInsert as any);
         if (error) throw error;
       }
@@ -873,6 +922,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
               currentPages={pages}
               currentFields={formFields}
               crmCatalog={crmCatalog}
+              existingSections={customSections.map(s => ({ id: s.id, name: s.name }))}
               onAutoChanges={applyAutoChanges}
               onAcceptProposal={acceptProposal}
             />

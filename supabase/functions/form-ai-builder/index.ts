@@ -13,53 +13,12 @@ interface ChatMessage {
   name?: string;
 }
 
-interface FormDraft {
-  name: string;
-  description: string;
-  public_title: string;
-  public_subtitle: string;
-  success_message: string;
-  submit_button_text: string;
-}
-
-interface PageDraft {
-  id: string;
-  title: string;
-  description: string;
-  display_order: number;
-}
-
-interface FieldDraft {
-  label: string;
-  field_key: string;
-  field_type: string;
-  placeholder: string;
-  help_text: string;
-  section_name: string;
-  is_required: boolean;
-  is_visible: boolean;
-  is_editable: boolean;
-  is_readonly: boolean;
-  preload_from_crm: boolean;
-  crm_table: string | null;
-  crm_column: string | null;
-  crm_field_id: string | null;
-  options: string[];
-  display_order: number;
-  condition_field_key?: string | null;
-  condition_value?: string | null;
-  only_for_new?: boolean;
-  page_id?: string | null;
-  default_value?: string;
-  default_value_editable?: boolean;
-}
-
 const tools = [
   {
     type: 'function',
     function: {
       name: 'set_form_meta',
-      description: 'Actualiza metadatos del formulario (nombre, descripción, título y subtítulo público, mensaje de éxito, texto del botón de envío).',
+      description: 'Actualiza metadatos del formulario.',
       parameters: {
         type: 'object',
         properties: {
@@ -78,17 +37,18 @@ const tools = [
     type: 'function',
     function: {
       name: 'add_existing_crm_field',
-      description: 'Agrega al formulario un campo que ya existe en el catálogo CRM. Usa field_key del catálogo (formato companies_<col>, contacts_<col> o custom_<id>).',
+      description: 'Agrega al formulario un campo que YA existe en el catálogo CRM. Usa field_key exacto del catálogo.',
       parameters: {
         type: 'object',
         properties: {
-          field_key: { type: 'string', description: 'Clave del catálogo CRM' },
+          field_key: { type: 'string' },
           is_required: { type: 'boolean' },
           is_visible: { type: 'boolean' },
           preload_from_crm: { type: 'boolean' },
           only_for_new: { type: 'boolean' },
-          page_id: { type: ['string', 'null'] },
           help_text: { type: 'string' },
+          condition_field_key: { type: ['string', 'null'] },
+          condition_value: { type: ['string', 'null'] },
         },
         required: ['field_key'],
         additionalProperties: false,
@@ -99,7 +59,7 @@ const tools = [
     type: 'function',
     function: {
       name: 'update_field',
-      description: 'Modifica propiedades de un campo ya existente en el formulario (identificado por field_key).',
+      description: 'Modifica propiedades de un campo ya en el formulario.',
       parameters: {
         type: 'object',
         properties: {
@@ -115,10 +75,9 @@ const tools = [
           only_for_new: { type: 'boolean' },
           default_value: { type: 'string' },
           default_value_editable: { type: 'boolean' },
-          condition_field_key: { type: ['string', 'null'], description: 'field_key de otro campo del que depende' },
-          condition_value: { type: ['string', 'null'], description: 'Valor que debe tener el campo padre para mostrar este' },
-          page_id: { type: ['string', 'null'] },
-          section_name: { type: 'string' },
+          condition_field_key: { type: ['string', 'null'] },
+          condition_value: { type: ['string', 'null'] },
+          group_name: { type: 'string', description: 'Renombrar el agrupador visual del campo (texto libre, no toca CRM)' },
         },
         required: ['field_key'],
         additionalProperties: false,
@@ -129,12 +88,10 @@ const tools = [
     type: 'function',
     function: {
       name: 'reorder_fields',
-      description: 'Reordena los campos del formulario. Recibe la lista completa de field_keys en el nuevo orden.',
+      description: 'Reordena campos del formulario. Recibe lista completa de field_keys en nuevo orden.',
       parameters: {
         type: 'object',
-        properties: {
-          field_keys: { type: 'array', items: { type: 'string' } },
-        },
+        properties: { field_keys: { type: 'array', items: { type: 'string' } } },
         required: ['field_keys'],
         additionalProperties: false,
       },
@@ -144,13 +101,13 @@ const tools = [
     type: 'function',
     function: {
       name: 'move_field',
-      description: 'Mueve un campo a una nueva posición relativa a otro campo. Usa esto cuando el usuario diga "pon X antes/después de Y". También permite mover al inicio o al final.',
+      description: 'Mueve un campo a una posición relativa a otro campo.',
       parameters: {
         type: 'object',
         properties: {
-          field_key: { type: 'string', description: 'field_key del campo a mover' },
-          position: { type: 'string', enum: ['before', 'after', 'start', 'end'], description: 'Dónde colocarlo' },
-          reference_field_key: { type: ['string', 'null'], description: 'field_key de referencia (requerido si position es before/after)' },
+          field_key: { type: 'string' },
+          position: { type: 'string', enum: ['before', 'after', 'start', 'end'] },
+          reference_field_key: { type: ['string', 'null'] },
         },
         required: ['field_key', 'position'],
         additionalProperties: false,
@@ -160,58 +117,8 @@ const tools = [
   {
     type: 'function',
     function: {
-      name: 'add_page',
-      description: 'Agrega una nueva página/sección al formulario para agrupar campos.',
-      parameters: {
-        type: 'object',
-        properties: {
-          title: { type: 'string' },
-          description: { type: 'string' },
-        },
-        required: ['title'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'update_page',
-      description: 'Modifica una página existente del formulario.',
-      parameters: {
-        type: 'object',
-        properties: {
-          page_id: { type: 'string' },
-          title: { type: 'string' },
-          description: { type: 'string' },
-        },
-        required: ['page_id'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'propose_new_section',
-      description: 'PROPONE crear una nueva sección. Por defecto se crea TAMBIÉN como sección real del CRM (custom_sections), de modo que las respuestas del formulario asociadas a esa sección quedan visibles en el perfil de la empresa. Si el usuario solo quiere agrupar visualmente sin tocar el CRM, pasa create_in_crm=false. Requiere autorización del usuario.',
-      parameters: {
-        type: 'object',
-        properties: {
-          name: { type: 'string' },
-          create_in_crm: { type: 'boolean', description: 'true (default) crea la sección en el CRM; false = solo agrupador visual del formulario' },
-          reason: { type: 'string', description: 'Por qué es necesaria' },
-        },
-        required: ['name'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
-      name: 'propose_new_free_field',
-      description: 'PROPONE crear un campo libre nuevo. Por defecto el campo es SOLO DEL FORMULARIO (no se guarda en el CRM, vive solo en las respuestas). Si el usuario pide explícitamente que el dato se vea/almacene en el perfil del CRM, pasa save_to_crm=true junto con section_name (sección CRM destino). Requiere autorización del usuario.',
+      name: 'add_form_only_field',
+      description: 'AUTO (no requiere aprobación). Agrega una pregunta SOLO para el formulario, NO se guarda en el CRM. Usa esto para metadatos del formulario, comentarios, preguntas auxiliares. group_name es opcional y solo agrupa visualmente en el form público.',
       parameters: {
         type: 'object',
         properties: {
@@ -221,13 +128,89 @@ const tools = [
             enum: ['short_text', 'long_text', 'number', 'email', 'phone', 'select', 'multiselect', 'date', 'checkbox', 'url'],
           },
           options: { type: 'array', items: { type: 'string' } },
-          save_to_crm: { type: 'boolean', description: 'false por defecto: el campo solo vive en las respuestas. true = se crea como custom_field del CRM en section_name.' },
-          section_name: { type: 'string', description: 'Solo si save_to_crm=true. Sección CRM destino (debe existir o haberse propuesto antes con propose_new_section).' },
+          group_name: { type: 'string', description: 'Texto libre para agrupar visualmente. NO crea sección CRM.' },
           is_required: { type: 'boolean' },
           help_text: { type: 'string' },
-          reason: { type: 'string' },
+          condition_field_key: { type: ['string', 'null'] },
+          condition_value: { type: ['string', 'null'] },
         },
         required: ['label', 'field_type'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_new_section',
+      description: 'PROPONE crear una nueva sección. SIEMPRE se crea en custom_sections del CRM y aparece como pestaña en el perfil de empresas. Requiere aprobación del usuario.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          reason: { type: 'string' },
+        },
+        required: ['name'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_new_crm_field',
+      description: 'PROPONE crear un campo NUEVO que se almacene en el CRM dentro de una sección. El campo aparecerá en el perfil de la empresa Y en el formulario. target_section_name DEBE ser una sección existente o una propuesta en el mismo turno con propose_new_section. Requiere aprobación.',
+      parameters: {
+        type: 'object',
+        properties: {
+          label: { type: 'string' },
+          field_type: {
+            type: 'string',
+            enum: ['short_text', 'long_text', 'number', 'select'],
+            description: 'Tipos soportados por el CRM custom_fields',
+          },
+          options: { type: 'array', items: { type: 'string' } },
+          target_section_name: { type: 'string', description: 'Nombre de la sección CRM destino' },
+          is_required: { type: 'boolean' },
+          help_text: { type: 'string' },
+          condition_field_key: { type: ['string', 'null'] },
+          condition_value: { type: ['string', 'null'] },
+          reason: { type: 'string' },
+        },
+        required: ['label', 'field_type', 'target_section_name'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'delete_field',
+      description: 'Quita un campo del formulario. Si el campo es CRM (crm_table != null) requiere aprobación y NO borra el campo del CRM, solo lo quita del formulario. Si es solo formulario, se aplica auto.',
+      parameters: {
+        type: 'object',
+        properties: {
+          field_key: { type: 'string' },
+          reason: { type: 'string' },
+        },
+        required: ['field_key'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'promote_field_to_crm',
+      description: 'PROPONE convertir un campo solo-formulario en un campo del CRM dentro de una sección. Requiere aprobación.',
+      parameters: {
+        type: 'object',
+        properties: {
+          field_key: { type: 'string' },
+          target_section_name: { type: 'string' },
+          reason: { type: 'string' },
+        },
+        required: ['field_key', 'target_section_name'],
         additionalProperties: false,
       },
     },
@@ -241,8 +224,7 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
@@ -255,37 +237,83 @@ Deno.serve(async (req) => {
     const { data: userData, error: userErr } = await supabase.auth.getUser(token);
     if (userErr || !userData?.user) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     const body = await req.json();
-    const { messages = [], currentForm, currentPages = [], currentFields = [], crmCatalog = [] } = body;
+    const {
+      messages = [], currentForm, currentPages = [], currentFields = [],
+      crmCatalog = [], existingSections = [], formGroups = [],
+    } = body;
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY no configurado');
 
-    const systemPrompt = `Eres un asistente experto en construcción de formularios externos para un CRM. Ayudas al usuario a crear y editar el formulario actual usando HERRAMIENTAS (function calling). NUNCA respondas con JSON suelto: usa siempre las tools.
+    const enrichedFields = currentFields.map((f: any) => ({
+      field_key: f.field_key,
+      label: f.label,
+      type: f.field_type,
+      required: f.is_required,
+      visible: f.is_visible,
+      group: f.section_name || null,
+      origin: f.crm_field_id ? 'crm_custom_field'
+        : (f.crm_table === 'companies' || f.crm_table === 'contacts') ? 'crm_native'
+        : 'form_only',
+      crm_section: f.crm_section_name || null,
+      condition: f.condition_field_key ? `${f.condition_field_key}=${f.condition_value}` : null,
+    }));
 
-REGLAS CRÍTICAS:
-1. JAMÁS borres campos, secciones o páginas existentes. No tienes herramienta para hacerlo.
-2. SECCIONES vs CAMPOS LIBRES — semántica clave:
-   • Una "sección" propuesta con propose_new_section por defecto SE CREA TAMBIÉN EN EL CRM (custom_sections). Solo desactiva esto (create_in_crm=false) si el usuario dice explícitamente que quiere agrupar visualmente sin tocar el CRM.
-   • Un "campo libre" propuesto con propose_new_free_field por defecto es SOLO DEL FORMULARIO (no se almacena en el CRM, vive solo en las respuestas). Solo activa save_to_crm=true si el usuario pide explícitamente que el dato quede guardado en el perfil de la empresa, y entonces debes indicar section_name (sección del CRM destino — debe existir o haberse propuesto en el mismo turno).
-3. Para cualquier campo que ya exista en el catálogo CRM (lista más abajo), usa add_existing_crm_field con su field_key exacto. NO inventes field_keys.
-4. Para modificar campos ya agregados al formulario, usa update_field.
-5. Las preguntas condicionales requieren un campo padre tipo select/checkbox/multiselect. Usa condition_field_key + condition_value.
-6. Puedes ejecutar varias tools en un mismo turno.
-7. Tras ejecutar tools, responde brevemente en español confirmando lo que hiciste y aclarando si algo crea recursos en el CRM (ej: "Propuse la sección 'Inversión' que se creará también en el CRM, y un campo libre 'Comentarios adicionales' que solo quedará en las respuestas del formulario; necesito tu aprobación.").
+    const systemPrompt = `Eres un constructor de formularios externos conectados a un CRM. Usas HERRAMIENTAS (function calling) para hacer cambios. NUNCA respondas con JSON suelto.
 
-CATÁLOGO CRM DISPONIBLE (field_key → label / tipo):
-${crmCatalog.map((c: any) => `- ${c.field_key} → ${c.label} (${c.field_type}${c.section ? `, sección: ${c.section}` : ''})`).join('\n')}
+# MODELO MENTAL (memorízalo)
 
-ESTADO ACTUAL DEL FORMULARIO:
+Cada pregunta del formulario tiene UN ORIGEN:
+- **crm_native**: campo nativo de la tabla companies/contacts (NIT, razón social, ciudad...). Existe en el catálogo. Usa add_existing_crm_field.
+- **crm_custom_field**: campo personalizado del CRM dentro de una sección (custom_sections). Existe en el catálogo. Usa add_existing_crm_field.
+- **form_only**: pregunta auxiliar que NO se guarda en el CRM, solo en las respuestas del formulario. Usa add_form_only_field.
+
+# REGLAS DURAS
+
+1. **Las SECCIONES son SIEMPRE del CRM.** No existen "agrupadores visuales aparte". Si propones una sección, se crea en custom_sections y aparece como pestaña en el perfil de TODAS las empresas. Usa propose_new_section.
+2. **Para crear un campo nuevo en una sección CRM**: usa propose_new_crm_field con target_section_name. Si la sección no existe, propónla en el MISMO turno con propose_new_section.
+3. **Para preguntas auxiliares del formulario** (¿cómo te enteraste?, comentarios, encuesta de satisfacción): usa add_form_only_field. Es AUTO, no requiere aprobación.
+4. **NUNCA inventes field_keys**. Si quieres un campo CRM ya existente, búscalo en el catálogo y usa su field_key exacto. Si necesitas algo que no existe en el CRM, usa propose_new_crm_field.
+5. **Aprobaciones**: propose_new_section, propose_new_crm_field, promote_field_to_crm y delete_field (cuando es CRM) REQUIEREN aprobación. Todo lo demás es AUTO.
+6. **Condicionales**: usa condition_field_key + condition_value. El padre debe ser select/checkbox/multiselect.
+7. **Puedes ejecutar varias tools en un mismo turno** (ej: 1 propose_new_section + 3 propose_new_crm_field + 2 add_existing_crm_field + 1 reorder_fields).
+8. **Tras ejecutar tools**, escribe un mensaje breve en español confirmando qué hiciste, separando claramente "✓ Aplicado" vs "⏳ Pendiente de tu aprobación".
+
+# CATÁLOGO CRM (field_key → label, tipo, sección)
+${crmCatalog.map((c: any) => `- ${c.field_key} → ${c.label} (${c.field_type}${c.section ? `, sección CRM: ${c.section}` : ''})`).join('\n')}
+
+# SECCIONES CRM EXISTENTES
+${existingSections.map((s: any) => `- "${s.name}"`).join('\n') || '(ninguna todavía)'}
+
+# AGRUPADORES VISUALES YA USADOS EN ESTE FORMULARIO
+${formGroups.map((g: string) => `- "${g}"`).join('\n') || '(ninguno)'}
+
+# ESTADO ACTUAL
 Meta: ${JSON.stringify(currentForm)}
 Páginas (${currentPages.length}): ${JSON.stringify(currentPages.map((p: any) => ({ id: p.id, title: p.title })))}
-Campos actuales (${currentFields.length}): ${JSON.stringify(currentFields.map((f: any) => ({ field_key: f.field_key, label: f.label, type: f.field_type, required: f.is_required, visible: f.is_visible, preload: f.preload_from_crm, condition: f.condition_field_key ? `${f.condition_field_key}=${f.condition_value}` : null })))}`;
+Campos (${currentFields.length}): ${JSON.stringify(enrichedFields)}
+
+# EJEMPLOS
+
+Usuario: "Agrega NIT, razón social y email obligatorios"
+→ add_existing_crm_field(companies_nit, is_required=true) + add_existing_crm_field(companies_legal_name, is_required=true) + add_existing_crm_field(contacts_email, is_required=true)
+
+Usuario: "Crea una sección Información General con número de empleados y antigüedad"
+→ propose_new_section('Información General') + propose_new_crm_field(label='Número de empleados', field_type='number', target_section_name='Información General') + propose_new_crm_field(label='Antigüedad de la empresa (años)', field_type='number', target_section_name='Información General')
+
+Usuario: "Agrega una pregunta opcional: ¿cómo te enteraste de nosotros?"
+→ add_form_only_field(label='¿Cómo te enteraste de nosotros?', field_type='short_text')  (sin sección CRM, no requiere aprobación)
+
+Usuario: "Pasa la pregunta de antigüedad al CRM en la sección Información General"
+→ promote_field_to_crm(field_key='antiguedad_de_la_empresa', target_section_name='Información General')
+
+Usuario: "Elimina la pregunta de hitos"
+→ delete_field(field_key='hitos_alcanzados_como_empresa')`;
 
     const aiMessages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
@@ -330,37 +358,107 @@ Campos actuales (${currentFields.length}): ${JSON.stringify(currentFields.map((f
     const toolCalls = choice?.message?.tool_calls || [];
 
     console.log('[form-ai-builder] tool_calls:', JSON.stringify(toolCalls.map((tc: any) => ({ name: tc.function?.name, args: tc.function?.arguments }))));
-    console.log('[form-ai-builder] assistantMessage:', assistantMessage);
 
-    // Separar autoChanges (aplican directo) vs pendingProposals (requieren aprobación)
     const autoChanges: any[] = [];
     const pendingProposals: any[] = [];
     const catalogKeys = new Set((crmCatalog || []).map((c: any) => c.field_key));
+    const existingSectionNames = new Set((existingSections || []).map((s: any) => s.name.toLowerCase()));
+    const proposedSectionNamesThisTurn = new Set<string>();
+
+    // First pass: collect proposed section names for cross-validation
+    for (const tc of toolCalls) {
+      if (tc.function?.name === 'propose_new_section') {
+        try {
+          const a = JSON.parse(tc.function?.arguments || '{}');
+          if (a.name) proposedSectionNamesThisTurn.add(String(a.name).toLowerCase());
+        } catch { /* ignore */ }
+      }
+    }
+
+    const fieldOriginByKey: Record<string, string> = {};
+    for (const f of currentFields) {
+      fieldOriginByKey[f.field_key] = f.crm_field_id ? 'crm_custom_field'
+        : (f.crm_table === 'companies' || f.crm_table === 'contacts') ? 'crm_native'
+        : 'form_only';
+    }
 
     for (const tc of toolCalls) {
       const name = tc.function?.name;
       let args: any = {};
       try { args = JSON.parse(tc.function?.arguments || '{}'); } catch { /* ignore */ }
 
-      if (name === 'propose_new_section' || name === 'propose_new_free_field') {
+      if (name === 'propose_new_section') {
         pendingProposals.push({ id: tc.id, type: name, args });
+      } else if (name === 'propose_new_crm_field') {
+        const targetLower = String(args.target_section_name || '').toLowerCase();
+        if (!targetLower) {
+          continue; // skip silently, schema requires it
+        }
+        const sectionWillExist = existingSectionNames.has(targetLower) || proposedSectionNamesThisTurn.has(targetLower);
+        if (!sectionWillExist) {
+          // Auto-add a section proposal so the field has a destination
+          if (!proposedSectionNamesThisTurn.has(targetLower)) {
+            pendingProposals.push({
+              id: `auto-section-${tc.id}`,
+              type: 'propose_new_section',
+              args: {
+                name: args.target_section_name,
+                reason: `Necesaria para alojar el campo "${args.label}".`,
+              },
+            });
+            proposedSectionNamesThisTurn.add(targetLower);
+          }
+        }
+        pendingProposals.push({ id: tc.id, type: name, args });
+      } else if (name === 'promote_field_to_crm') {
+        pendingProposals.push({ id: tc.id, type: name, args });
+      } else if (name === 'delete_field') {
+        const origin = fieldOriginByKey[args.field_key];
+        if (origin === 'crm_native' || origin === 'crm_custom_field') {
+          pendingProposals.push({ id: tc.id, type: name, args: { ...args, _origin: origin } });
+        } else {
+          autoChanges.push({ id: tc.id, type: name, args });
+        }
       } else if (name === 'add_existing_crm_field' && args?.field_key && !catalogKeys.has(args.field_key)) {
-        // The model invented a field_key not present in the CRM catalog → convert to a free-field proposal
-        const inferredLabel = args.field_key
+        // Sanitize: AI invented a field_key. Decide intent: if it had crm_ prefix, treat as CRM proposal
+        const looksLikeCrm = /^(companies_|contacts_|custom_)/.test(args.field_key);
+        const inferredLabel = String(args.field_key)
           .replace(/^companies_|^contacts_|^custom_/, '')
           .replace(/_/g, ' ')
           .replace(/^./, (c: string) => c.toUpperCase());
-        pendingProposals.push({
-          id: tc.id,
-          type: 'propose_new_free_field',
-          args: {
-            label: inferredLabel,
-            field_type: 'short_text',
-            help_text: args.help_text || '',
-            is_required: !!args.is_required,
-            reason: `La IA quiso agregar "${args.field_key}", pero ese campo no existe en el CRM. Confirma para crearlo como campo libre.`,
-          },
-        });
+        if (looksLikeCrm) {
+          pendingProposals.push({
+            id: tc.id,
+            type: 'propose_new_crm_field',
+            args: {
+              label: inferredLabel,
+              field_type: 'short_text',
+              target_section_name: 'General',
+              help_text: args.help_text || '',
+              is_required: !!args.is_required,
+              reason: `La IA quiso agregar "${args.field_key}", pero ese campo no existe. Confírmalo para crearlo en el CRM.`,
+            },
+          });
+          if (!existingSectionNames.has('general') && !proposedSectionNamesThisTurn.has('general')) {
+            pendingProposals.push({
+              id: `auto-section-${tc.id}`,
+              type: 'propose_new_section',
+              args: { name: 'General', reason: 'Sección por defecto para campos sin sección explícita.' },
+            });
+            proposedSectionNamesThisTurn.add('general');
+          }
+        } else {
+          autoChanges.push({
+            id: tc.id,
+            type: 'add_form_only_field',
+            args: {
+              label: inferredLabel,
+              field_type: 'short_text',
+              help_text: args.help_text || '',
+              is_required: !!args.is_required,
+            },
+          });
+        }
       } else {
         autoChanges.push({ id: tc.id, type: name, args });
       }
@@ -377,8 +475,7 @@ Campos actuales (${currentFields.length}): ${JSON.stringify(currentFields.map((f
   } catch (e) {
     console.error('form-ai-builder error:', e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : 'Unknown error' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
 });
