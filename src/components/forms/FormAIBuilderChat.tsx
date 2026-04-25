@@ -194,11 +194,18 @@ export default function FormAIBuilderChat({
                           headline = '📁 Nueva sección en el CRM';
                           titleText = `«${p.args.name}» — aparecerá como pestaña en el perfil de TODAS las empresas`;
                         } else if (p.type === 'propose_new_crm_field') {
-                          headline = '➕ Nuevo campo CRM';
-                          titleText = `«${p.args.label}» en sección «${p.args.target_section_name}» — quedará visible en el perfil`;
+                          if (p.args.target_section_name) {
+                            headline = '➕ Nuevo campo CRM (en sección)';
+                            titleText = `«${p.args.label}» en sección «${p.args.target_section_name}» — quedará visible en el perfil`;
+                          } else {
+                            headline = '➕ Nuevo campo CRM principal';
+                            titleText = `«${p.args.label}» — aparecerá en el perfil bajo "Campos personalizados"`;
+                          }
                         } else if (p.type === 'promote_field_to_crm') {
                           headline = '↗ Promover al CRM';
-                          titleText = `«${p.args.field_key}» → sección «${p.args.target_section_name}»`;
+                          titleText = p.args.target_section_name
+                            ? `«${p.args.field_key}» → sección «${p.args.target_section_name}»`
+                            : `«${p.args.field_key}» → CRM principal (sin sección)`;
                         } else if (p.type === 'delete_field') {
                           headline = '🗑 Quitar del formulario (campo CRM)';
                           titleText = `«${p.args.field_key}» — solo se quita del formulario, NO se borra del CRM`;
