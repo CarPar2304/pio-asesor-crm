@@ -23,6 +23,7 @@ import CompanyPipelineNotes from './CompanyPipelineNotes';
 import SectionWidgetRenderer from './SectionWidgetRenderer';
 import { useWidgets } from '@/contexts/WidgetsContext';
 import { useWidgetGridConfig } from '@/hooks/useWidgetGridConfig';
+import { useCrmLayoutSettings } from '@/hooks/useCrmLayoutSettings';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -41,6 +42,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
   const { widgets } = useWidgets();
   const { deleteCompany } = useCRM();
   const { salesCurrency } = useProfile();
+  const { unsectionedLabel } = useCrmLayoutSettings();
 
   const companyCurrency = company.salesCurrency || 'COP';
 
@@ -88,7 +90,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
 
     const unsectionedFields = fields.filter(f => !f.sectionId && f.id !== tipoClienteField?.id);
     if (unsectionedFields.length > 0) {
-      items.push({ id: '__unsectioned', label: 'Campos personalizados', type: 'section' });
+      items.push({ id: '__unsectioned', label: unsectionedLabel, type: 'section' });
     }
 
     sections.forEach(s => {
@@ -103,7 +105,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
     items.push({ id: '__timeline', label: 'Timeline', type: 'activity' });
 
     return items;
-  }, [company, sections, fields, widgets]);
+  }, [company, sections, fields, widgets, unsectionedLabel]);
 
   const defaultTab = tabItems.length > 0 ? tabItems[0].id : '__activity';
 
