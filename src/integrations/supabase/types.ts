@@ -1108,6 +1108,7 @@ export type Database = {
           id: string
           ip_address: string | null
           is_verified: boolean
+          pending_email: string | null
           session_token: string
           user_agent: string | null
           verified_at: string | null
@@ -1120,6 +1121,7 @@ export type Database = {
           id?: string
           ip_address?: string | null
           is_verified?: boolean
+          pending_email?: string | null
           session_token: string
           user_agent?: string | null
           verified_at?: string | null
@@ -1132,6 +1134,7 @@ export type Database = {
           id?: string
           ip_address?: string | null
           is_verified?: boolean
+          pending_email?: string | null
           session_token?: string
           user_agent?: string | null
           verified_at?: string | null
