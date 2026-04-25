@@ -485,6 +485,11 @@ export default function PublicFormPage() {
                   <label htmlFor="no-nit" className="text-sm cursor-pointer">No tengo NIT</label>
                 </div>
               )}
+              {formMeta?.allow_creation && (
+                <p className="text-[11px] text-muted-foreground italic">
+                  Si tu empresa no aparece en nuestro CRM, podrás registrarla a continuación.
+                </p>
+              )}
               <div>
                 <Label>{useNameFallback ? 'Razón social o Nombre comercial' : formMeta?.verification_key_field === 'legal_name' ? 'Razón social de la empresa' : 'NIT de la empresa'}</Label>
                 <Input value={keyValue} onChange={e => setKeyValue(e.target.value)} 
