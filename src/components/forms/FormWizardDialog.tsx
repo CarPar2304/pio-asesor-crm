@@ -499,6 +499,25 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
             byKey.forEach(f => reordered.push(f));
             return reordered.map((f, i) => ({ ...f, display_order: i }));
           });
+        } else if (ch.type === 'move_field') {
+          const key: string = a.field_key;
+          const refKey: string | null = a.reference_field_key ?? null;
+          const position: 'before' | 'after' | 'start' | 'end' = a.position;
+          setFormFields(prev => {
+            const idx = prev.findIndex(f => f.field_key === key);
+            if (idx === -1) return prev;
+            const moving = prev[idx];
+            const without = prev.filter((_, i) => i !== idx);
+            let insertAt = without.length;
+            if (position === 'start') insertAt = 0;
+            else if (position === 'end') insertAt = without.length;
+            else if (refKey) {
+              const refIdx = without.findIndex(f => f.field_key === refKey);
+              if (refIdx !== -1) insertAt = position === 'before' ? refIdx : refIdx + 1;
+            }
+            const next = [...without.slice(0, insertAt), moving, ...without.slice(insertAt)];
+            return next.map((f, i) => ({ ...f, display_order: i }));
+          });
         } else if (ch.type === 'add_page') {
           const newPage: PageDraft = {
             id: crypto.randomUUID(),
