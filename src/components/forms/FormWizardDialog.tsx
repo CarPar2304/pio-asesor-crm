@@ -16,6 +16,7 @@ import {
   FormFieldType, FORM_TYPE_LABELS, FIELD_TYPE_OPTIONS, CRM_FIELD_MAPPINGS
 } from '@/types/externalForms';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
+import { useCrmLayoutSettings } from '@/hooks/useCrmLayoutSettings';
 import { useTaxonomy } from '@/contexts/TaxonomyContext';
 import { CATEGORIES, CITIES } from '@/types/crm';
 import { ChevronLeft, ChevronRight, Plus, Trash2, GripVertical, Copy, ExternalLink, FolderPlus, Layers, Link2, BookOpen, ArrowUp, ArrowDown, FileText } from 'lucide-react';
