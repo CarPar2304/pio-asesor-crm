@@ -42,7 +42,7 @@ interface Props {
 const storageKey = (formId?: string | null) => `form-ai-chat-${formId || 'new'}`;
 
 export default function FormAIBuilderChat({
-  formId, currentForm, currentPages, currentFields, crmCatalog,
+  formId, currentForm, currentPages, currentFields, crmCatalog, existingSections,
   onAutoChanges, onAcceptProposal,
 }: Props) {
   const [messages, setMessages] = useState<ChatMsg[]>(() => {
