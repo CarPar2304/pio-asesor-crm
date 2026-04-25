@@ -34,6 +34,7 @@ interface Props {
   currentPages: any[];
   currentFields: any[];
   crmCatalog: CRMCatalogEntry[];
+  existingSections: { id: string; name: string }[];
   onAutoChanges: (changes: AutoChange[]) => void;
   onAcceptProposal: (proposal: PendingProposal) => void | Promise<void>;
 }
