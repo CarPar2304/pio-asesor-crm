@@ -100,11 +100,18 @@ export default function FormAIBuilderChat({
       const proposals: PendingProposal[] = (data.pendingProposals || []).map((p: any) => ({ ...p }));
       const autoChanges: AutoChange[] = data.autoChanges || [];
 
+      console.log('[AI Builder] respuesta:', { autoChanges, proposals, assistantMessage: data.assistantMessage });
+
       if (autoChanges.length > 0) onAutoChanges(autoChanges);
+
+      const noActions = autoChanges.length === 0 && proposals.length === 0;
+      const fallback = noActions
+        ? (data.assistantMessage || 'No realicé cambios. ¿Puedes ser más específico?')
+        : (data.assistantMessage || 'Listo.');
 
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: data.assistantMessage || 'Listo.',
+        content: fallback,
         proposals: proposals.length > 0 ? proposals : undefined,
       }]);
     } catch (e: any) {
