@@ -143,6 +143,23 @@ const tools = [
   {
     type: 'function',
     function: {
+      name: 'move_field',
+      description: 'Mueve un campo a una nueva posición relativa a otro campo. Usa esto cuando el usuario diga "pon X antes/después de Y". También permite mover al inicio o al final.',
+      parameters: {
+        type: 'object',
+        properties: {
+          field_key: { type: 'string', description: 'field_key del campo a mover' },
+          position: { type: 'string', enum: ['before', 'after', 'start', 'end'], description: 'Dónde colocarlo' },
+          reference_field_key: { type: ['string', 'null'], description: 'field_key de referencia (requerido si position es before/after)' },
+        },
+        required: ['field_key', 'position'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'add_page',
       description: 'Agrega una nueva página/sección al formulario para agrupar campos.',
       parameters: {
