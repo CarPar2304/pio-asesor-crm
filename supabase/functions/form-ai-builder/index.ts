@@ -396,25 +396,23 @@ Usuario: "Elimina la pregunta de hitos"
       if (name === 'propose_new_section') {
         pendingProposals.push({ id: tc.id, type: name, args });
       } else if (name === 'propose_new_crm_field') {
-        const targetLower = String(args.target_section_name || '').toLowerCase();
-        if (!targetLower) {
-          continue; // skip silently, schema requires it
-        }
-        const sectionWillExist = existingSectionNames.has(targetLower) || proposedSectionNamesThisTurn.has(targetLower);
-        if (!sectionWillExist) {
-          // Auto-add a section proposal so the field has a destination
-          if (!proposedSectionNamesThisTurn.has(targetLower)) {
+        const target = args.target_section_name;
+        const targetLower = target ? String(target).toLowerCase() : '';
+        if (targetLower) {
+          const sectionWillExist = existingSectionNames.has(targetLower) || proposedSectionNamesThisTurn.has(targetLower);
+          if (!sectionWillExist) {
             pendingProposals.push({
               id: `auto-section-${tc.id}`,
               type: 'propose_new_section',
               args: {
-                name: args.target_section_name,
+                name: target,
                 reason: `Necesaria para alojar el campo "${args.label}".`,
               },
             });
             proposedSectionNamesThisTurn.add(targetLower);
           }
         }
+        // target_section_name null/missing → CRM principal sin sección (válido)
         pendingProposals.push({ id: tc.id, type: name, args });
       } else if (name === 'promote_field_to_crm') {
         pendingProposals.push({ id: tc.id, type: name, args });
@@ -439,20 +437,12 @@ Usuario: "Elimina la pregunta de hitos"
             args: {
               label: inferredLabel,
               field_type: 'short_text',
-              target_section_name: 'General',
+              target_section_name: null,
               help_text: args.help_text || '',
               is_required: !!args.is_required,
-              reason: `La IA quiso agregar "${args.field_key}", pero ese campo no existe. Confírmalo para crearlo en el CRM.`,
+              reason: `La IA quiso agregar "${args.field_key}", pero ese campo no existe. Confírmalo para crearlo en el CRM (sin sección).`,
             },
           });
-          if (!existingSectionNames.has('general') && !proposedSectionNamesThisTurn.has('general')) {
-            pendingProposals.push({
-              id: `auto-section-${tc.id}`,
-              type: 'propose_new_section',
-              args: { name: 'General', reason: 'Sección por defecto para campos sin sección explícita.' },
-            });
-            proposedSectionNamesThisTurn.add('general');
-          }
         } else {
           autoChanges.push({
             id: tc.id,
