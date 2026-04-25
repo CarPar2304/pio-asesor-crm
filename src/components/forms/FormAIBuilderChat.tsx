@@ -181,33 +181,36 @@ export default function FormAIBuilderChat({
 
                   {m.proposals && m.proposals.length > 0 && (
                     <div className="mt-2 space-y-2">
+                      <div className="flex items-center gap-1 text-[11px] font-semibold text-amber-700">
+                        <span>⚠</span> Esta acción crea recursos en el CRM. Requiere tu autorización.
+                      </div>
                       {m.proposals.map((p, j) => (
                         <div key={p.id} className={cn(
-                          'rounded-md border p-2 text-[11px] bg-amber-50 border-amber-300',
-                          p.resolved === 'accepted' && 'bg-emerald-50 border-emerald-300',
-                          p.resolved === 'rejected' && 'opacity-60 line-through'
+                          'rounded-md border-2 p-3 text-[11px] bg-amber-50 border-amber-400 shadow-sm',
+                          p.resolved === 'accepted' && 'bg-emerald-50 border-emerald-400',
+                          p.resolved === 'rejected' && 'opacity-60 line-through bg-muted/50 border-muted'
                         )}>
-                          <div className="font-medium text-foreground mb-1">
-                            {p.type === 'propose_new_section' ? '📁 Nueva sección CRM' : '➕ Nuevo campo libre'}
+                          <div className="font-semibold text-foreground mb-1 text-[12px]">
+                            {p.type === 'propose_new_section' ? '📁 Nueva sección en el CRM' : '➕ Nuevo campo libre en el CRM'}
                           </div>
-                          <div className="text-muted-foreground mb-1">
+                          <div className="text-foreground mb-1">
                             <strong>{p.args.name || p.args.label}</strong>
-                            {p.args.field_type && <span> · {p.args.field_type}</span>}
-                            {p.args.section_name && <span> · sección "{p.args.section_name}"</span>}
+                            {p.args.field_type && <span className="text-muted-foreground"> · {p.args.field_type}</span>}
+                            {p.args.section_name && <span className="text-muted-foreground"> · sección "{p.args.section_name}"</span>}
                           </div>
-                          {p.args.reason && <p className="text-muted-foreground italic mb-1">{p.args.reason}</p>}
+                          {p.args.reason && <p className="text-muted-foreground italic mb-2">{p.args.reason}</p>}
                           {!p.resolved && (
-                            <div className="flex gap-1 mt-1">
-                              <Button size="sm" className="h-6 text-[10px] px-2" onClick={() => resolveProposal(i, j, 'accepted')}>
-                                <Check className="h-3 w-3 mr-1" /> Aceptar
+                            <div className="flex gap-2 mt-2">
+                              <Button size="sm" className="h-7 text-[11px] px-3 bg-amber-600 hover:bg-amber-700 text-white" onClick={() => resolveProposal(i, j, 'accepted')}>
+                                <Check className="h-3 w-3 mr-1" /> Aceptar y crear
                               </Button>
-                              <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => resolveProposal(i, j, 'rejected')}>
+                              <Button size="sm" variant="outline" className="h-7 text-[11px] px-3" onClick={() => resolveProposal(i, j, 'rejected')}>
                                 <X className="h-3 w-3 mr-1" /> Rechazar
                               </Button>
                             </div>
                           )}
-                          {p.resolved === 'accepted' && <div className="text-emerald-700 text-[10px]">✓ Aplicado</div>}
-                          {p.resolved === 'rejected' && <div className="text-muted-foreground text-[10px]">✗ Rechazado</div>}
+                          {p.resolved === 'accepted' && <div className="text-emerald-700 text-[11px] font-medium mt-1">✓ Creado en el CRM</div>}
+                          {p.resolved === 'rejected' && <div className="text-muted-foreground text-[11px] mt-1">✗ Rechazado</div>}
                         </div>
                       ))}
                     </div>
