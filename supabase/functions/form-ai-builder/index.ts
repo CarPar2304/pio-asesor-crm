@@ -143,21 +143,6 @@ const tools = [
   {
     type: 'function',
     function: {
-      name: 'reorder_fields',
-      description: 'Reordena los campos del formulario. Recibe la lista completa de field_keys en el nuevo orden.',
-      parameters: {
-        type: 'object',
-        properties: {
-          field_keys: { type: 'array', items: { type: 'string' } },
-        },
-        required: ['field_keys'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
       name: 'move_field',
       description: 'Mueve un campo a una nueva posición relativa a otro campo. Usa esto cuando el usuario diga "pon X antes/después de Y". También permite mover al inicio o al final.',
       parameters: {
