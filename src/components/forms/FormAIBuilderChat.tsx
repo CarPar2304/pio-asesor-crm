@@ -23,7 +23,7 @@ export interface AutoChange {
 
 export interface PendingProposal {
   id: string;
-  type: 'propose_new_section' | 'propose_new_free_field';
+  type: 'propose_new_section' | 'propose_new_crm_field' | 'promote_field_to_crm' | 'delete_field';
   args: any;
   resolved?: 'accepted' | 'rejected';
 }
