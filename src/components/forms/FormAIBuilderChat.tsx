@@ -29,6 +29,7 @@ export interface PendingProposal {
 }
 
 interface Props {
+  formId?: string | null;
   currentForm: any;
   currentPages: any[];
   currentFields: any[];
@@ -37,15 +38,37 @@ interface Props {
   onAcceptProposal: (proposal: PendingProposal) => void | Promise<void>;
 }
 
+const storageKey = (formId?: string | null) => `form-ai-chat-${formId || 'new'}`;
+
 export default function FormAIBuilderChat({
-  currentForm, currentPages, currentFields, crmCatalog,
+  formId, currentForm, currentPages, currentFields, crmCatalog,
   onAutoChanges, onAcceptProposal,
 }: Props) {
-  const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [messages, setMessages] = useState<ChatMsg[]>(() => {
+    try {
+      const raw = localStorage.getItem(storageKey(formId));
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  });
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Reload history when formId changes
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(storageKey(formId));
+      setMessages(raw ? JSON.parse(raw) : []);
+    } catch { setMessages([]); }
+  }, [formId]);
+
+  // Persist messages
+  useEffect(() => {
+    try {
+      localStorage.setItem(storageKey(formId), JSON.stringify(messages));
+    } catch { /* ignore quota */ }
+  }, [messages, formId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
