@@ -505,7 +505,46 @@ export default function PublicFormPage() {
           </>
         )}
 
-        {/* Select contact step */}
+        {/* Collect email step (new company, not found in CRM) */}
+        {step === 'collect-email' && (
+          <>
+            <CardHeader className="text-center">
+              <img src={logoCCC} alt="Cámara de Comercio de Cali" className="h-12 mx-auto mb-2 object-contain" />
+              <CardTitle className="text-lg">No encontramos esa empresa</CardTitle>
+              <CardDescription>
+                Continuarás como <strong>empresa nueva</strong>. Te enviaremos un código a tu email para verificar tu identidad y luego podrás completar el formulario.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>Tu email</Label>
+                <Input
+                  type="email"
+                  value={newCompanyEmail}
+                  onChange={e => setNewCompanyEmail(e.target.value)}
+                  placeholder="ejemplo@empresa.com"
+                  onKeyDown={e => e.key === 'Enter' && handleSendNewCompanyEmail()}
+                />
+              </div>
+              {errorMsg && (
+                <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 dark:bg-red-950/30 rounded-md p-3">
+                  <AlertCircle className="h-4 w-4 shrink-0" /> {errorMsg}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => { setStep('identify'); setErrorMsg(''); setNewCompanyEmail(''); setIsNewCompany(false); }} disabled={loading}>
+                  Volver
+                </Button>
+                <Button className="flex-1" onClick={handleSendNewCompanyEmail} disabled={loading || !newCompanyEmail.trim()}
+                  style={{ backgroundColor: primaryColor }}>
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <ShieldCheck className="h-4 w-4 mr-2" />}
+                  Enviar código
+                </Button>
+              </div>
+            </CardContent>
+          </>
+        )}
+
         {step === 'select-contact' && (
           <>
             <CardHeader className="text-center">
