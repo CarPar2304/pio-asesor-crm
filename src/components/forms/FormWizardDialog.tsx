@@ -1045,16 +1045,19 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                       <Input className="h-8 text-xs" value={field.placeholder} onChange={e => updateField(idx, { placeholder: e.target.value })} />
                     </div>
                     <div>
-                      <Label className="text-[11px]">Sección</Label>
+                      <Label className="text-[11px]" title="Solo agrupa visualmente el campo en el formulario público. NO crea ni asigna sección en el CRM.">
+                        Agrupador visible al público
+                      </Label>
                       <Select value={field.section_name || '__none'} onValueChange={v => updateField(idx, { section_name: v === '__none' ? '' : v })}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin agrupar" /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="__none">Sin sección</SelectItem>
-                          {customSections.map(s => (
-                            <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                          <SelectItem value="__none">Sin agrupar</SelectItem>
+                          {Array.from(new Set([...customSections.map(s => s.name), ...formFields.map(f => f.section_name).filter(Boolean)])).map(name => (
+                            <SelectItem key={name} value={name}>{name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
+                      <p className="text-[9px] text-muted-foreground mt-0.5">Visual del formulario. No afecta al CRM.</p>
                     </div>
                   </div>
                   {(() => {
