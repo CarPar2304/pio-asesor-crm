@@ -325,6 +325,9 @@ Campos actuales (${currentFields.length}): ${JSON.stringify(currentFields.map((f
     const assistantMessage = choice?.message?.content || '';
     const toolCalls = choice?.message?.tool_calls || [];
 
+    console.log('[form-ai-builder] tool_calls:', JSON.stringify(toolCalls.map((tc: any) => ({ name: tc.function?.name, args: tc.function?.arguments }))));
+    console.log('[form-ai-builder] assistantMessage:', assistantMessage);
+
     // Separar autoChanges (aplican directo) vs pendingProposals (requieren aprobación)
     const autoChanges: any[] = [];
     const pendingProposals: any[] = [];
