@@ -840,6 +840,15 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
         {/* Step 3: Field Builder */}
         {step === 2 && (
           <div className="space-y-4">
+            <div className="rounded-md border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-900 p-2.5 text-[11px] text-blue-900 dark:text-blue-100 space-y-1">
+              <p className="font-medium">Cómo se relaciona cada campo con el CRM</p>
+              <ul className="list-disc pl-4 space-y-0.5">
+                <li><span className="font-semibold">Perfil principal · Datos básicos</span> (azul): va a la tabla de empresas (NIT, razón social, ciudad, vertical, etc.).</li>
+                <li><span className="font-semibold">CRM · sección «X»</span> (violeta): es un campo personalizado del CRM. Se puede ordenar / editar desde el módulo de Custom Fields.</li>
+                <li><span className="font-semibold">Solo formulario</span> (ámbar): NO se guarda en el CRM, queda únicamente en las respuestas. Si lo quieres en el CRM, usa "Nuevo campo CRM" o pide a la IA que lo cree.</li>
+                <li><span className="font-semibold">📂 Agrupador visible al público</span>: solo agrupa visualmente en el formulario público. <u>No crea ni asigna sección en el CRM</u>.</li>
+              </ul>
+            </div>
             <div className="flex items-center justify-between">
               <Label className="text-sm font-medium">Campos del formulario ({formFields.length})</Label>
               <div className="flex gap-1">
