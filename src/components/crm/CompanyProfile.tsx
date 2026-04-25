@@ -324,15 +324,17 @@ function MetricCard({ label, value, positive }: { label: string; value: string; 
 }
 
 function UnsectionedFieldsTab({ fields, getFieldValueDisplay }: { company: Company; fields: any[]; getFieldValueDisplay: (id: string) => string | null }) {
+  if (fields.length === 0) {
+    return <p className="text-xs text-muted-foreground">Sin campos personalizados.</p>;
+  }
   return (
     <div className="grid gap-2 sm:grid-cols-2">
       {fields.map(f => {
         const display = getFieldValueDisplay(f.id);
-        if (!display) return null;
         return (
           <div key={f.id} className="rounded-lg border border-border/50 p-3">
             <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{f.name}</p>
-            <p className="mt-1 text-sm font-medium">{display}</p>
+            <p className={cn('mt-1 text-sm font-medium', !display && 'text-muted-foreground')}>{display || '—'}</p>
           </div>
         );
       })}
