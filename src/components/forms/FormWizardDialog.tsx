@@ -20,6 +20,8 @@ import { useTaxonomy } from '@/contexts/TaxonomyContext';
 import { CATEGORIES, CITIES } from '@/types/crm';
 import { ChevronLeft, ChevronRight, Plus, Trash2, GripVertical, Copy, ExternalLink, FolderPlus, Layers, Link2, BookOpen, ArrowUp, ArrowDown, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import FormAIBuilderChat, { AutoChange, PendingProposal } from './FormAIBuilderChat';
+import { buildCrmCatalog } from '@/lib/formAICatalog';
 
 interface Props {
   open: boolean;
