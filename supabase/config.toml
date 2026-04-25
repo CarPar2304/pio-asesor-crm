@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.taxonomy-organize]
 verify_jwt = false
+
+[functions.form-ai-builder]
+verify_jwt = false
