@@ -840,6 +840,15 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
         {/* Step 3: Field Builder */}
         {step === 2 && (
           <div className="space-y-4">
+            <div className="rounded-md border border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-900 p-2.5 text-[11px] text-blue-900 dark:text-blue-100 space-y-1">
+              <p className="font-medium">Cómo se relaciona cada campo con el CRM</p>
+              <ul className="list-disc pl-4 space-y-0.5">
+                <li><span className="font-semibold">Perfil principal · Datos básicos</span> (azul): va a la tabla de empresas (NIT, razón social, ciudad, vertical, etc.).</li>
+                <li><span className="font-semibold">CRM · sección «X»</span> (violeta): es un campo personalizado del CRM. Se puede ordenar / editar desde el módulo de Custom Fields.</li>
+                <li><span className="font-semibold">Solo formulario</span> (ámbar): NO se guarda en el CRM, queda únicamente en las respuestas. Si lo quieres en el CRM, usa "Nuevo campo CRM" o pide a la IA que lo cree.</li>
+                <li><span className="font-semibold">📂 Agrupador visible al público</span>: solo agrupa visualmente en el formulario público. <u>No crea ni asigna sección en el CRM</u>.</li>
+              </ul>
+            </div>
             <div className="flex items-center justify-between">
               <Label className="text-sm font-medium">Campos del formulario ({formFields.length})</Label>
               <div className="flex gap-1">
@@ -992,11 +1001,31 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                     dragOverIdx === idx && dragIdx !== idx && "border-primary border-2"
                   )}>
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <GripVertical className="h-3.5 w-3.5 text-muted-foreground cursor-grab active:cursor-grabbing" />
                       <span className="text-xs font-medium">Campo {idx + 1}</span>
-                      {field.preload_from_crm && <Badge variant="outline" className="text-[9px]">CRM</Badge>}
-                      {field.section_name && <Badge variant="secondary" className="text-[9px]">{field.section_name}</Badge>}
+                      {/* Origin badge: where does this field save? */}
+                      {field.crm_table === 'companies' && (
+                        <Badge variant="outline" className="text-[9px] bg-blue-50 text-blue-700 border-blue-200" title="Este dato se guarda en el bloque Datos básicos del perfil principal del CRM">
+                          Perfil principal · Datos básicos
+                        </Badge>
+                      )}
+                      {field.crm_field_id && (() => {
+                        const cf = customFields.find(c => c.id === field.crm_field_id);
+                        const sec = cf ? customSections.find(s => s.id === cf.sectionId) : null;
+                        return (
+                          <Badge variant="outline" className="text-[9px] bg-violet-50 text-violet-700 border-violet-200" title={`Campo personalizado del CRM en la sección «${sec?.name || 'Sin sección'}». Edítalo desde el módulo de Custom Fields del CRM.`}>
+                            CRM · sección «{sec?.name || 'sin sección'}»
+                          </Badge>
+                        );
+                      })()}
+                      {!field.crm_table && !field.crm_field_id && (
+                        <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-200" title="Este campo NO se guarda en el CRM. Solo queda en las respuestas del formulario.">
+                          Solo formulario (no se guarda en CRM)
+                        </Badge>
+                      )}
+                      {field.preload_from_crm && <Badge variant="outline" className="text-[9px]">Precarga CRM</Badge>}
+                      {field.section_name && <Badge variant="secondary" className="text-[9px]" title="Agrupador visual del formulario público (no afecta el CRM)">📂 {field.section_name}</Badge>}
                       {field.condition_field_key && <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-200">Condicional</Badge>}
                       {field.only_for_new && <Badge variant="outline" className="text-[9px] bg-emerald-50 text-emerald-700 border-emerald-200">Editable solo nuevas</Badge>}
                     </div>
@@ -1025,16 +1054,19 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                       <Input className="h-8 text-xs" value={field.placeholder} onChange={e => updateField(idx, { placeholder: e.target.value })} />
                     </div>
                     <div>
-                      <Label className="text-[11px]">Sección</Label>
+                      <Label className="text-[11px]" title="Solo agrupa visualmente el campo en el formulario público. NO crea ni asigna sección en el CRM.">
+                        Agrupador visible al público
+                      </Label>
                       <Select value={field.section_name || '__none'} onValueChange={v => updateField(idx, { section_name: v === '__none' ? '' : v })}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin agrupar" /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="__none">Sin sección</SelectItem>
-                          {customSections.map(s => (
-                            <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                          <SelectItem value="__none">Sin agrupar</SelectItem>
+                          {Array.from(new Set([...customSections.map(s => s.name), ...formFields.map(f => f.section_name).filter(Boolean)])).map(name => (
+                            <SelectItem key={name} value={name}>{name}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
+                      <p className="text-[9px] text-muted-foreground mt-0.5">Visual del formulario. No afecta al CRM.</p>
                     </div>
                   </div>
                   {(() => {
