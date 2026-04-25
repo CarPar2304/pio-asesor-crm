@@ -910,6 +910,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
               currentPages={pages}
               currentFields={formFields}
               crmCatalog={crmCatalog}
+              existingSections={customSections.map(s => ({ id: s.id, name: s.name }))}
               onAutoChanges={applyAutoChanges}
               onAcceptProposal={acceptProposal}
             />
