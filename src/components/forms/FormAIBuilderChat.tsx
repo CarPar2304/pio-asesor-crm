@@ -92,6 +92,8 @@ export default function FormAIBuilderChat({
           currentPages,
           currentFields,
           crmCatalog,
+          existingSections,
+          formGroups: Array.from(new Set(currentFields.map((f: any) => f.section_name).filter(Boolean))),
         },
       });
 
