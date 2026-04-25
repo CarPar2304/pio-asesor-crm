@@ -90,7 +90,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
 
     const unsectionedFields = fields.filter(f => !f.sectionId && f.id !== tipoClienteField?.id);
     if (unsectionedFields.length > 0) {
-      items.push({ id: '__unsectioned', label: 'Campos personalizados', type: 'section' });
+      items.push({ id: '__unsectioned', label: unsectionedLabel, type: 'section' });
     }
 
     sections.forEach(s => {
