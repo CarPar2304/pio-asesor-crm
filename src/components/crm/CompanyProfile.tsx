@@ -105,7 +105,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
     items.push({ id: '__timeline', label: 'Timeline', type: 'activity' });
 
     return items;
-  }, [company, sections, fields, widgets]);
+  }, [company, sections, fields, widgets, unsectionedLabel]);
 
   const defaultTab = tabItems.length > 0 ? tabItems[0].id : '__activity';
 
