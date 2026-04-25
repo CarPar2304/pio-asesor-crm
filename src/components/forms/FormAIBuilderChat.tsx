@@ -1,0 +1,220 @@
+import { useState, useRef, useEffect } from 'react';
+import { Sparkles, Send, Check, X, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import ReactMarkdown from 'react-markdown';
+import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { showError } from '@/lib/toast';
+import type { CRMCatalogEntry } from '@/lib/formAICatalog';
+
+interface ChatMsg {
+  role: 'user' | 'assistant';
+  content: string;
+  proposals?: PendingProposal[];
+}
+
+export interface AutoChange {
+  id: string;
+  type: string;
+  args: any;
+}
+
+export interface PendingProposal {
+  id: string;
+  type: 'propose_new_section' | 'propose_new_free_field';
+  args: any;
+  resolved?: 'accepted' | 'rejected';
+}
+
+interface Props {
+  currentForm: any;
+  currentPages: any[];
+  currentFields: any[];
+  crmCatalog: CRMCatalogEntry[];
+  onAutoChanges: (changes: AutoChange[]) => void;
+  onAcceptProposal: (proposal: PendingProposal) => void | Promise<void>;
+}
+
+export default function FormAIBuilderChat({
+  currentForm, currentPages, currentFields, crmCatalog,
+  onAutoChanges, onAcceptProposal,
+}: Props) {
+  const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+  }, [messages, loading]);
+
+  const send = async () => {
+    const text = input.trim();
+    if (!text || loading) return;
+    setInput('');
+    const newMessages: ChatMsg[] = [...messages, { role: 'user', content: text }];
+    setMessages(newMessages);
+    setLoading(true);
+
+    try {
+      const apiMessages = newMessages.map(m => ({ role: m.role, content: m.content }));
+      const { data, error } = await supabase.functions.invoke('form-ai-builder', {
+        body: {
+          messages: apiMessages,
+          currentForm,
+          currentPages,
+          currentFields,
+          crmCatalog,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      const proposals: PendingProposal[] = (data.pendingProposals || []).map((p: any) => ({ ...p }));
+      const autoChanges: AutoChange[] = data.autoChanges || [];
+
+      if (autoChanges.length > 0) onAutoChanges(autoChanges);
+
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: data.assistantMessage || 'Listo.',
+        proposals: proposals.length > 0 ? proposals : undefined,
+      }]);
+    } catch (e: any) {
+      console.error(e);
+      showError('Error', e.message || 'No se pudo contactar la IA');
+      setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ Hubo un error procesando tu solicitud.' }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resolveProposal = async (msgIdx: number, propIdx: number, decision: 'accepted' | 'rejected') => {
+    const msg = messages[msgIdx];
+    const prop = msg.proposals?.[propIdx];
+    if (!prop || prop.resolved) return;
+
+    if (decision === 'accepted') {
+      await onAcceptProposal(prop);
+    }
+    setMessages(prev => prev.map((m, i) => {
+      if (i !== msgIdx) return m;
+      return {
+        ...m,
+        proposals: m.proposals?.map((p, j) => j === propIdx ? { ...p, resolved: decision } : p),
+      };
+    }));
+  };
+
+  return (
+    <div className="rounded-md border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-purple-500/5 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setCollapsed(c => !c)}
+        className="w-full flex items-center justify-between p-3 hover:bg-primary/5 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium">Construir formulario con IA</span>
+          {messages.length > 0 && (
+            <Badge variant="secondary" className="h-5 text-[10px]">{messages.length} mensajes</Badge>
+          )}
+        </div>
+        <span className="text-[10px] text-muted-foreground">{collapsed ? 'Mostrar' : 'Ocultar'}</span>
+      </button>
+
+      {!collapsed && (
+        <div className="border-t border-primary/20">
+          <div ref={scrollRef} className="max-h-72 overflow-y-auto p-3 space-y-3">
+            {messages.length === 0 && (
+              <p className="text-[11px] text-muted-foreground italic text-center py-4">
+                Pide cambios en lenguaje natural. Ej: "Agrega NIT, nombre comercial y email obligatorios" o "Haz que el campo ciudad solo sea visible si la categoría es Startup".
+              </p>
+            )}
+            {messages.map((m, i) => (
+              <div key={i} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
+                <div className={cn(
+                  'max-w-[85%] rounded-lg px-3 py-2 text-xs',
+                  m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-background border'
+                )}>
+                  {m.role === 'assistant' ? (
+                    <div className="prose prose-xs max-w-none [&_p]:my-1 [&_ul]:my-1 [&_li]:my-0">
+                      <ReactMarkdown>{m.content}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-wrap">{m.content}</p>
+                  )}
+
+                  {m.proposals && m.proposals.length > 0 && (
+                    <div className="mt-2 space-y-2">
+                      {m.proposals.map((p, j) => (
+                        <div key={p.id} className={cn(
+                          'rounded-md border p-2 text-[11px] bg-amber-50 border-amber-300',
+                          p.resolved === 'accepted' && 'bg-emerald-50 border-emerald-300',
+                          p.resolved === 'rejected' && 'opacity-60 line-through'
+                        )}>
+                          <div className="font-medium text-foreground mb-1">
+                            {p.type === 'propose_new_section' ? '📁 Nueva sección CRM' : '➕ Nuevo campo libre'}
+                          </div>
+                          <div className="text-muted-foreground mb-1">
+                            <strong>{p.args.name || p.args.label}</strong>
+                            {p.args.field_type && <span> · {p.args.field_type}</span>}
+                            {p.args.section_name && <span> · sección "{p.args.section_name}"</span>}
+                          </div>
+                          {p.args.reason && <p className="text-muted-foreground italic mb-1">{p.args.reason}</p>}
+                          {!p.resolved && (
+                            <div className="flex gap-1 mt-1">
+                              <Button size="sm" className="h-6 text-[10px] px-2" onClick={() => resolveProposal(i, j, 'accepted')}>
+                                <Check className="h-3 w-3 mr-1" /> Aceptar
+                              </Button>
+                              <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => resolveProposal(i, j, 'rejected')}>
+                                <X className="h-3 w-3 mr-1" /> Rechazar
+                              </Button>
+                            </div>
+                          )}
+                          {p.resolved === 'accepted' && <div className="text-emerald-700 text-[10px]">✓ Aplicado</div>}
+                          {p.resolved === 'rejected' && <div className="text-muted-foreground text-[10px]">✗ Rechazado</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            {loading && (
+              <div className="flex justify-start">
+                <div className="bg-background border rounded-lg px-3 py-2 text-xs flex items-center gap-2">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Pensando…
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="border-t p-2 flex gap-2 bg-background/60">
+            <Textarea
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
+              }}
+              placeholder="Describe lo que quieres construir o ajustar…"
+              rows={1}
+              className="resize-none text-xs min-h-[36px]"
+              disabled={loading}
+            />
+            <Button size="sm" onClick={send} disabled={loading || !input.trim()}>
+              <Send className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
