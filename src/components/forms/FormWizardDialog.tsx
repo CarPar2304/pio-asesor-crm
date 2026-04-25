@@ -857,6 +857,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
 
             {/* AI Builder Chat */}
             <FormAIBuilderChat
+              formId={savedFormId || editingForm?.id || null}
               currentForm={{
                 name, description, public_title: publicTitle, public_subtitle: publicSubtitle,
                 success_message: successMessage, submit_button_text: submitButtonText,

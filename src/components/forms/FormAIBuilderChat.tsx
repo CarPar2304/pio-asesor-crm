@@ -29,6 +29,7 @@ export interface PendingProposal {
 }
 
 interface Props {
+  formId?: string | null;
   currentForm: any;
   currentPages: any[];
   currentFields: any[];
@@ -37,15 +38,37 @@ interface Props {
   onAcceptProposal: (proposal: PendingProposal) => void | Promise<void>;
 }
 
+const storageKey = (formId?: string | null) => `form-ai-chat-${formId || 'new'}`;
+
 export default function FormAIBuilderChat({
-  currentForm, currentPages, currentFields, crmCatalog,
+  formId, currentForm, currentPages, currentFields, crmCatalog,
   onAutoChanges, onAcceptProposal,
 }: Props) {
-  const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [messages, setMessages] = useState<ChatMsg[]>(() => {
+    try {
+      const raw = localStorage.getItem(storageKey(formId));
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  });
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Reload history when formId changes
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(storageKey(formId));
+      setMessages(raw ? JSON.parse(raw) : []);
+    } catch { setMessages([]); }
+  }, [formId]);
+
+  // Persist messages
+  useEffect(() => {
+    try {
+      localStorage.setItem(storageKey(formId), JSON.stringify(messages));
+    } catch { /* ignore quota */ }
+  }, [messages, formId]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -77,11 +100,18 @@ export default function FormAIBuilderChat({
       const proposals: PendingProposal[] = (data.pendingProposals || []).map((p: any) => ({ ...p }));
       const autoChanges: AutoChange[] = data.autoChanges || [];
 
+      console.log('[AI Builder] respuesta:', { autoChanges, proposals, assistantMessage: data.assistantMessage });
+
       if (autoChanges.length > 0) onAutoChanges(autoChanges);
+
+      const noActions = autoChanges.length === 0 && proposals.length === 0;
+      const fallback = noActions
+        ? (data.assistantMessage || 'No realicé cambios. ¿Puedes ser más específico?')
+        : (data.assistantMessage || 'Listo.');
 
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: data.assistantMessage || 'Listo.',
+        content: fallback,
         proposals: proposals.length > 0 ? proposals : undefined,
       }]);
     } catch (e: any) {
