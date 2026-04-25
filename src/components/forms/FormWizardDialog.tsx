@@ -554,6 +554,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
       } catch (err) {
         console.error('Error applying AI change', ch, err);
       }
+    }
   }, [formFields, pages, crmCatalog, customFields, addCrmField, addCustomCrmField]);
 
   const acceptProposal = useCallback(async (p: PendingProposal) => {
