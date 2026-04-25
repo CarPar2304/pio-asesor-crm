@@ -836,6 +836,19 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
               </div>
             </div>
 
+            {/* AI Builder Chat */}
+            <FormAIBuilderChat
+              currentForm={{
+                name, description, public_title: publicTitle, public_subtitle: publicSubtitle,
+                success_message: successMessage, submit_button_text: submitButtonText,
+              }}
+              currentPages={pages}
+              currentFields={formFields}
+              crmCatalog={crmCatalog}
+              onAutoChanges={applyAutoChanges}
+              onAcceptProposal={acceptProposal}
+            />
+
             {/* Quick add from CRM - at top for visibility */}
             <div className="rounded-md border p-3">
               <p className="text-[11px] font-medium text-muted-foreground mb-2">Agregar campos del CRM</p>
