@@ -334,6 +334,40 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Register email for a new (not-found) company and send OTP
+    if (req.method === "POST" && action === "register-new-company-email") {
+      const { form_id, email, ip_address } = await req.json();
+      if (!form_id || !email) return jsonRes({ error: "form_id y email son requeridos" }, 400);
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return jsonRes({ error: "Email inválido" }, 400);
+
+      const { data: form } = await supabaseAdmin.from("external_forms").select("*").eq("id", form_id).eq("status", "active").single();
+      if (!form) return jsonRes({ error: "Formulario no encontrado o no está activo" }, 404);
+      if (!form.allow_creation) return jsonRes({ error: "Este formulario no permite registrar empresas nuevas" }, 403);
+
+      const token = crypto.randomUUID();
+      const { data: session } = await supabaseAdmin.from("external_form_sessions").insert({
+        form_id, company_id: null, is_verified: false,
+        session_token: token, ip_address,
+        pending_email: email,
+        expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+      }).select("id").single();
+
+      const verCode = generateCode();
+      const codeHash = await hashCode(verCode);
+      const expiresAt = new Date(Date.now() + (form.code_expiration_minutes || 10) * 60 * 1000).toISOString();
+      await supabaseAdmin.from("external_form_verification_codes").insert({
+        session_id: session!.id, code_hash: codeHash, expires_at: expiresAt,
+        max_attempts: form.max_code_attempts || 5
+      });
+
+      let webhookUrl = N8N_WEBHOOK_URL_DEFAULT;
+      const { data: settings } = await supabaseAdmin.from("feature_settings").select("config").eq("feature_key", "external_forms").maybeSingle();
+      if (settings?.config && typeof settings.config === "object" && (settings.config as any).webhook_url) webhookUrl = (settings.config as any).webhook_url;
+      try { await fetch(webhookUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ company_id: null, company_name: "Empresa nueva", nit: null, destination_email: email, masked_email: maskEmail(email), verification_code: verCode, form_id, form_name: form.name, test_mode: false, is_new_company: true }) }); } catch (e) { console.error("Webhook error:", e); }
+
+      return jsonRes({ success: true, session_token: token, requires_code: true, masked_email: maskEmail(email), is_new_company: true });
+    }
+
     if (req.method === "GET" && action === "load-form") {
       const sessionToken = url.searchParams.get("session_token");
       const slug = url.searchParams.get("slug");
