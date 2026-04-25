@@ -142,24 +142,8 @@ const tools = [
   {
     type: 'function',
     function: {
-      name: 'propose_new_section',
-      description: 'PROPONE crear una nueva sección. SIEMPRE se crea en custom_sections del CRM y aparece como pestaña en el perfil de empresas. Requiere aprobación del usuario.',
-      parameters: {
-        type: 'object',
-        properties: {
-          name: { type: 'string' },
-          reason: { type: 'string' },
-        },
-        required: ['name'],
-        additionalProperties: false,
-      },
-    },
-  },
-  {
-    type: 'function',
-    function: {
       name: 'propose_new_crm_field',
-      description: 'PROPONE crear un campo NUEVO que se almacene en el CRM dentro de una sección. El campo aparecerá en el perfil de la empresa Y en el formulario. target_section_name DEBE ser una sección existente o una propuesta en el mismo turno con propose_new_section. Requiere aprobación.',
+      description: 'PROPONE crear un campo NUEVO en el CRM. Si target_section_name está presente, el campo se crea dentro de esa sección (custom_sections). Si target_section_name es null o se omite, el campo se crea como CAMPO CRM PRINCIPAL sin sección — aparecerá en el perfil de la empresa en la pestaña "Campos personalizados". Requiere aprobación. Usa CRM principal (sin sección) para datos generales como "Antigüedad", "Número de socios", "Principales clientes". Usa sección solo cuando agrupes varios campos relacionados (ej: "Financiamiento", "Mercado").',
       parameters: {
         type: 'object',
         properties: {
@@ -170,14 +154,30 @@ const tools = [
             description: 'Tipos soportados por el CRM custom_fields',
           },
           options: { type: 'array', items: { type: 'string' } },
-          target_section_name: { type: 'string', description: 'Nombre de la sección CRM destino' },
+          target_section_name: { type: ['string', 'null'], description: 'Nombre de la sección CRM destino. Null = CRM principal sin sección.' },
           is_required: { type: 'boolean' },
           help_text: { type: 'string' },
           condition_field_key: { type: ['string', 'null'] },
           condition_value: { type: ['string', 'null'] },
           reason: { type: 'string' },
         },
-        required: ['label', 'field_type', 'target_section_name'],
+        required: ['label', 'field_type'],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_new_section',
+      description: 'PROPONE crear una nueva sección. SIEMPRE se crea en custom_sections del CRM y aparece como pestaña en el perfil de empresas. Úsalo solo si vas a agrupar varios campos relacionados; si es un solo dato general, usa propose_new_crm_field sin sección. Requiere aprobación.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          reason: { type: 'string' },
+        },
+        required: ['name'],
         additionalProperties: false,
       },
     },
@@ -202,15 +202,15 @@ const tools = [
     type: 'function',
     function: {
       name: 'promote_field_to_crm',
-      description: 'PROPONE convertir un campo solo-formulario en un campo del CRM dentro de una sección. Requiere aprobación.',
+      description: 'PROPONE convertir un campo solo-formulario en un campo del CRM. Si target_section_name es null, se convierte en campo CRM principal sin sección. Requiere aprobación.',
       parameters: {
         type: 'object',
         properties: {
           field_key: { type: 'string' },
-          target_section_name: { type: 'string' },
+          target_section_name: { type: ['string', 'null'] },
           reason: { type: 'string' },
         },
-        required: ['field_key', 'target_section_name'],
+        required: ['field_key'],
         additionalProperties: false,
       },
     },
