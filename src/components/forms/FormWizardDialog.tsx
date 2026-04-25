@@ -411,6 +411,183 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
     return has ? FIELD_TYPE_OPTIONS : [...FIELD_TYPE_OPTIONS, { value: 'file' as FormFieldType, label: 'Archivo / Logo' }];
   }, []);
 
+  // === AI Builder helpers ===
+  const crmCatalog = useMemo(
+    () => buildCrmCatalog(customSections as any, customFields as any),
+    [customSections, customFields]
+  );
+
+  const applyAutoChanges = useCallback((changes: AutoChange[]) => {
+    for (const ch of changes) {
+      const a = ch.args || {};
+      try {
+        if (ch.type === 'set_form_meta') {
+          if (typeof a.name === 'string') setName(a.name);
+          if (typeof a.description === 'string') setDescription(a.description);
+          if (typeof a.public_title === 'string') setPublicTitle(a.public_title);
+          if (typeof a.public_subtitle === 'string') setPublicSubtitle(a.public_subtitle);
+          if (typeof a.success_message === 'string') setSuccessMessage(a.success_message);
+          if (typeof a.submit_button_text === 'string') setSubmitButtonText(a.submit_button_text);
+        } else if (ch.type === 'add_existing_crm_field') {
+          const key: string = a.field_key;
+          if (!key) continue;
+          if (formFields.some(f => f.field_key === key)) {
+            // Already in form, just update properties
+            setFormFields(prev => prev.map(f => f.field_key === key ? {
+              ...f,
+              ...(typeof a.is_required === 'boolean' ? { is_required: a.is_required } : {}),
+              ...(typeof a.is_visible === 'boolean' ? { is_visible: a.is_visible } : {}),
+              ...(typeof a.preload_from_crm === 'boolean' ? { preload_from_crm: a.preload_from_crm } : {}),
+              ...(typeof a.only_for_new === 'boolean' ? { only_for_new: a.only_for_new } : {}),
+              ...(typeof a.help_text === 'string' ? { help_text: a.help_text } : {}),
+              ...(a.page_id !== undefined ? { page_id: a.page_id } : {}),
+            } : f));
+            continue;
+          }
+          // Lookup in catalog
+          const entry = crmCatalog.find(c => c.field_key === key);
+          if (!entry) {
+            console.warn('AI: field_key no encontrado en catálogo', key);
+            continue;
+          }
+          if (entry.crm_field_id) {
+            // custom field
+            const cf = customFields.find(f => f.id === entry.crm_field_id);
+            if (cf) addCustomCrmField(cf);
+          } else if (entry.crm_table && entry.crm_column) {
+            const m = CRM_FIELD_MAPPINGS.find(mm => mm.table === entry.crm_table && mm.column === entry.crm_column);
+            if (m) addCrmField(m);
+          }
+          // Apply overrides after add
+          setTimeout(() => {
+            setFormFields(prev => prev.map(f => f.field_key === key ? {
+              ...f,
+              ...(typeof a.is_required === 'boolean' ? { is_required: a.is_required } : {}),
+              ...(typeof a.is_visible === 'boolean' ? { is_visible: a.is_visible } : {}),
+              ...(typeof a.preload_from_crm === 'boolean' ? { preload_from_crm: a.preload_from_crm } : {}),
+              ...(typeof a.only_for_new === 'boolean' ? { only_for_new: a.only_for_new } : {}),
+              ...(typeof a.help_text === 'string' ? { help_text: a.help_text } : {}),
+              ...(a.page_id !== undefined ? { page_id: a.page_id } : {}),
+            } : f));
+          }, 0);
+        } else if (ch.type === 'update_field') {
+          const key: string = a.field_key;
+          setFormFields(prev => prev.map(f => f.field_key === key ? {
+            ...f,
+            ...(typeof a.label === 'string' ? { label: a.label } : {}),
+            ...(typeof a.placeholder === 'string' ? { placeholder: a.placeholder } : {}),
+            ...(typeof a.help_text === 'string' ? { help_text: a.help_text } : {}),
+            ...(typeof a.is_required === 'boolean' ? { is_required: a.is_required } : {}),
+            ...(typeof a.is_visible === 'boolean' ? { is_visible: a.is_visible } : {}),
+            ...(typeof a.is_editable === 'boolean' ? { is_editable: a.is_editable } : {}),
+            ...(typeof a.is_readonly === 'boolean' ? { is_readonly: a.is_readonly } : {}),
+            ...(typeof a.preload_from_crm === 'boolean' ? { preload_from_crm: a.preload_from_crm } : {}),
+            ...(typeof a.only_for_new === 'boolean' ? { only_for_new: a.only_for_new } : {}),
+            ...(typeof a.default_value === 'string' ? { default_value: a.default_value } : {}),
+            ...(typeof a.default_value_editable === 'boolean' ? { default_value_editable: a.default_value_editable } : {}),
+            ...(a.condition_field_key !== undefined ? { condition_field_key: a.condition_field_key } : {}),
+            ...(a.condition_value !== undefined ? { condition_value: a.condition_value } : {}),
+            ...(a.page_id !== undefined ? { page_id: a.page_id } : {}),
+            ...(typeof a.section_name === 'string' ? { section_name: a.section_name } : {}),
+          } : f));
+        } else if (ch.type === 'reorder_fields') {
+          const order: string[] = a.field_keys || [];
+          setFormFields(prev => {
+            const byKey = new Map(prev.map(f => [f.field_key, f]));
+            const reordered: typeof prev = [];
+            order.forEach(k => { const f = byKey.get(k); if (f) { reordered.push(f); byKey.delete(k); } });
+            byKey.forEach(f => reordered.push(f));
+            return reordered.map((f, i) => ({ ...f, display_order: i }));
+          });
+        } else if (ch.type === 'add_page') {
+          const newPage: PageDraft = {
+            id: crypto.randomUUID(),
+            persisted: false,
+            title: a.title || 'Nueva página',
+            description: a.description || '',
+            display_order: pages.length,
+          };
+          setPages(prev => [...prev, newPage]);
+        } else if (ch.type === 'update_page') {
+          setPages(prev => prev.map(p => p.id === a.page_id ? {
+            ...p,
+            ...(typeof a.title === 'string' ? { title: a.title } : {}),
+            ...(typeof a.description === 'string' ? { description: a.description } : {}),
+          } : p));
+        }
+      } catch (err) {
+        console.error('Error applying AI change', ch, err);
+      }
+    }
+  }, [formFields, pages, crmCatalog, customFields, addCrmField, addCustomCrmField]);
+
+  const acceptProposal = useCallback(async (p: PendingProposal) => {
+    const a = p.args || {};
+    try {
+      if (p.type === 'propose_new_section') {
+        const section = await addSection(a.name);
+        if (section) {
+          showSuccess('Sección creada', `"${section.name}" disponible en el CRM`);
+        }
+      } else if (p.type === 'propose_new_free_field') {
+        // Create as custom field in CRM if section_name provided, else as free form field
+        if (a.section_name) {
+          const sectionObj = customSections.find(s => s.name === a.section_name);
+          if (sectionObj) {
+            const crmType = a.field_type === 'number' ? 'number' : a.field_type === 'select' ? 'select' : 'text';
+            const created = await addCustomField({
+              sectionId: sectionObj.id,
+              name: a.label,
+              fieldType: crmType as any,
+              options: a.options || [],
+              displayOrder: 0,
+            });
+            if (created) {
+              setFormFields(prev => [...prev, {
+                label: created.name, field_key: `custom_${created.id}`,
+                field_type: a.field_type,
+                placeholder: '', help_text: a.help_text || '', section_name: sectionObj.name,
+                is_required: !!a.is_required, is_visible: true, is_editable: true, is_readonly: false,
+                preload_from_crm: true, crm_table: 'custom_field_values', crm_column: null, crm_field_id: created.id,
+                options: a.options || [], display_order: prev.length,
+                condition_field_key: null, condition_value: null, only_for_new: false,
+                default_value: '', default_value_editable: true,
+              }]);
+              showSuccess('Campo creado', `"${created.name}" añadido al CRM y al formulario`);
+            }
+          } else {
+            // Section doesn't exist, create as free form-only field
+            setFormFields(prev => [...prev, {
+              label: a.label, field_key: a.label.toLowerCase().replace(/\s+/g, '_'),
+              field_type: a.field_type,
+              placeholder: '', help_text: a.help_text || '', section_name: a.section_name || '',
+              is_required: !!a.is_required, is_visible: true, is_editable: true, is_readonly: false,
+              preload_from_crm: false, crm_table: null, crm_column: null, crm_field_id: null,
+              options: a.options || [], display_order: prev.length,
+              condition_field_key: null, condition_value: null, only_for_new: false,
+              default_value: '', default_value_editable: true,
+            }]);
+          }
+        } else {
+          // Free form-only field
+          setFormFields(prev => [...prev, {
+            label: a.label, field_key: a.label.toLowerCase().replace(/\s+/g, '_'),
+            field_type: a.field_type,
+            placeholder: '', help_text: a.help_text || '', section_name: '',
+            is_required: !!a.is_required, is_visible: true, is_editable: true, is_readonly: false,
+            preload_from_crm: false, crm_table: null, crm_column: null, crm_field_id: null,
+            options: a.options || [], display_order: prev.length,
+            condition_field_key: null, condition_value: null, only_for_new: false,
+            default_value: '', default_value_editable: true,
+          }]);
+        }
+      }
+    } catch (err: any) {
+      showError('Error', err.message || 'No se pudo aplicar la propuesta');
+    }
+  }, [addSection, addCustomField, customSections]);
+
+
   const handleSave = async () => {
     if (!name.trim()) { showError('Error', 'El nombre es obligatorio'); return; }
     setSaving(true);
