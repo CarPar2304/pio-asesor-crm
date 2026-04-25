@@ -182,37 +182,41 @@ export default function FormAIBuilderChat({
                   {m.proposals && m.proposals.length > 0 && (
                     <div className="mt-2 space-y-2">
                       <div className="flex items-center gap-1 text-[11px] font-semibold text-amber-700">
-                        <span>⚠</span> Esta acción crea recursos en el CRM. Requiere tu autorización.
+                        <span>⚠</span> Requiere tu autorización.
                       </div>
-                      {m.proposals.map((p, j) => (
+                      {m.proposals.map((p, j) => {
+                        const isSection = p.type === 'propose_new_section';
+                        const sectionGoesToCrm = isSection && p.args.create_in_crm !== false;
+                        const fieldGoesToCrm = !isSection && p.args.save_to_crm === true;
+                        const headline = isSection
+                          ? (sectionGoesToCrm ? '📁 Nueva sección · se creará también en el CRM' : '📂 Nuevo agrupador visual · solo formulario')
+                          : (fieldGoesToCrm ? `➕ Nuevo campo · se guardará en el CRM (sección "${p.args.section_name}")` : '➕ Nuevo campo libre · solo formulario (no se guarda en CRM)');
+                        return (
                         <div key={p.id} className={cn(
                           'rounded-md border-2 p-3 text-[11px] bg-amber-50 border-amber-400 shadow-sm',
                           p.resolved === 'accepted' && 'bg-emerald-50 border-emerald-400',
                           p.resolved === 'rejected' && 'opacity-60 line-through bg-muted/50 border-muted'
                         )}>
-                          <div className="font-semibold text-foreground mb-1 text-[12px]">
-                            {p.type === 'propose_new_section' ? '📁 Nueva sección en el CRM' : '➕ Nuevo campo libre en el CRM'}
-                          </div>
+                          <div className="font-semibold text-foreground mb-1 text-[12px]">{headline}</div>
                           <div className="text-foreground mb-1">
                             <strong>{p.args.name || p.args.label}</strong>
                             {p.args.field_type && <span className="text-muted-foreground"> · {p.args.field_type}</span>}
-                            {p.args.section_name && <span className="text-muted-foreground"> · sección "{p.args.section_name}"</span>}
                           </div>
                           {p.args.reason && <p className="text-muted-foreground italic mb-2">{p.args.reason}</p>}
                           {!p.resolved && (
                             <div className="flex gap-2 mt-2">
                               <Button size="sm" className="h-7 text-[11px] px-3 bg-amber-600 hover:bg-amber-700 text-white" onClick={() => resolveProposal(i, j, 'accepted')}>
-                                <Check className="h-3 w-3 mr-1" /> Aceptar y crear
+                                <Check className="h-3 w-3 mr-1" /> Aceptar
                               </Button>
                               <Button size="sm" variant="outline" className="h-7 text-[11px] px-3" onClick={() => resolveProposal(i, j, 'rejected')}>
                                 <X className="h-3 w-3 mr-1" /> Rechazar
                               </Button>
                             </div>
                           )}
-                          {p.resolved === 'accepted' && <div className="text-emerald-700 text-[11px] font-medium mt-1">✓ Creado en el CRM</div>}
+                          {p.resolved === 'accepted' && <div className="text-emerald-700 text-[11px] font-medium mt-1">✓ Aplicado</div>}
                           {p.resolved === 'rejected' && <div className="text-muted-foreground text-[11px] mt-1">✗ Rechazado</div>}
                         </div>
-                      ))}
+                      );})}
                     </div>
                   )}
                 </div>

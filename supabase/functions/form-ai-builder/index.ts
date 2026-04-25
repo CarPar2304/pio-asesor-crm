@@ -194,11 +194,12 @@ const tools = [
     type: 'function',
     function: {
       name: 'propose_new_section',
-      description: 'PROPONE crear una nueva sección en el CRM (requiere autorización del usuario, NO se aplica automáticamente).',
+      description: 'PROPONE crear una nueva sección. Por defecto se crea TAMBIÉN como sección real del CRM (custom_sections), de modo que las respuestas del formulario asociadas a esa sección quedan visibles en el perfil de la empresa. Si el usuario solo quiere agrupar visualmente sin tocar el CRM, pasa create_in_crm=false. Requiere autorización del usuario.',
       parameters: {
         type: 'object',
         properties: {
           name: { type: 'string' },
+          create_in_crm: { type: 'boolean', description: 'true (default) crea la sección en el CRM; false = solo agrupador visual del formulario' },
           reason: { type: 'string', description: 'Por qué es necesaria' },
         },
         required: ['name'],
@@ -210,7 +211,7 @@ const tools = [
     type: 'function',
     function: {
       name: 'propose_new_free_field',
-      description: 'PROPONE crear un campo libre nuevo en el formulario (requiere autorización). Se conecta al CRM como custom_field si el usuario aprueba.',
+      description: 'PROPONE crear un campo libre nuevo. Por defecto el campo es SOLO DEL FORMULARIO (no se guarda en el CRM, vive solo en las respuestas). Si el usuario pide explícitamente que el dato se vea/almacene en el perfil del CRM, pasa save_to_crm=true junto con section_name (sección CRM destino). Requiere autorización del usuario.',
       parameters: {
         type: 'object',
         properties: {
@@ -220,7 +221,8 @@ const tools = [
             enum: ['short_text', 'long_text', 'number', 'email', 'phone', 'select', 'multiselect', 'date', 'checkbox', 'url'],
           },
           options: { type: 'array', items: { type: 'string' } },
-          section_name: { type: 'string', description: 'Nombre de la sección CRM destino' },
+          save_to_crm: { type: 'boolean', description: 'false por defecto: el campo solo vive en las respuestas. true = se crea como custom_field del CRM en section_name.' },
+          section_name: { type: 'string', description: 'Solo si save_to_crm=true. Sección CRM destino (debe existir o haberse propuesto antes con propose_new_section).' },
           is_required: { type: 'boolean' },
           help_text: { type: 'string' },
           reason: { type: 'string' },
@@ -268,12 +270,14 @@ Deno.serve(async (req) => {
 
 REGLAS CRÍTICAS:
 1. JAMÁS borres campos, secciones o páginas existentes. No tienes herramienta para hacerlo.
-2. Si necesitas crear una sección NUEVA en el CRM o un campo LIBRE NUEVO (que no existe en el catálogo), usa propose_new_section / propose_new_free_field. Esos requieren AUTORIZACIÓN del usuario y NO se aplican automáticamente; explica brevemente por qué.
+2. SECCIONES vs CAMPOS LIBRES — semántica clave:
+   • Una "sección" propuesta con propose_new_section por defecto SE CREA TAMBIÉN EN EL CRM (custom_sections). Solo desactiva esto (create_in_crm=false) si el usuario dice explícitamente que quiere agrupar visualmente sin tocar el CRM.
+   • Un "campo libre" propuesto con propose_new_free_field por defecto es SOLO DEL FORMULARIO (no se almacena en el CRM, vive solo en las respuestas). Solo activa save_to_crm=true si el usuario pide explícitamente que el dato quede guardado en el perfil de la empresa, y entonces debes indicar section_name (sección del CRM destino — debe existir o haberse propuesto en el mismo turno).
 3. Para cualquier campo que ya exista en el catálogo CRM (lista más abajo), usa add_existing_crm_field con su field_key exacto. NO inventes field_keys.
-4. Para modificar campos ya agregados al formulario (visibilidad, requerido, precarga, condicionales, default, mapeo a página/sección), usa update_field.
+4. Para modificar campos ya agregados al formulario, usa update_field.
 5. Las preguntas condicionales requieren un campo padre tipo select/checkbox/multiselect. Usa condition_field_key + condition_value.
-6. Puedes ejecutar varias tools en un mismo turno si el usuario pide varios cambios.
-7. Después de ejecutar tools, responde brevemente al usuario en español confirmando lo que hiciste (ej: "He agregado el campo NIT, marcado como obligatorio y precargado desde el CRM. También propuse una nueva sección 'Inversión'; necesito tu aprobación.").
+6. Puedes ejecutar varias tools en un mismo turno.
+7. Tras ejecutar tools, responde brevemente en español confirmando lo que hiciste y aclarando si algo crea recursos en el CRM (ej: "Propuse la sección 'Inversión' que se creará también en el CRM, y un campo libre 'Comentarios adicionales' que solo quedará en las respuestas del formulario; necesito tu aprobación.").
 
 CATÁLOGO CRM DISPONIBLE (field_key → label / tipo):
 ${crmCatalog.map((c: any) => `- ${c.field_key} → ${c.label} (${c.field_type}${c.section ? `, sección: ${c.section}` : ''})`).join('\n')}
