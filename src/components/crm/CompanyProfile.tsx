@@ -42,6 +42,7 @@ export default function CompanyProfile({ company, onBack }: Props) {
   const { widgets } = useWidgets();
   const { deleteCompany } = useCRM();
   const { salesCurrency } = useProfile();
+  const { unsectionedLabel } = useCrmLayoutSettings();
 
   const companyCurrency = company.salesCurrency || 'COP';
 
