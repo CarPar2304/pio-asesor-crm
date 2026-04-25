@@ -194,11 +194,12 @@ const tools = [
     type: 'function',
     function: {
       name: 'propose_new_section',
-      description: 'PROPONE crear una nueva sección en el CRM (requiere autorización del usuario, NO se aplica automáticamente).',
+      description: 'PROPONE crear una nueva sección. Por defecto se crea TAMBIÉN como sección real del CRM (custom_sections), de modo que las respuestas del formulario asociadas a esa sección quedan visibles en el perfil de la empresa. Si el usuario solo quiere agrupar visualmente sin tocar el CRM, pasa create_in_crm=false. Requiere autorización del usuario.',
       parameters: {
         type: 'object',
         properties: {
           name: { type: 'string' },
+          create_in_crm: { type: 'boolean', description: 'true (default) crea la sección en el CRM; false = solo agrupador visual del formulario' },
           reason: { type: 'string', description: 'Por qué es necesaria' },
         },
         required: ['name'],
@@ -210,7 +211,7 @@ const tools = [
     type: 'function',
     function: {
       name: 'propose_new_free_field',
-      description: 'PROPONE crear un campo libre nuevo en el formulario (requiere autorización). Se conecta al CRM como custom_field si el usuario aprueba.',
+      description: 'PROPONE crear un campo libre nuevo. Por defecto el campo es SOLO DEL FORMULARIO (no se guarda en el CRM, vive solo en las respuestas). Si el usuario pide explícitamente que el dato se vea/almacene en el perfil del CRM, pasa save_to_crm=true junto con section_name (sección CRM destino). Requiere autorización del usuario.',
       parameters: {
         type: 'object',
         properties: {
@@ -220,7 +221,8 @@ const tools = [
             enum: ['short_text', 'long_text', 'number', 'email', 'phone', 'select', 'multiselect', 'date', 'checkbox', 'url'],
           },
           options: { type: 'array', items: { type: 'string' } },
-          section_name: { type: 'string', description: 'Nombre de la sección CRM destino' },
+          save_to_crm: { type: 'boolean', description: 'false por defecto: el campo solo vive en las respuestas. true = se crea como custom_field del CRM en section_name.' },
+          section_name: { type: 'string', description: 'Solo si save_to_crm=true. Sección CRM destino (debe existir o haberse propuesto antes con propose_new_section).' },
           is_required: { type: 'boolean' },
           help_text: { type: 'string' },
           reason: { type: 'string' },
