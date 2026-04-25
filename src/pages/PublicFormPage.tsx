@@ -31,7 +31,7 @@ async function callFormApi(action: string, body?: any, params?: Record<string, s
   return res.json();
 }
 
-type Step = 'identify' | 'select-contact' | 'code' | 'form' | 'success' | 'error';
+type Step = 'identify' | 'collect-email' | 'select-contact' | 'code' | 'form' | 'success' | 'error';
 
 function FileUploadField({ value, onChange, placeholder }: { value: string | null; onChange: (v: string | null) => void; placeholder?: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
