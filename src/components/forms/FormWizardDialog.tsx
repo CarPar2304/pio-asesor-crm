@@ -75,7 +75,8 @@ interface PageDraft {
 
 export default function FormWizardDialog({ open, onClose, editingForm, onSaved }: Props) {
   const { session } = useAuth();
-  const { fields: customFields, sections: customSections, addSection, addField: addCustomField } = useCustomFields();
+  const { fields: customFields, sections: customSections, addSection, addField: addCustomField, updateField: updateCustomField, updateSection: updateCustomSection } = useCustomFields();
+  const { unsectionedLabel, setUnsectionedLabel } = useCrmLayoutSettings();
   const taxonomy = useTaxonomy();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
