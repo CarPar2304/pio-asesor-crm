@@ -166,6 +166,9 @@ export default function PublicFormPage() {
    const [availableContacts, setAvailableContacts] = useState<{id: string; masked_email: string; position: string; is_primary: boolean}[]>([]);
    const [selectedContactId, setSelectedContactId] = useState('');
 
+  // Collect email (when company not found and allow_creation)
+  const [newCompanyEmail, setNewCompanyEmail] = useState('');
+
   // Code
   const [code, setCode] = useState('');
 
