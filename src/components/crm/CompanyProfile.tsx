@@ -23,6 +23,7 @@ import CompanyPipelineNotes from './CompanyPipelineNotes';
 import SectionWidgetRenderer from './SectionWidgetRenderer';
 import { useWidgets } from '@/contexts/WidgetsContext';
 import { useWidgetGridConfig } from '@/hooks/useWidgetGridConfig';
+import { useCrmLayoutSettings } from '@/hooks/useCrmLayoutSettings';
 import { cn } from '@/lib/utils';
 
 interface Props {
