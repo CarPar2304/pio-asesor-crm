@@ -193,7 +193,24 @@ export default function PublicFormPage() {
         if (data.form) {
           setFormMeta(data.form);
           if (data.taxonomy) setTaxonomy(data.taxonomy);
-          if (data.form.form_type === 'creation' && data.form.verification_mode === 'none') {
+          // If verification is "none", skip identify entirely (any form_type)
+          if (data.form.verification_mode === 'none') {
+            // Create the session via identify (server creates a verified one without key_value)
+            try {
+              const idData = await callFormApi('identify', {
+                form_id: data.form.id,
+                key_value: '',
+                ip_address: '',
+                test_mode: isTestMode,
+                test_email: isTestMode ? testEmail : undefined,
+              });
+              if (idData.session_token) {
+                setSessionToken(idData.session_token);
+                await loadForm(idData.session_token);
+                return;
+              }
+            } catch {}
+            // Fallback: load preview without session (creation forms)
             setForm(data.form);
             setFields(data.fields || []);
             setPages(data.pages || []);
@@ -203,6 +220,7 @@ export default function PublicFormPage() {
         }
       } catch {}
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, isTestMode]);
 
   const handleIdentify = async () => {
