@@ -132,12 +132,12 @@ export default function PipelineBoard({ offer, onBack }: Props) {
         <ArrowLeft className="h-3.5 w-3.5" /> Volver a Oferta
       </Button>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <div>
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+        <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold">{offer.name}</h1>
           <p className="text-sm text-muted-foreground">Pipeline · {entries.length} empresas en {stages.length} etapas</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 justify-end">
           <Button
             variant={notesOpen ? 'default' : 'outline'}
             size="sm"
