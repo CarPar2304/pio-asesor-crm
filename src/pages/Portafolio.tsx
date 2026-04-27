@@ -4,9 +4,8 @@ import { PortfolioOffer } from '@/types/portfolio';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Package, Plus, Search, GitBranch, Layers, Users, Eye } from 'lucide-react';
+import { Package, Plus, Search, Layers, Users, Eye } from 'lucide-react';
 import OfferCard from '@/components/portfolio/OfferCard';
 import OfferFormDialog from '@/components/portfolio/OfferFormDialog';
 import PipelineBoard from '@/components/portfolio/PipelineBoard';
@@ -16,19 +15,19 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function Portafolio() {
-  const { offers, categories, loading, getStagesForOffer, getEntriesForOffer, entries, allies, getAlliesForOffer } = usePortfolio();
+  const { offers, categories, loading, stages, entries, allies, getAlliesForOffer } = usePortfolio();
   const { session } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const pipelineOfferId = searchParams.get('pipeline');
   const viewingPipeline = pipelineOfferId ? offers.find(o => o.id === pipelineOfferId) ?? null : null;
 
-  const [tab, setTab] = useState<'oferta' | 'aliados' | 'pipeline'>(() => pipelineOfferId ? 'pipeline' : 'oferta');
-  const [pipelineSubTab, setPipelineSubTab] = useState<'general' | 'seguimiento'>('general');
+  const [tab, setTab] = useState<'oferta' | 'aliados'>('oferta');
   const [search, setSearch] = useState('');
   const [filterProduct, setFilterProduct] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterAlly, setFilterAlly] = useState('');
+  const [filterTracking, setFilterTracking] = useState<'all' | 'yes' | 'no'>('all');
   const [formOpen, setFormOpen] = useState(false);
   const [editingOffer, setEditingOffer] = useState<PortfolioOffer | undefined>();
 
@@ -38,6 +37,21 @@ export default function Portafolio() {
     return Array.from(set).sort();
   }, [offers]);
 
+  // "En seguimiento": ofertas donde el usuario actual es gestor principal (assignedTo)
+  // de al menos una empresa que está en una etapa con countsAsManagement = true.
+  const myUserId = session?.user?.id;
+  const trackedOfferIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (!myUserId) return ids;
+    const activeStageIds = new Set(stages.filter(s => s.countsAsManagement).map(s => s.id));
+    entries.forEach(e => {
+      if (e.assignedTo === myUserId && activeStageIds.has(e.stageId)) {
+        ids.add(e.offerId);
+      }
+    });
+    return ids;
+  }, [entries, stages, myUserId]);
+
   const filteredOffers = offers.filter(o => {
     if (search && !o.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterCategory && o.categoryId !== filterCategory) return false;
@@ -46,19 +60,12 @@ export default function Portafolio() {
       const offerAllyList = getAlliesForOffer(o.id);
       if (!offerAllyList.some(a => a.id === filterAlly)) return false;
     }
+    if (filterTracking === 'yes' && !trackedOfferIds.has(o.id)) return false;
+    if (filterTracking === 'no' && trackedOfferIds.has(o.id)) return false;
     return true;
   });
 
-  // Offers where the current user has added companies (for "Seguimiento")
-  const myUserId = session?.user?.id;
-  const myOfferIds = useMemo(() => {
-    if (!myUserId) return new Set<string>();
-    const ids = new Set<string>();
-    entries.forEach(e => {
-      if (e.addedBy === myUserId) ids.add(e.offerId);
-    });
-    return ids;
-  }, [entries, myUserId]);
+  const hasFilters = !!(search || filterCategory || filterProduct || filterAlly || filterTracking !== 'all');
 
   const handleEdit = (offer: PortfolioOffer) => {
     setEditingOffer(offer);
@@ -67,7 +74,6 @@ export default function Portafolio() {
 
   const handleViewPipeline = (offer: PortfolioOffer) => {
     setSearchParams({ pipeline: offer.id });
-    setTab('pipeline');
   };
 
   const handleClosePipeline = () => {
@@ -107,9 +113,6 @@ export default function Portafolio() {
           </TabsTrigger>
           <TabsTrigger value="aliados" className="gap-1.5">
             <Users className="h-3.5 w-3.5" /> Aliados
-          </TabsTrigger>
-          <TabsTrigger value="pipeline" className="gap-1.5">
-            <GitBranch className="h-3.5 w-3.5" /> Pipeline
           </TabsTrigger>
         </TabsList>
 
@@ -153,6 +156,17 @@ export default function Portafolio() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={filterTracking} onValueChange={v => setFilterTracking(v as any)}>
+              <SelectTrigger className="w-[180px]">
+                <Eye className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+                <SelectValue placeholder="En seguimiento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">En seguimiento: Todas</SelectItem>
+                <SelectItem value="yes">En seguimiento: Sí</SelectItem>
+                <SelectItem value="no">En seguimiento: No</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {loading ? (
@@ -168,8 +182,8 @@ export default function Portafolio() {
           ) : filteredOffers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <Package className="h-12 w-12 text-muted-foreground/30 mb-3" />
-              <p className="text-sm text-muted-foreground">No hay ofertas {search || filterCategory || filterProduct || filterAlly ? 'con esos filtros' : 'aún'}</p>
-              {!search && !filterCategory && !filterProduct && !filterAlly && (
+              <p className="text-sm text-muted-foreground">No hay ofertas {hasFilters ? 'con esos filtros' : 'aún'}</p>
+              {!hasFilters && (
                 <Button variant="outline" size="sm" className="mt-3 gap-1.5" onClick={() => setFormOpen(true)}>
                   <Plus className="h-3.5 w-3.5" /> Crear primera oferta
                 </Button>
@@ -186,103 +200,6 @@ export default function Portafolio() {
 
         <TabsContent value="aliados">
           <AlliesSection />
-        </TabsContent>
-
-        <TabsContent value="pipeline" className="space-y-4">
-          {/* Sub-tabs for pipeline */}
-          <div className="flex gap-2 border-b border-border/40 pb-2">
-            <Button
-              variant={pipelineSubTab === 'general' ? 'default' : 'ghost'}
-              size="sm"
-              className="gap-1.5 text-xs"
-              onClick={() => setPipelineSubTab('general')}
-            >
-              <GitBranch className="h-3 w-3" /> General
-            </Button>
-            <Button
-              variant={pipelineSubTab === 'seguimiento' ? 'default' : 'ghost'}
-              size="sm"
-              className="gap-1.5 text-xs"
-              onClick={() => setPipelineSubTab('seguimiento')}
-            >
-              <Eye className="h-3 w-3" /> Seguimiento
-            </Button>
-          </div>
-
-          {pipelineSubTab === 'general' && (
-            <>
-              {offers.length === 0 ? (
-                <div className="rounded-lg border border-border/60 bg-card p-6">
-                  <div className="flex flex-col items-center justify-center text-center">
-                    <GitBranch className="h-10 w-10 text-muted-foreground/30 mb-3" />
-                    <h3 className="text-sm font-medium mb-1">No hay ofertas</h3>
-                    <p className="text-xs text-muted-foreground mb-4">Crea una oferta primero para ver su pipeline</p>
-                    <Button variant="outline" size="sm" onClick={() => { setTab('oferta'); setFormOpen(true); }}>Crear oferta</Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {offers.map(offer => {
-                    const stageCount = getStagesForOffer(offer.id).length;
-                    const entryCount = getEntriesForOffer(offer.id).length;
-                    return (
-                      <button
-                        key={offer.id}
-                        onClick={() => handleViewPipeline(offer)}
-                        className="flex items-center gap-3 rounded-lg border border-border/60 bg-card p-4 text-left transition-all hover:border-primary/30 hover:shadow-sm"
-                      >
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                          <GitBranch className="h-4 w-4 text-primary" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold">{offer.name}</p>
-                          <p className="text-xs text-muted-foreground">{stageCount} etapas · {entryCount} empresas</p>
-                        </div>
-                        {offer.product && <Badge variant="secondary" className="shrink-0 text-[10px]">{offer.product}</Badge>}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </>
-          )}
-
-          {pipelineSubTab === 'seguimiento' && (
-            <>
-              {myOfferIds.size === 0 ? (
-                <div className="rounded-lg border border-border/60 bg-card p-6">
-                  <div className="flex flex-col items-center justify-center text-center">
-                    <Eye className="h-10 w-10 text-muted-foreground/30 mb-3" />
-                    <h3 className="text-sm font-medium mb-1">Sin seguimiento</h3>
-                    <p className="text-xs text-muted-foreground">No has agregado empresas a ningún pipeline aún</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {offers.filter(o => myOfferIds.has(o.id)).map(offer => {
-                    const myEntries = entries.filter(e => e.offerId === offer.id && e.addedBy === myUserId);
-                    const stageCount = getStagesForOffer(offer.id).length;
-                    return (
-                      <button
-                        key={offer.id}
-                        onClick={() => handleViewPipeline(offer)}
-                        className="flex items-center gap-3 rounded-lg border border-border/60 bg-card p-4 text-left transition-all hover:border-primary/30 hover:shadow-sm"
-                      >
-                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                          <GitBranch className="h-4 w-4 text-primary" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold">{offer.name}</p>
-                          <p className="text-xs text-muted-foreground">{stageCount} etapas · {myEntries.length} empresas mías</p>
-                        </div>
-                        <Badge variant="outline" className="shrink-0 text-[10px]">Mi seguimiento</Badge>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </>
-          )}
         </TabsContent>
       </Tabs>
 
