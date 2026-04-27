@@ -25,6 +25,7 @@ interface PortfolioContextValue {
   createOffer: (data: Omit<PortfolioOffer, 'id' | 'createdAt' | 'updatedAt' | 'category' | 'stages'>) => Promise<PortfolioOffer | null>;
   updateOffer: (id: string, data: Partial<PortfolioOffer>) => Promise<void>;
   deleteOffer: (id: string) => Promise<void>;
+  duplicateOffer: (id: string) => Promise<PortfolioOffer | null>;
 
   getStagesForOffer: (offerId: string) => PipelineStage[];
   createStage: (offerId: string, name: string, color: string, icon: string) => Promise<PipelineStage | null>;
