@@ -20,6 +20,7 @@ import ProfilePage from "./pages/ProfilePage";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import FormsPage from "./pages/FormsPage";
+import FormEditorPage from "./pages/FormEditorPage";
 import PublicFormPage from "./pages/PublicFormPage";
 
 const queryClient = new QueryClient();
@@ -45,6 +46,8 @@ const App = () => (
                 <Route path="/tareas" element={<Tasks />} />
                 <Route path="/portafolio" element={<Portafolio />} />
                 <Route path="/formularios" element={<FormsPage />} />
+                <Route path="/formularios/nuevo" element={<FormEditorPage />} />
+                <Route path="/formularios/:id/editar" element={<FormEditorPage />} />
                 <Route path="/stats" element={<Stats />} />
                 <Route path="/perfil" element={<ProfilePage />} />
               </Route>
