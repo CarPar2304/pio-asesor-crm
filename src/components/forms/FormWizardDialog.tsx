@@ -755,7 +755,6 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
 
   const formUrl = savedSlug ? `${window.location.origin}/form/${savedSlug}` : '';
 
-  return (
   if (!open) return null;
 
   return (
