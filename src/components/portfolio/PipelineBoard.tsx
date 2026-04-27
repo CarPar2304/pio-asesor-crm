@@ -32,11 +32,13 @@ interface Props {
 
 export default function PipelineBoard({ offer, onBack }: Props) {
   const navigate = useNavigate();
-  const { getStagesForOffer, getEntriesForOffer, moveCompanyToStage, removeEntry, updateEntryAssignment } = usePortfolio();
+  const { getStagesForOffer, getEntriesForOffer, moveCompanyToStage, removeEntry, updateEntryAssignment, getAlliesForOffer, getContactsForAlly, categories } = usePortfolio();
   const { companies } = useCRM();
   const { allProfiles } = useProfile();
   const stages = getStagesForOffer(offer.id);
   const entries = getEntriesForOffer(offer.id);
+  const offerAllies = getAlliesForOffer(offer.id);
+  const category = categories.find(c => c.id === offer.categoryId);
 
   const [stageManagerOpen, setStageManagerOpen] = useState(false);
   const [addCompaniesOpen, setAddCompaniesOpen] = useState(false);
