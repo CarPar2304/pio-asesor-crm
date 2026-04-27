@@ -1082,6 +1082,9 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                 <Button variant="outline" size="sm" onClick={() => setShowNewFieldDialog(true)} className="h-8">
                   <Layers className="h-3.5 w-3.5 mr-1.5" /> Nuevo campo CRM
                 </Button>
+                <Button variant="outline" size="sm" onClick={() => { resetDynamicForm(); setShowDynamicDialog(true); }} className="h-8 border-purple-300 text-purple-700 hover:bg-purple-50 hover:text-purple-800">
+                  <Zap className="h-3.5 w-3.5 mr-1.5" /> Campo dinámico
+                </Button>
                 <Button size="sm" onClick={addField} className="h-8">
                   <Plus className="h-3.5 w-3.5 mr-1.5" /> Campo libre
                 </Button>
