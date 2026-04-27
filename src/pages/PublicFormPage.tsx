@@ -351,10 +351,15 @@ export default function PublicFormPage() {
     setLoading(true);
     setErrorMsg('');
     try {
+      // Inject computed dynamic operation values so the server persists them
+      const enrichedData = { ...formData };
+      for (const [k, v] of Object.entries(dynamicComputedValues)) {
+        if (v !== null && v !== undefined) enrichedData[k] = v;
+      }
       const data = await callFormApi('submit', {
         session_token: sessionToken || undefined,
         form_id: form.id,
-        response_data: formData,
+        response_data: enrichedData,
         test_mode: isTestMode
       });
       if (data.error) { setErrorMsg(data.error); setLoading(false); return; }
