@@ -481,6 +481,7 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
     setShowDynamicDialog(false);
   };
 
+  const customFieldsBySection = useMemo(() => {
     const map: Record<string, { section: typeof customSections[0]; fields: typeof customFields }> = {};
     for (const s of customSections) {
       const sFields = customFields.filter(f => f.sectionId === s.id);
