@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle2, AlertCircle, ShieldCheck, FlaskConical, Upload, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SearchableCombobox } from '@/components/forms/SearchableCombobox';
 import logoCCC from '@/assets/logo-ccc.png';
+import { evaluateOperation, formatDynamicResult } from '@/lib/dynamicFields';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -370,6 +371,8 @@ export default function PublicFormPage() {
 
   // Check if a field should be visible based on conditional logic
   const isFieldVisible = (field: any) => {
+    // Generation dynamic fields are NEVER visible
+    if (field.is_dynamic && field.dynamic_kind === 'generation') return false;
     if (!field.is_visible) return false;
     if (!field.condition_field_key) return true;
     const sourceValue = formData[field.condition_field_key];
@@ -377,6 +380,17 @@ export default function PublicFormPage() {
     if (field.condition_value === 'false') return !sourceValue;
     return String(sourceValue || '') === String(field.condition_value || '');
   };
+
+  // Compute live values for dynamic operation fields and inject into formData
+  const dynamicComputedValues = useMemo(() => {
+    const out: Record<string, number | null> = {};
+    for (const f of fields) {
+      if (f.is_dynamic && f.dynamic_kind === 'operation') {
+        out[f.field_key] = evaluateOperation(f.dynamic_config || {}, formData);
+      }
+    }
+    return out;
+  }, [fields, formData]);
 
   // Get effective options for a field — applies CRM taxonomy hierarchy filtering
   const getFieldOptions = (field: any): string[] => {
