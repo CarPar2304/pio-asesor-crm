@@ -414,7 +414,73 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
     }
   };
 
-  const customFieldsBySection = useMemo(() => {
+  const resetDynamicForm = () => {
+    setDynKind('operation'); setDynLabel(''); setDynSection('');
+    setDynVisibleToUser(false); setDynMode('simple'); setDynOp('multiply');
+    setDynInputA(''); setDynInputB(''); setDynFormula('');
+    setDynDecimals(2); setDynSuffix('');
+    setDynGenInputs([]); setDynPrompt('');
+  };
+
+  const handleCreateDynamicField = async () => {
+    if (!dynLabel.trim()) { showError('Error', 'El nombre del campo es obligatorio'); return; }
+    if (!dynSection) { showError('Error', 'Selecciona una sección del CRM'); return; }
+    const sectionObj = customSections.find(s => s.id === dynSection);
+    if (!sectionObj) { showError('Error', 'Sección no encontrada'); return; }
+
+    let dynamic_config: DynamicConfig;
+    if (dynKind === 'operation') {
+      if (dynMode === 'simple') {
+        if (!dynInputA || !dynInputB) { showError('Error', 'Selecciona los dos campos de entrada'); return; }
+        dynamic_config = { mode: 'simple', op: dynOp, input_a: dynInputA, input_b: dynInputB, decimals: dynDecimals, suffix: dynSuffix };
+      } else {
+        if (!dynFormula.trim()) { showError('Error', 'Escribe la fórmula'); return; }
+        const inputs = Array.from(new Set(Array.from(dynFormula.matchAll(/\{([a-zA-Z0-9_]+)\}/g)).map(m => m[1])));
+        if (inputs.length === 0) { showError('Error', 'La fórmula debe usar al menos un {campo}'); return; }
+        dynamic_config = { mode: 'formula', formula: dynFormula.trim(), inputs, decimals: dynDecimals, suffix: dynSuffix };
+      }
+    } else {
+      if (dynGenInputs.length === 0) { showError('Error', 'Selecciona al menos un campo de entrada'); return; }
+      if (!dynPrompt.trim()) { showError('Error', 'Escribe el prompt para la IA'); return; }
+      dynamic_config = { inputs: dynGenInputs, prompt: dynPrompt.trim(), model: 'gpt-4o-mini' };
+    }
+
+    // Create a CRM custom field to permanently store the result
+    const crmType = dynKind === 'operation' ? 'number' : 'text';
+    const created = await addCustomField({
+      sectionId: dynSection, name: dynLabel.trim(),
+      fieldType: crmType as any, options: [], displayOrder: 0,
+    });
+    if (!created) { showError('Error', 'No se pudo crear el campo en el CRM'); return; }
+
+    const formFieldType: FormFieldType = dynKind === 'operation' ? 'number' : 'long_text';
+    // Generation fields are ALWAYS hidden from the user; operation respects dynVisibleToUser
+    const isVisible = dynKind === 'operation' ? dynVisibleToUser : false;
+
+    setFormFields(prev => [...prev, {
+      label: dynLabel.trim(),
+      field_key: `custom_${created.id}`,
+      field_type: formFieldType,
+      placeholder: '', help_text: '', section_name: sectionObj.name,
+      is_required: false,
+      is_visible: isVisible,
+      is_editable: false,         // dynamic fields are never edited by user
+      is_readonly: true,
+      preload_from_crm: false,
+      crm_table: 'custom_field_values', crm_column: null, crm_field_id: created.id,
+      options: [], display_order: prev.length,
+      condition_field_key: null, condition_value: null, only_for_new: false,
+      default_value: '', default_value_editable: false,
+      is_dynamic: true,
+      dynamic_kind: dynKind,
+      dynamic_config,
+    }]);
+
+    showSuccess('Campo dinámico creado', `"${dynLabel.trim()}" se calculará ${dynKind === 'operation' ? 'automáticamente' : 'con IA al enviar el formulario'} y se guardará en la sección "${sectionObj.name}"`);
+    resetDynamicForm();
+    setShowDynamicDialog(false);
+  };
+
     const map: Record<string, { section: typeof customSections[0]; fields: typeof customFields }> = {};
     for (const s of customSections) {
       const sFields = customFields.filter(f => f.sectionId === s.id);
