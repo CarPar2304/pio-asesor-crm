@@ -3,7 +3,7 @@ import { usePortfolio } from '@/contexts/PortfolioContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
-import { Pencil, Trash2, GitBranch, Calendar, Package, Wrench, Users } from 'lucide-react';
+import { Pencil, Trash2, GitBranch, Calendar, Package, Wrench, Users, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
