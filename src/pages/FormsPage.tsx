@@ -329,12 +329,6 @@ export default function FormsPage() {
         </div>
       )}
 
-      <FormWizardDialog
-        open={wizardOpen}
-        onClose={() => { setWizardOpen(false); setEditingForm(null); }}
-        editingForm={editingForm}
-        onSaved={loadForms}
-      />
 
       {responsesFormId && (
         <FormResponsesDialog
