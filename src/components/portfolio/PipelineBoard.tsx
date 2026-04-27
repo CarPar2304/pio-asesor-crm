@@ -167,7 +167,89 @@ export default function PipelineBoard({ offer, onBack }: Props) {
         </div>
       </div>
 
-      {/* Notes Panel */}
+      {/* Offer details card */}
+      <div className="mb-6 rounded-xl border border-border/60 bg-card/50 p-4 space-y-3">
+        {offer.description && (
+          <p className="text-sm text-foreground/90 leading-relaxed">{offer.description}</p>
+        )}
+
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
+          {category && (
+            <span className="flex items-center gap-1.5">
+              <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+              <Badge className="border text-[10px] px-1.5 py-0" style={{ backgroundColor: category.color + '20', color: category.color, borderColor: category.color + '40' }}>
+                {category.name}
+              </Badge>
+            </span>
+          )}
+          {offer.product && (
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <Package className="h-3.5 w-3.5" />
+              <span className="text-foreground/90">{offer.product}</span>
+            </span>
+          )}
+          {(offer.startDate || offer.endDate) && (
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <Calendar className="h-3.5 w-3.5" />
+              <span className="text-foreground/90">
+                {offer.startDate && format(new Date(offer.startDate), 'dd MMM yyyy', { locale: es })}
+                {offer.startDate && offer.endDate && ' → '}
+                {offer.endDate && format(new Date(offer.endDate), 'dd MMM yyyy', { locale: es })}
+              </span>
+            </span>
+          )}
+        </div>
+
+        {offerAllies.length > 0 && (
+          <div className="border-t border-border/40 pt-3">
+            <div className="flex items-center gap-1.5 mb-2 text-xs font-medium text-muted-foreground">
+              <UsersIcon className="h-3.5 w-3.5" /> Aliados
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {offerAllies.map(ally => {
+                const contacts = getContactsForAlly(ally.id);
+                const primary = contacts.find(c => c.isPrimary) || contacts[0];
+                return (
+                  <div key={ally.id} className="flex items-center gap-2 rounded-lg border border-border/50 bg-background/60 px-2.5 py-1.5">
+                    {ally.logo ? (
+                      <img src={ally.logo} alt="" className="h-5 w-5 rounded object-contain bg-white shrink-0" />
+                    ) : (
+                      <div className="h-5 w-5 rounded bg-primary/10 flex items-center justify-center shrink-0">
+                        <UsersIcon className="h-3 w-3 text-primary" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium leading-tight">{ally.name}</p>
+                      {primary ? (
+                        <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-muted-foreground">
+                          <User className="h-2.5 w-2.5" />
+                          <span className="truncate max-w-[160px]">{primary.name}</span>
+                          {primary.email && (
+                            <span className="flex items-center gap-0.5">
+                              <span>·</span>
+                              <Mail className="h-2.5 w-2.5" />
+                              <a href={`mailto:${primary.email}`} className="hover:text-primary truncate max-w-[160px]">{primary.email}</a>
+                            </span>
+                          )}
+                          {primary.phone && (
+                            <span className="flex items-center gap-0.5">
+                              <span>·</span>
+                              <Phone className="h-2.5 w-2.5" />
+                              <span>{primary.phone}</span>
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-muted-foreground/70 mt-0.5">Sin contactos</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
       <PipelineNotesPanel offerId={offer.id} open={notesOpen} onClose={() => setNotesOpen(false)} />
 
       {/* Search bar */}
