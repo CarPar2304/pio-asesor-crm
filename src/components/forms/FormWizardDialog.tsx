@@ -1118,286 +1118,373 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
                 if (dragScrollInterval.current) { clearInterval(dragScrollInterval.current); dragScrollInterval.current = null; }
               }}
             >
-              {formFields.map((field, idx) => (
+              {formFields.map((field, idx) => {
+                // ---- Compute destination metadata for the chip ----
+                const destCf = field.crm_field_id ? customFields.find(c => c.id === field.crm_field_id) : null;
+                const destSec = destCf ? customSections.find(s => s.id === destCf.sectionId) : null;
+                let destKind: 'companies' | 'crm_field' | 'form_only' = 'form_only';
+                let destLabel = 'Solo formulario';
+                let destSubtitle = 'No se guarda en el CRM';
+                let destClasses = 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100';
+                let DestIcon: any = AlertCircle;
+                if (field.crm_table === 'companies') {
+                  destKind = 'companies';
+                  const colMap = CRM_FIELD_MAPPINGS.find(m => m.column === field.crm_column);
+                  destLabel = `Perfil principal · ${colMap?.label || field.crm_column}`;
+                  destSubtitle = 'Tabla companies (no editable aquí)';
+                  destClasses = 'bg-blue-50 text-blue-800 border-blue-300 hover:bg-blue-100';
+                  DestIcon = Database;
+                } else if (destCf) {
+                  destKind = 'crm_field';
+                  destLabel = `CRM · ${destSec?.name || unsectionedLabel}`;
+                  destSubtitle = `Campo personalizado: ${destCf.name}`;
+                  destClasses = 'bg-violet-50 text-violet-800 border-violet-300 hover:bg-violet-100';
+                  DestIcon = Layers;
+                }
+
+                const liveCrmOpts = getLiveCrmOptions(field.crm_table, field.crm_column);
+                const effectiveOptions = liveCrmOpts ?? field.options;
+                const isTaxonomy = !!liveCrmOpts;
+                const hasAdvanced = !!field.condition_field_key || !!field.section_name || !!field.page_id;
+
+                return (
                 <div key={idx}
                   draggable
                   onDragStart={() => handleDragStart(idx)}
                   onDragOver={(e) => handleDragOver(e, idx)}
                   onDragEnd={handleDragEnd}
                   className={cn(
-                    "rounded-md border p-3 space-y-2 transition-all",
+                    "rounded-lg border bg-card shadow-sm overflow-hidden transition-all",
                     dragIdx === idx && "opacity-50",
-                    dragOverIdx === idx && dragIdx !== idx && "border-primary border-2"
+                    dragOverIdx === idx && dragIdx !== idx && "border-primary border-2 ring-2 ring-primary/20"
                   )}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <GripVertical className="h-3.5 w-3.5 text-muted-foreground cursor-grab active:cursor-grabbing" />
-                      <span className="text-xs font-medium">Campo {idx + 1}</span>
-                      {/* Origin badge: where does this field save? */}
-                      {field.crm_table === 'companies' && (
-                        <Badge variant="outline" className="text-[9px] bg-blue-50 text-blue-700 border-blue-200" title="Este dato se guarda en el bloque Datos básicos del perfil principal del CRM">
-                          Perfil principal · Datos básicos
-                        </Badge>
-                      )}
-                      {field.crm_field_id && (() => {
-                        const cf = customFields.find(c => c.id === field.crm_field_id);
-                        const sec = cf ? customSections.find(s => s.id === cf.sectionId) : null;
-                        return (
-                          <Badge variant="outline" className="text-[9px] bg-violet-50 text-violet-700 border-violet-200" title={`Campo personalizado del CRM en la sección «${sec?.name || 'Sin sección'}». Edítalo desde el módulo de Custom Fields del CRM.`}>
-                            CRM · sección «{sec?.name || 'sin sección'}»
-                          </Badge>
-                        );
-                      })()}
-                      {!field.crm_table && !field.crm_field_id && (
-                        <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-200" title="Este campo NO se guarda en el CRM. Solo queda en las respuestas del formulario.">
-                          Solo formulario (no se guarda en CRM)
-                        </Badge>
-                      )}
-                      {field.preload_from_crm && <Badge variant="outline" className="text-[9px]">Precarga CRM</Badge>}
-                      {field.section_name && <Badge variant="secondary" className="text-[9px]" title="Agrupador visual del formulario público (no afecta el CRM)">📂 {field.section_name}</Badge>}
-                      {field.condition_field_key && <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-200">Condicional</Badge>}
-                      {field.only_for_new && <Badge variant="outline" className="text-[9px] bg-emerald-50 text-emerald-700 border-emerald-200">Editable solo nuevas</Badge>}
-                    </div>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeField(idx)}>
-                      <Trash2 className="h-3 w-3 text-destructive" />
-                    </Button>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-[11px]">Label</Label>
-                      <Input className="h-8 text-xs" value={field.label} onChange={e => updateField(idx, { label: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label className="text-[11px]">Tipo</Label>
-                      <Select value={field.field_type} onValueChange={v => updateField(idx, { field_type: v as FormFieldType })}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {extendedFieldTypeOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-[11px]">Placeholder</Label>
-                      <Input className="h-8 text-xs" value={field.placeholder} onChange={e => updateField(idx, { placeholder: e.target.value })} />
-                    </div>
-                    <div>
-                      <Label className="text-[11px]" title="Solo agrupa visualmente el campo en el formulario público. NO crea ni asigna sección en el CRM.">
-                        Agrupador visible al público
-                      </Label>
-                      <Select value={field.section_name || '__none'} onValueChange={v => updateField(idx, { section_name: v === '__none' ? '' : v })}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin agrupar" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none">Sin agrupar</SelectItem>
-                          {Array.from(new Set([...customSections.map(s => s.name), ...formFields.map(f => f.section_name).filter(Boolean)])).map(name => (
-                            <SelectItem key={name} value={name}>{name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-[9px] text-muted-foreground mt-0.5">Visual del formulario. No afecta al CRM.</p>
-                    </div>
-                  </div>
-                  {field.crm_field_id && (() => {
-                    const cf = customFields.find(c => c.id === field.crm_field_id);
-                    if (!cf) return null;
-                    const currentSecId = cf.sectionId || '__none';
-                    return (
-                      <div className="rounded-md border border-violet-200 bg-violet-50/50 dark:bg-violet-950/20 p-2 space-y-1">
-                        <Label className="text-[11px] font-medium text-violet-900 dark:text-violet-200">
-                          Sección en el CRM
-                        </Label>
-                        <Select
-                          value={currentSecId}
-                          onValueChange={async (v) => {
-                            if (v === '__create') {
-                              const name = prompt('Nombre de la nueva sección del CRM:');
-                              if (!name?.trim()) return;
-                              const created = await addSection(name.trim());
-                              if (created) {
-                                await updateCustomField({ ...cf, sectionId: created.id });
-                                showSuccess('Sección creada', `"${cf.name}" ahora vive en la sección «${created.name}» del CRM`);
-                              }
-                              return;
-                            }
-                            if (v === '__rename_unsectioned') {
-                              const name = prompt('Nuevo nombre del bloque sin sección (perfil principal):', unsectionedLabel);
-                              if (!name?.trim()) return;
-                              await setUnsectionedLabel(name.trim());
-                              showSuccess('Renombrado', `Ahora se llama «${name.trim()}» en el perfil`);
-                              return;
-                            }
-                            if (v === '__rename_current' && cf.sectionId) {
-                              const sec = customSections.find(s => s.id === cf.sectionId);
-                              if (!sec) return;
-                              const name = prompt('Nuevo nombre de la sección del CRM:', sec.name);
-                              if (!name?.trim() || name.trim() === sec.name) return;
-                              await updateCustomSection(sec.id, name.trim());
-                              showSuccess('Sección renombrada', `«${sec.name}» → «${name.trim()}»`);
-                              return;
-                            }
-                            const newSecId = v === '__none' ? null : v;
-                            await updateCustomField({ ...cf, sectionId: newSecId });
-                            const secName = newSecId ? customSections.find(s => s.id === newSecId)?.name : unsectionedLabel;
-                            showSuccess('Campo movido', `"${cf.name}" ahora aparece en «${secName}» del perfil CRM`);
-                          }}
-                        >
-                          <SelectTrigger className="h-8 text-xs bg-background"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none">📌 {unsectionedLabel} (perfil principal)</SelectItem>
-                            {customSections.map(s => (
-                              <SelectItem key={s.id} value={s.id}>📁 {s.name}</SelectItem>
-                            ))}
-                            <SelectItem value="__create">➕ Crear nueva sección CRM…</SelectItem>
-                            {cf.sectionId
-                              ? <SelectItem value="__rename_current">✎ Renombrar sección actual…</SelectItem>
-                              : <SelectItem value="__rename_unsectioned">✎ Renombrar «{unsectionedLabel}»…</SelectItem>}
-                          </SelectContent>
-                        </Select>
-                        <p className="text-[9px] text-violet-700/80 dark:text-violet-300/80">
-                          Cambia dónde aparece este campo dentro del perfil del CRM. Afecta a todas las empresas.
-                        </p>
-                      </div>
-                    );
-                  })()}
-                  {(() => {
-                    const liveCrmOpts = getLiveCrmOptions(field.crm_table, field.crm_column);
-                    const effectiveOptions = liveCrmOpts ?? field.options;
-                    const isTaxonomy = !!liveCrmOpts;
-                    return (
-                      <>
-                        {(field.field_type === 'select' || field.field_type === 'multiselect') && (
-                          isTaxonomy ? (
-                            <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-2 text-[10px] text-blue-700 dark:text-blue-300">
-                              Opciones sincronizadas automáticamente desde {field.crm_column === 'city' ? 'la lista de ciudades' : 'la taxonomía'} del CRM ({effectiveOptions.length} valores). Se actualizan al cargar el formulario.
-                            </div>
-                          ) : (
-                            <div>
-                              <Label className="text-[11px]">Opciones (separadas por coma)</Label>
-                              <Input className="h-8 text-xs" value={field.options.join(', ')}
-                                onChange={e => updateField(idx, { options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
-                            </div>
-                          )
-                        )}
-                        {field.field_type === 'file' && (
-                          <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-2 text-[10px] text-blue-700 dark:text-blue-300">
-                            El campo de archivo permite al usuario subir un archivo o pegar una imagen con Ctrl+V (ideal para logos).
+                  {/* Card header: drag + index + destination chip + delete */}
+                  <div className="flex items-center justify-between gap-2 px-3 py-2 border-b bg-muted/30">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab active:cursor-grabbing shrink-0" />
+                      <span className="text-[11px] font-mono text-muted-foreground shrink-0">#{idx + 1}</span>
+                      <span className="text-xs font-semibold truncate">{field.label || 'Campo sin nombre'}</span>
+
+                      {/* Destination chip with popover */}
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className={cn(
+                              "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px] font-medium transition-colors shrink-0",
+                              destClasses
+                            )}
+                            title="Cambiar destino del campo en el CRM"
+                          >
+                            <DestIcon className="h-3 w-3" />
+                            <span className="max-w-[180px] truncate">{destLabel}</span>
+                            <ChevronDown className="h-3 w-3 opacity-60" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80 p-0" align="start">
+                          <div className="p-3 border-b bg-muted/30">
+                            <p className="text-xs font-semibold">Destino del campo</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5">Define dónde se guarda este dato cuando el formulario se envía.</p>
                           </div>
-                        )}
-                        {/* Default value */}
-                        {field.field_type !== 'file' && field.field_type !== 'sales_by_year' && (
-                          <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
-                            <div>
-                              <Label className="text-[11px]">Respuesta por defecto</Label>
-                              {(field.field_type === 'select' || field.field_type === 'multiselect' || field.field_type === 'short_text') && effectiveOptions.length > 0 ? (
+                          <div className="p-2 space-y-1 text-xs">
+                            <div className={cn("rounded-md border p-2", destKind === 'companies' && 'border-blue-300 bg-blue-50/50')}>
+                              <div className="flex items-center gap-1.5 font-medium text-blue-800"><Database className="h-3 w-3" /> Perfil principal · Datos básicos</div>
+                              <p className="text-[10px] text-muted-foreground mt-0.5">{destKind === 'companies' ? `Mapeado a "${CRM_FIELD_MAPPINGS.find(m => m.column === field.crm_column)?.label}". Para cambiarlo, elimina el campo y agrégalo desde la barra de campos del CRM.` : 'Para usar un campo nativo (NIT, ciudad, vertical…), elimina este campo y agrégalo desde "Agregar campos del CRM".'}</p>
+                            </div>
+
+                            {destKind === 'crm_field' && destCf && (
+                              <div className="rounded-md border border-violet-300 bg-violet-50/50 p-2 space-y-2">
+                                <div className="flex items-center gap-1.5 font-medium text-violet-800"><Layers className="h-3 w-3" /> Sección en el CRM</div>
                                 <Select
-                                  value={field.default_value || '__none'}
-                                  onValueChange={v => updateField(idx, { default_value: v === '__none' ? '' : v })}
+                                  value={destCf.sectionId || '__none'}
+                                  onValueChange={async (v) => {
+                                    if (v === '__create') {
+                                      const name = prompt('Nombre de la nueva sección del CRM:');
+                                      if (!name?.trim()) return;
+                                      const created = await addSection(name.trim());
+                                      if (created) {
+                                        await updateCustomField({ ...destCf, sectionId: created.id });
+                                        showSuccess('Sección creada', `"${destCf.name}" ahora vive en «${created.name}»`);
+                                      }
+                                      return;
+                                    }
+                                    if (v === '__rename_unsectioned') {
+                                      const name = prompt('Nuevo nombre del bloque sin sección:', unsectionedLabel);
+                                      if (!name?.trim()) return;
+                                      await setUnsectionedLabel(name.trim());
+                                      showSuccess('Renombrado', `Ahora se llama «${name.trim()}»`);
+                                      return;
+                                    }
+                                    if (v === '__rename_current' && destCf.sectionId) {
+                                      const sec = customSections.find(s => s.id === destCf.sectionId);
+                                      if (!sec) return;
+                                      const name = prompt('Nuevo nombre de la sección:', sec.name);
+                                      if (!name?.trim() || name.trim() === sec.name) return;
+                                      await updateCustomSection(sec.id, name.trim());
+                                      showSuccess('Sección renombrada', `«${sec.name}» → «${name.trim()}»`);
+                                      return;
+                                    }
+                                    const newSecId = v === '__none' ? null : v;
+                                    await updateCustomField({ ...destCf, sectionId: newSecId });
+                                    const secName = newSecId ? customSections.find(s => s.id === newSecId)?.name : unsectionedLabel;
+                                    showSuccess('Campo movido', `"${destCf.name}" → «${secName}»`);
+                                  }}
                                 >
-                                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin valor" /></SelectTrigger>
+                                  <SelectTrigger className="h-8 text-xs bg-background"><SelectValue /></SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="__none">Sin valor</SelectItem>
-                                    {effectiveOptions.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                                    <SelectItem value="__none">📌 {unsectionedLabel} (perfil principal)</SelectItem>
+                                    {customSections.map(s => (
+                                      <SelectItem key={s.id} value={s.id}>📁 {s.name}</SelectItem>
+                                    ))}
+                                    <SelectItem value="__create">➕ Crear nueva sección CRM…</SelectItem>
+                                    {destCf.sectionId
+                                      ? <SelectItem value="__rename_current">✎ Renombrar sección actual…</SelectItem>
+                                      : <SelectItem value="__rename_unsectioned">✎ Renombrar «{unsectionedLabel}»…</SelectItem>}
                                   </SelectContent>
                                 </Select>
-                              ) : field.field_type === 'checkbox' ? (
-                          <Select
-                            value={field.default_value || '__none'}
-                            onValueChange={v => updateField(idx, { default_value: v === '__none' ? '' : v })}
-                          >
-                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin valor" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__none">Sin valor</SelectItem>
-                              <SelectItem value="true">Marcado</SelectItem>
-                              <SelectItem value="false">Desmarcado</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <Input
-                            className="h-8 text-xs"
-                            type={field.field_type === 'number' ? 'number' : field.field_type === 'date' ? 'date' : 'text'}
-                            value={field.default_value || ''}
-                            onChange={e => updateField(idx, { default_value: e.target.value })}
-                            placeholder="Valor que aparecerá pre-rellenado"
+                                <p className="text-[10px] text-violet-700/80">Cambia dónde aparece este campo en el perfil del CRM (afecta a TODAS las empresas).</p>
+                              </div>
+                            )}
+
+                            {destKind === 'form_only' && (
+                              <div className="rounded-md border border-amber-300 bg-amber-50/50 p-2">
+                                <div className="flex items-center gap-1.5 font-medium text-amber-800"><AlertCircle className="h-3 w-3" /> Solo formulario</div>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">Este dato solo queda en las respuestas. Para guardarlo en el CRM, usa <span className="font-medium">"Nuevo campo CRM"</span> arriba o pídeselo a la IA.</p>
+                              </div>
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+
+                      {field.condition_field_key && <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-200 shrink-0">Condicional</Badge>}
+                      {field.only_for_new && <Badge variant="outline" className="text-[9px] bg-emerald-50 text-emerald-700 border-emerald-200 shrink-0">Solo nuevas</Badge>}
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => removeField(idx)}>
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
+                  </div>
+
+                  {/* Card body */}
+                  <div className="p-3 space-y-3">
+                    {/* Row 1: Label + Type */}
+                    <div className="grid grid-cols-[1fr_180px] gap-2">
+                      <div>
+                        <Label className="text-[11px]">Etiqueta visible</Label>
+                        <Input className="h-8 text-xs" value={field.label} onChange={e => updateField(idx, { label: e.target.value })} placeholder="Ej: Razón social" />
+                      </div>
+                      <div>
+                        <Label className="text-[11px]">Tipo</Label>
+                        <Select value={field.field_type} onValueChange={v => updateField(idx, { field_type: v as FormFieldType })}>
+                          <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {extendedFieldTypeOptions.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* Row 2: Placeholder */}
+                    <div>
+                      <Label className="text-[11px]">Placeholder / ayuda corta</Label>
+                      <Input className="h-8 text-xs" value={field.placeholder} onChange={e => updateField(idx, { placeholder: e.target.value })} placeholder="Texto guía dentro del campo" />
+                    </div>
+
+                    {/* Options for select / multiselect */}
+                    {(field.field_type === 'select' || field.field_type === 'multiselect') && (
+                      isTaxonomy ? (
+                        <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-2 text-[10px] text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
+                          <Database className="h-3 w-3" />
+                          Opciones sincronizadas desde {field.crm_column === 'city' ? 'la lista de ciudades' : 'la taxonomía'} del CRM ({effectiveOptions.length} valores).
+                        </div>
+                      ) : (
+                        <div>
+                          <Label className="text-[11px]">Opciones (separadas por coma)</Label>
+                          <Input className="h-8 text-xs" value={field.options.join(', ')}
+                            onChange={e => updateField(idx, { options: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} />
+                        </div>
+                      )
+                    )}
+                    {field.field_type === 'file' && (
+                      <div className="rounded-md bg-blue-50 dark:bg-blue-950/30 p-2 text-[10px] text-blue-700 dark:text-blue-300">
+                        El campo de archivo permite al usuario subir un archivo o pegar una imagen con Ctrl+V (ideal para logos).
+                      </div>
+                    )}
+
+                    {/* Default value */}
+                    {field.field_type !== 'file' && field.field_type !== 'sales_by_year' && (
+                      <div className="grid grid-cols-[1fr_auto] gap-2 items-end">
+                        <div>
+                          <Label className="text-[11px]">Respuesta por defecto</Label>
+                          {(field.field_type === 'select' || field.field_type === 'multiselect' || field.field_type === 'short_text') && effectiveOptions.length > 0 ? (
+                            <Select value={field.default_value || '__none'} onValueChange={v => updateField(idx, { default_value: v === '__none' ? '' : v })}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin valor" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none">Sin valor</SelectItem>
+                                {effectiveOptions.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          ) : field.field_type === 'checkbox' ? (
+                            <Select value={field.default_value || '__none'} onValueChange={v => updateField(idx, { default_value: v === '__none' ? '' : v })}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin valor" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none">Sin valor</SelectItem>
+                                <SelectItem value="true">Marcado</SelectItem>
+                                <SelectItem value="false">Desmarcado</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input
+                              className="h-8 text-xs"
+                              type={field.field_type === 'number' ? 'number' : field.field_type === 'date' ? 'date' : 'text'}
+                              value={field.default_value || ''}
+                              onChange={e => updateField(idx, { default_value: e.target.value })}
+                              placeholder="Valor pre-rellenado"
+                            />
+                          )}
+                        </div>
+                        <label className="flex items-center gap-1.5 text-[11px] pb-1.5 whitespace-nowrap" title="Si está desactivado, el respondiente no podrá modificar el valor por defecto.">
+                          <Checkbox
+                            checked={field.default_value_editable !== false}
+                            onCheckedChange={v => updateField(idx, { default_value_editable: !!v })}
+                            className="h-3.5 w-3.5"
                           />
+                          Modificable
+                        </label>
+                      </div>
+                    )}
+
+                    {/* Behaviour toggles — pill row */}
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground mb-1.5">Comportamiento</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        <Toggle
+                          size="sm"
+                          pressed={field.is_required}
+                          onPressedChange={v => updateField(idx, { is_required: !!v })}
+                          className="h-7 px-2 text-[11px] data-[state=on]:bg-rose-100 data-[state=on]:text-rose-700 data-[state=on]:border-rose-300 border"
+                          title="El usuario debe responderlo"
+                        >
+                          <AlertCircle className="h-3 w-3 mr-1" /> Obligatorio
+                        </Toggle>
+                        <Toggle
+                          size="sm"
+                          pressed={field.is_visible}
+                          onPressedChange={v => updateField(idx, { is_visible: !!v })}
+                          className="h-7 px-2 text-[11px] data-[state=on]:bg-sky-100 data-[state=on]:text-sky-700 data-[state=on]:border-sky-300 border"
+                          title="Si está apagado, el campo queda oculto en el formulario público"
+                        >
+                          {field.is_visible ? <Eye className="h-3 w-3 mr-1" /> : <EyeOff className="h-3 w-3 mr-1" />}
+                          Visible
+                        </Toggle>
+                        <Toggle
+                          size="sm"
+                          pressed={field.is_readonly}
+                          onPressedChange={v => updateField(idx, { is_readonly: !!v, is_editable: !v })}
+                          className="h-7 px-2 text-[11px] data-[state=on]:bg-zinc-200 data-[state=on]:text-zinc-800 data-[state=on]:border-zinc-400 border"
+                          title="Se muestra pero no se puede editar"
+                        >
+                          <Lock className="h-3 w-3 mr-1" /> Solo lectura
+                        </Toggle>
+                        {!!field.crm_table && (
+                          <Toggle
+                            size="sm"
+                            pressed={field.preload_from_crm}
+                            onPressedChange={v => updateField(idx, { preload_from_crm: !!v })}
+                            className="h-7 px-2 text-[11px] data-[state=on]:bg-violet-100 data-[state=on]:text-violet-700 data-[state=on]:border-violet-300 border"
+                            title="Pre-rellena el campo con el valor actual del CRM"
+                          >
+                            <Download className="h-3 w-3 mr-1" /> Precarga CRM
+                          </Toggle>
+                        )}
+                        {showOnlyForNew && (
+                          <Toggle
+                            size="sm"
+                            pressed={!!field.only_for_new}
+                            onPressedChange={v => updateField(idx, { only_for_new: !!v })}
+                            className="h-7 px-2 text-[11px] data-[state=on]:bg-emerald-100 data-[state=on]:text-emerald-700 data-[state=on]:border-emerald-300 border"
+                            title="Visible para todos pero solo editable por empresas nuevas"
+                          >
+                            <UserPlus className="h-3 w-3 mr-1" /> Solo nuevas
+                          </Toggle>
                         )}
                       </div>
-                      <label className="flex items-center gap-1.5 text-[11px] pb-1.5 whitespace-nowrap" title="Si está desactivado, el respondiente no podrá modificar el valor por defecto.">
-                        <Checkbox
-                          checked={field.default_value_editable !== false}
-                          onCheckedChange={v => updateField(idx, { default_value_editable: !!v })}
-                          className="h-3.5 w-3.5"
-                        />
-                        Modificable
-                      </label>
                     </div>
-                  )}
-                      </>
-                    );
-                  })()}
-                  {/* Conditional logic */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-[11px]">Mostrar solo si campo...</Label>
-                      <Select value={field.condition_field_key || '__none'} onValueChange={v => updateField(idx, { condition_field_key: v === '__none' ? null : v, condition_value: v === '__none' ? null : field.condition_value })}>
-                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin condición" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none">Sin condición</SelectItem>
-                          {conditionalSourceFields.filter(f => f.field_key !== field.field_key && f.field_key).map(f => (
-                            <SelectItem key={f.field_key} value={f.field_key}>{f.label || f.field_key}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {field.condition_field_key && (
-                      <div>
-                        <Label className="text-[11px]">...tiene valor</Label>
-                        {(() => {
-                          const sourceField = formFields.find(f => f.field_key === field.condition_field_key);
-                          if (sourceField?.field_type === 'checkbox') {
-                            return (
-                              <Select value={field.condition_value || 'true'} onValueChange={v => updateField(idx, { condition_value: v })}>
-                                <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="true">Sí (marcado)</SelectItem>
-                                  <SelectItem value="false">No (desmarcado)</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            );
-                          }
-                          if (sourceField && (sourceField.field_type === 'select' || sourceField.field_type === 'multiselect') && sourceField.options.length > 0) {
-                            return (
-                              <Select value={field.condition_value || ''} onValueChange={v => updateField(idx, { condition_value: v })}>
-                                <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Seleccionar valor..." /></SelectTrigger>
-                                <SelectContent>
-                                  {sourceField.options.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
-                            );
-                          }
-                          return <Input className="h-8 text-xs" value={field.condition_value || ''} onChange={e => updateField(idx, { condition_value: e.target.value })} placeholder="Valor esperado" />;
-                        })()}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-4 text-[11px]">
-                    <label className="flex items-center gap-1.5">
-                      <Checkbox checked={field.is_required} onCheckedChange={v => updateField(idx, { is_required: !!v })} className="h-3.5 w-3.5" />
-                      Obligatorio
-                    </label>
-                    <label className="flex items-center gap-1.5">
-                      <Checkbox checked={field.is_visible} onCheckedChange={v => updateField(idx, { is_visible: !!v })} className="h-3.5 w-3.5" />
-                      Visible
-                    </label>
-                    {showOnlyForNew && (
-                      <label className="flex items-center gap-1.5" title="El campo será visible para todos pero solo editable para empresas nuevas (NIT no encontrado)">
-                        <Checkbox checked={!!field.only_for_new} onCheckedChange={v => updateField(idx, { only_for_new: !!v })} className="h-3.5 w-3.5" />
-                        Editable solo nuevas
-                      </label>
-                    )}
+
+                    {/* Advanced collapsible: condition + visual section */}
+                    <Collapsible defaultOpen={hasAdvanced}>
+                      <CollapsibleTrigger className="group flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground hover:text-foreground transition-colors">
+                        <Settings2 className="h-3 w-3" />
+                        Avanzado: lógica condicional y agrupación visual
+                        <ChevronDown className="h-3 w-3 transition-transform group-data-[state=open]:rotate-180" />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="pt-3 space-y-3">
+                        {/* Visual grouping (form-only) */}
+                        <div>
+                          <Label className="text-[11px]" title="Solo agrupa visualmente el campo en el formulario público. NO crea ni asigna sección en el CRM.">
+                            📂 Agrupador visible al público
+                          </Label>
+                          <Select value={field.section_name || '__none'} onValueChange={v => updateField(idx, { section_name: v === '__none' ? '' : v })}>
+                            <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin agrupar" /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__none">Sin agrupar</SelectItem>
+                              {Array.from(new Set([...customSections.map(s => s.name), ...formFields.map(f => f.section_name).filter(Boolean)])).map(name => (
+                                <SelectItem key={name} value={name}>{name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">Solo afecta cómo se ven los campos en el formulario público. No modifica el CRM.</p>
+                        </div>
+
+                        {/* Conditional logic */}
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-[11px]">Mostrar solo si campo…</Label>
+                            <Select value={field.condition_field_key || '__none'} onValueChange={v => updateField(idx, { condition_field_key: v === '__none' ? null : v, condition_value: v === '__none' ? null : field.condition_value })}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Sin condición" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none">Sin condición</SelectItem>
+                                {conditionalSourceFields.filter(f => f.field_key !== field.field_key && f.field_key).map(f => (
+                                  <SelectItem key={f.field_key} value={f.field_key}>{f.label || f.field_key}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {field.condition_field_key && (
+                            <div>
+                              <Label className="text-[11px]">…tiene valor</Label>
+                              {(() => {
+                                const sourceField = formFields.find(f => f.field_key === field.condition_field_key);
+                                if (sourceField?.field_type === 'checkbox') {
+                                  return (
+                                    <Select value={field.condition_value || 'true'} onValueChange={v => updateField(idx, { condition_value: v })}>
+                                      <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="true">Sí (marcado)</SelectItem>
+                                        <SelectItem value="false">No (desmarcado)</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  );
+                                }
+                                if (sourceField && (sourceField.field_type === 'select' || sourceField.field_type === 'multiselect') && sourceField.options.length > 0) {
+                                  return (
+                                    <Select value={field.condition_value || ''} onValueChange={v => updateField(idx, { condition_value: v })}>
+                                      <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Seleccionar valor…" /></SelectTrigger>
+                                      <SelectContent>
+                                        {sourceField.options.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                                      </SelectContent>
+                                    </Select>
+                                  );
+                                }
+                                return <Input className="h-8 text-xs" value={field.condition_value || ''} onChange={e => updateField(idx, { condition_value: e.target.value })} placeholder="Valor esperado" />;
+                              })()}
+                            </div>
+                          )}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
                   </div>
                 </div>
-              ))}
+              );})}
             </div>
           </div>
         )}
