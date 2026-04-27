@@ -1208,7 +1208,245 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
               </div>
             )}
 
-            {/* Field list with drag and drop + auto-scroll */}
+            {/* Dynamic Field Dialog (inline) */}
+            {showDynamicDialog && (() => {
+              const numericFields = formFields.filter(f =>
+                !f.is_dynamic && f.field_key &&
+                (f.field_type === 'number' || f.crm_column === 'exports_usd')
+              );
+              const allInputFields = formFields.filter(f => !f.is_dynamic && f.field_key);
+              return (
+                <div className="rounded-lg border-2 border-purple-300 bg-gradient-to-br from-purple-50 via-background to-fuchsia-50 dark:from-purple-950/20 dark:to-fuchsia-950/20 p-4 space-y-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-md bg-gradient-to-br from-purple-500 to-fuchsia-500 text-white shadow-sm">
+                        <Zap className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold">Nuevo campo dinámico</p>
+                        <p className="text-[11px] text-muted-foreground">Se calcula automáticamente y se guarda en una sección del CRM</p>
+                      </div>
+                    </div>
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => { resetDynamicForm(); setShowDynamicDialog(false); }}>
+                      <XIcon className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {/* Kind selector */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDynKind('operation')}
+                      className={cn(
+                        'rounded-md border-2 p-3 text-left transition-all',
+                        dynKind === 'operation'
+                          ? 'border-purple-500 bg-purple-100/60 shadow-sm'
+                          : 'border-border bg-background hover:border-purple-300'
+                      )}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <Calculator className="h-4 w-4 text-purple-600" />
+                        <span className="text-xs font-semibold">Operación matemática</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground leading-tight">Calcula con una fórmula a partir de otros campos numéricos del formulario</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDynKind('generation')}
+                      className={cn(
+                        'rounded-md border-2 p-3 text-left transition-all',
+                        dynKind === 'generation'
+                          ? 'border-fuchsia-500 bg-fuchsia-100/60 shadow-sm'
+                          : 'border-border bg-background hover:border-fuchsia-300'
+                      )}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <Bot className="h-4 w-4 text-fuchsia-600" />
+                        <span className="text-xs font-semibold">Generación con IA</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground leading-tight">La IA (gpt-4o-mini) procesa otros campos del formulario con tu prompt al enviar</p>
+                    </button>
+                  </div>
+
+                  {/* Common: name + section */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-[11px]">Nombre del campo *</Label>
+                      <Input value={dynLabel} onChange={e => setDynLabel(e.target.value)}
+                        placeholder={dynKind === 'operation' ? 'Ej: Utilidad en COP' : 'Ej: Resumen ejecutivo'}
+                        className="h-8 text-xs" />
+                    </div>
+                    <div>
+                      <Label className="text-[11px]">Sección del CRM *</Label>
+                      <Select value={dynSection} onValueChange={setDynSection}>
+                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Elige sección..." /></SelectTrigger>
+                        <SelectContent>
+                          {customSections.map(s => (
+                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Operation config */}
+                  {dynKind === 'operation' && (
+                    <div className="space-y-3 rounded-md bg-purple-50/40 dark:bg-purple-950/10 border border-purple-200 p-3">
+                      <div className="flex items-center gap-2">
+                        <Toggle
+                          size="sm"
+                          pressed={dynMode === 'simple'}
+                          onPressedChange={() => setDynMode('simple')}
+                          className="h-7 px-2 text-[11px] data-[state=on]:bg-purple-600 data-[state=on]:text-white"
+                        >
+                          Operación simple
+                        </Toggle>
+                        <Toggle
+                          size="sm"
+                          pressed={dynMode === 'formula'}
+                          onPressedChange={() => setDynMode('formula')}
+                          className="h-7 px-2 text-[11px] data-[state=on]:bg-purple-600 data-[state=on]:text-white"
+                        >
+                          Fórmula avanzada
+                        </Toggle>
+                      </div>
+
+                      {dynMode === 'simple' ? (
+                        <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-end">
+                          <div>
+                            <Label className="text-[11px]">Campo A</Label>
+                            <Select value={dynInputA} onValueChange={setDynInputA}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                              <SelectContent>
+                                {numericFields.length === 0 && <div className="px-2 py-1.5 text-[11px] text-muted-foreground">Agrega antes campos numéricos</div>}
+                                {numericFields.map(f => (
+                                  <SelectItem key={f.field_key} value={f.field_key}>{f.label || f.field_key}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <Select value={dynOp} onValueChange={v => setDynOp(v as DynamicOperationType)}>
+                            <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="add">+ Suma</SelectItem>
+                              <SelectItem value="subtract">− Resta</SelectItem>
+                              <SelectItem value="multiply">× Multiplicación</SelectItem>
+                              <SelectItem value="divide">÷ División</SelectItem>
+                              <SelectItem value="percentage">% (A × B%)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <div>
+                            <Label className="text-[11px]">Campo B</Label>
+                            <Select value={dynInputB} onValueChange={setDynInputB}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                              <SelectContent>
+                                {numericFields.map(f => (
+                                  <SelectItem key={f.field_key} value={f.field_key}>{f.label || f.field_key}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <Label className="text-[11px]">Fórmula</Label>
+                          <Input
+                            value={dynFormula}
+                            onChange={e => setDynFormula(e.target.value)}
+                            placeholder="Ej: ({ventas} * {pct_utilidad}) / 100"
+                            className="h-8 text-xs font-mono"
+                          />
+                          <p className="text-[10px] text-muted-foreground mt-1">
+                            Usa <code className="bg-muted px-1 rounded">{`{field_key}`}</code> para referenciar otros campos. Operadores permitidos: + − * / ( )
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {numericFields.map(f => (
+                              <button
+                                key={f.field_key}
+                                type="button"
+                                onClick={() => setDynFormula(prev => prev + `{${f.field_key}}`)}
+                                className="text-[10px] bg-purple-100 hover:bg-purple-200 text-purple-800 px-1.5 py-0.5 rounded font-mono"
+                              >
+                                {`{${f.field_key}}`}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <Label className="text-[11px]">Decimales</Label>
+                          <Input type="number" min={0} max={6} value={dynDecimals} onChange={e => setDynDecimals(Number(e.target.value))} className="h-8 text-xs" />
+                        </div>
+                        <div className="col-span-2">
+                          <Label className="text-[11px]">Sufijo (opcional)</Label>
+                          <Input value={dynSuffix} onChange={e => setDynSuffix(e.target.value)} placeholder="Ej: COP, %, USD" className="h-8 text-xs" />
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-2 rounded-md border bg-background p-2.5">
+                        <Checkbox checked={dynVisibleToUser} onCheckedChange={v => setDynVisibleToUser(!!v)} id="dyn-visible" className="mt-0.5" />
+                        <div>
+                          <label htmlFor="dyn-visible" className="text-[11px] font-medium cursor-pointer">Mostrar el resultado al usuario</label>
+                          <p className="text-[10px] text-muted-foreground">Si está activo, el respondiente verá el valor calculado en tiempo real (sin poder editarlo). Si está apagado, solo se calcula y guarda al final.</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Generation config */}
+                  {dynKind === 'generation' && (
+                    <div className="space-y-3 rounded-md bg-fuchsia-50/40 dark:bg-fuchsia-950/10 border border-fuchsia-200 p-3">
+                      <div>
+                        <Label className="text-[11px]">Campos de entrada (contexto para la IA) *</Label>
+                        <div className="mt-1 max-h-32 overflow-y-auto rounded-md border bg-background p-2 space-y-1">
+                          {allInputFields.length === 0 && <p className="text-[11px] text-muted-foreground italic">Agrega antes algunos campos al formulario</p>}
+                          {allInputFields.map(f => (
+                            <label key={f.field_key} className="flex items-center gap-2 text-xs hover:bg-muted/50 rounded px-1 py-0.5 cursor-pointer">
+                              <Checkbox
+                                className="h-3.5 w-3.5"
+                                checked={dynGenInputs.includes(f.field_key)}
+                                onCheckedChange={v => setDynGenInputs(prev =>
+                                  v ? Array.from(new Set([...prev, f.field_key])) : prev.filter(k => k !== f.field_key)
+                                )}
+                              />
+                              <span className="flex-1 truncate">{f.label || f.field_key}</span>
+                              <code className="text-[9px] text-muted-foreground">{f.field_key}</code>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-[11px]">Prompt para la IA *</Label>
+                        <Textarea
+                          value={dynPrompt}
+                          onChange={e => setDynPrompt(e.target.value)}
+                          placeholder="Ej: A partir de la descripción de la empresa, redacta una caracterización ejecutiva de máximo 3 párrafos enfocada en su modelo de negocio y mercado objetivo."
+                          rows={4}
+                          className="text-xs"
+                        />
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          La IA recibirá los campos seleccionados como contexto. Modelo: <code className="bg-muted px-1 rounded">gpt-4o-mini</code> · Se ejecuta al enviar el formulario y se guarda en el perfil.
+                        </p>
+                      </div>
+                      <div className="rounded-md bg-fuchsia-100/60 border border-fuchsia-200 p-2 flex items-start gap-2">
+                        <EyeOff className="h-3.5 w-3.5 text-fuchsia-700 mt-0.5 shrink-0" />
+                        <p className="text-[10px] text-fuchsia-900">El campo generativo siempre permanece oculto al usuario. Se calcula al enviar y queda en el perfil de la empresa.</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <Button size="sm" className="h-8 bg-purple-600 hover:bg-purple-700" onClick={handleCreateDynamicField}>
+                      <Zap className="h-3.5 w-3.5 mr-1.5" /> Crear campo dinámico
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-8" onClick={() => { resetDynamicForm(); setShowDynamicDialog(false); }}>Cancelar</Button>
+                  </div>
+                </div>
+              );
+            })()}
+
             <div
               ref={fieldListRef}
               className="space-y-3 max-h-[350px] overflow-y-auto"
