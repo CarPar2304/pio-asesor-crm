@@ -191,6 +191,9 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
             page_id: f.page_id || null,
             default_value: f.default_value ?? '',
             default_value_editable: f.default_value_editable ?? true,
+            is_dynamic: f.is_dynamic || false,
+            dynamic_kind: f.dynamic_kind || null,
+            dynamic_config: f.dynamic_config || {},
           };
         }));
         if (pagesRes?.data) setPages(pagesRes.data.map((p: any) => ({
