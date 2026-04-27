@@ -3,7 +3,7 @@ import { usePortfolio } from '@/contexts/PortfolioContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
-import { Pencil, Trash2, GitBranch, Calendar, Package, Wrench, Users } from 'lucide-react';
+import { Pencil, Trash2, GitBranch, Calendar, Package, Wrench, Users, Copy } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -21,12 +21,18 @@ interface Props {
 }
 
 export default function OfferCard({ offer, onEdit, onViewPipeline }: Props) {
-  const { deleteOffer, categories, getStagesForOffer, getEntriesForOffer, getAlliesForOffer } = usePortfolio();
+  const { deleteOffer, duplicateOffer, categories, getStagesForOffer, getEntriesForOffer, getAlliesForOffer } = usePortfolio();
   const category = categories.find(c => c.id === offer.categoryId);
   const stageCount = getStagesForOffer(offer.id).length;
   const entryCount = getEntriesForOffer(offer.id).length;
   const offerAllies = getAlliesForOffer(offer.id);
   const statusCfg = STATUS_CONFIG[offer.status];
+
+  const handleDuplicate = () => {
+    if (confirm(`¿Duplicar "${offer.name}"? Se copiarán etapas y aliados como borrador.`)) {
+      duplicateOffer(offer.id);
+    }
+  };
 
   const handleDelete = () => {
     if (confirm(`¿Eliminar "${offer.name}"? Esto eliminará también su pipeline.`)) {
@@ -95,10 +101,13 @@ export default function OfferCard({ offer, onEdit, onViewPipeline }: Props) {
             <GitBranch className="h-3 w-3" /> Ver Pipeline
           </Button>
           <div className="flex gap-1">
-            <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => onEdit(offer)}>
+            <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={() => onEdit(offer)} title="Editar">
               <Pencil className="h-3.5 w-3.5" />
             </Button>
-            <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={handleDelete}>
+            <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-primary" onClick={handleDuplicate} title="Duplicar oferta">
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
+            <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={handleDelete} title="Eliminar">
               <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>

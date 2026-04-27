@@ -25,6 +25,7 @@ interface PortfolioContextValue {
   createOffer: (data: Omit<PortfolioOffer, 'id' | 'createdAt' | 'updatedAt' | 'category' | 'stages'>) => Promise<PortfolioOffer | null>;
   updateOffer: (id: string, data: Partial<PortfolioOffer>) => Promise<void>;
   deleteOffer: (id: string) => Promise<void>;
+  duplicateOffer: (id: string) => Promise<PortfolioOffer | null>;
 
   getStagesForOffer: (offerId: string) => PipelineStage[];
   createStage: (offerId: string, name: string, color: string, icon: string) => Promise<PipelineStage | null>;
@@ -233,7 +234,85 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     showSuccess('Oferta eliminada', '');
   };
 
-  // Stages
+  const duplicateOffer = async (id: string): Promise<PortfolioOffer | null> => {
+    const original = offers.find(o => o.id === id);
+    if (!original) { showError('Error', 'Oferta no encontrada'); return null; }
+
+    // 1. Insert duplicated offer
+    const { data: row, error } = await supabase
+      .from('portfolio_offers')
+      .insert({
+        name: `${original.name} (copia)`,
+        description: original.description,
+        type: original.type || 'service',
+        product: (original as any).product || '',
+        category_id: original.categoryId,
+        start_date: original.startDate,
+        end_date: original.endDate,
+        status: 'draft',
+      } as any)
+      .select().single();
+    if (error || !row) { showError('Error', 'No se pudo duplicar la oferta'); return null; }
+
+    const newOffer: PortfolioOffer = {
+      id: row.id, name: row.name, description: row.description,
+      type: row.type, product: (row as any).product || '',
+      categoryId: row.category_id,
+      startDate: row.start_date, endDate: row.end_date,
+      status: row.status as any, createdAt: row.created_at, updatedAt: row.updated_at,
+    };
+
+    // 2. Duplicate stages
+    const originalStages = stages.filter(s => s.offerId === id).sort((a, b) => a.displayOrder - b.displayOrder);
+    if (originalStages.length > 0) {
+      const { data: newStages } = await supabase
+        .from('pipeline_stages')
+        .insert(originalStages.map(s => ({
+          offer_id: row.id, name: s.name, color: s.color, icon: s.icon,
+          display_order: s.displayOrder, counts_as_management: s.countsAsManagement,
+        })))
+        .select();
+      if (newStages) {
+        setStages(prev => [...prev, ...newStages.map((r: any) => ({
+          id: r.id, offerId: r.offer_id, name: r.name, color: r.color, icon: r.icon,
+          displayOrder: r.display_order, countsAsManagement: r.counts_as_management ?? true,
+          createdAt: r.created_at,
+        }))]);
+      }
+    } else {
+      // Fallback default stage
+      const { data: stageRow } = await supabase
+        .from('pipeline_stages')
+        .insert({ offer_id: row.id, name: 'Sin estado', color: '#64748b', icon: 'Circle', display_order: 0 })
+        .select().single();
+      if (stageRow) {
+        setStages(prev => [...prev, {
+          id: stageRow.id, offerId: stageRow.offer_id, name: stageRow.name,
+          color: stageRow.color, icon: stageRow.icon, displayOrder: stageRow.display_order,
+          countsAsManagement: true, createdAt: stageRow.created_at,
+        }]);
+      }
+    }
+
+    // 3. Duplicate ally links
+    const originalAllies = offerAllies.filter(oa => oa.offerId === id);
+    if (originalAllies.length > 0) {
+      const { data: newOA } = await supabase
+        .from('offer_allies')
+        .insert(originalAllies.map(oa => ({ offer_id: row.id, ally_id: oa.allyId })))
+        .select();
+      if (newOA) {
+        setOfferAllies(prev => [...prev, ...newOA.map((r: any) => ({
+          id: r.id, offerId: r.offer_id, allyId: r.ally_id, createdAt: r.created_at,
+        }))]);
+      }
+    }
+
+    setOffers(prev => [newOffer, ...prev]);
+    showSuccess('Oferta duplicada', `Se creó "${newOffer.name}" como borrador`);
+    triggerVectorize('offers');
+    return newOffer;
+  };
   const getStagesForOffer = (offerId: string) =>
     stages.filter(s => s.offerId === offerId).sort((a, b) => a.displayOrder - b.displayOrder);
 
@@ -427,7 +506,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       categories, offerTypes, offers, stages, entries, allies, offerAllies, loading,
       createCategory, deleteCategory,
       createOfferType, deleteOfferType,
-      createOffer, updateOffer, deleteOffer,
+      createOffer, updateOffer, deleteOffer, duplicateOffer,
       getStagesForOffer, createStage, updateStage, deleteStage, reorderStages,
       getEntriesForOffer, addCompanyToStage, moveCompanyToStage, updateEntryAssignment, removeEntry, isCompanyInOffer,
       createAlly, updateAlly, deleteAlly, addAllyContact, updateAllyContact, deleteAllyContact,
