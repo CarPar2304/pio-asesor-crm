@@ -21,12 +21,18 @@ interface Props {
 }
 
 export default function OfferCard({ offer, onEdit, onViewPipeline }: Props) {
-  const { deleteOffer, categories, getStagesForOffer, getEntriesForOffer, getAlliesForOffer } = usePortfolio();
+  const { deleteOffer, duplicateOffer, categories, getStagesForOffer, getEntriesForOffer, getAlliesForOffer } = usePortfolio();
   const category = categories.find(c => c.id === offer.categoryId);
   const stageCount = getStagesForOffer(offer.id).length;
   const entryCount = getEntriesForOffer(offer.id).length;
   const offerAllies = getAlliesForOffer(offer.id);
   const statusCfg = STATUS_CONFIG[offer.status];
+
+  const handleDuplicate = () => {
+    if (confirm(`¿Duplicar "${offer.name}"? Se copiarán etapas y aliados como borrador.`)) {
+      duplicateOffer(offer.id);
+    }
+  };
 
   const handleDelete = () => {
     if (confirm(`¿Eliminar "${offer.name}"? Esto eliminará también su pipeline.`)) {
