@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { showSuccess, showError } from '@/lib/toast';
 import { ExternalForm, ExternalFormField, FORM_TYPE_LABELS, FORM_STATUS_LABELS, FORM_STATUS_COLORS, FormStatus } from '@/types/externalForms';
@@ -9,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Plus, Copy, Pencil, Archive, Play, Pause, Eye, BarChart3, FileText, Search, FlaskConical, Trash2, MousePointerClick, Send, CheckCircle2, TrendingUp } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
-import FormWizardDialog from '@/components/forms/FormWizardDialog';
+
 import FormResponsesDialog from '@/components/forms/FormResponsesDialog';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -39,6 +40,7 @@ function StatTile({ icon: Icon, label, value, sub, tone = 'slate' }: { icon: any
 }
 
 export default function FormsPage() {
+  const navigate = useNavigate();
   const { session } = useAuth();
   const [forms, setForms] = useState<ExternalForm[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,8 +50,6 @@ export default function FormsPage() {
   const [filterProduct, setFilterProduct] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [search, setSearch] = useState('');
-  const [wizardOpen, setWizardOpen] = useState(false);
-  const [editingForm, setEditingForm] = useState<ExternalForm | null>(null);
   const [responsesFormId, setResponsesFormId] = useState<string | null>(null);
   const [offers, setOffers] = useState<OfferInfo[]>([]);
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
@@ -161,7 +161,7 @@ export default function FormsPage() {
           <h1 className="text-xl font-bold">Formularios Externos</h1>
           <p className="text-sm text-muted-foreground">{filtered.length} formularios</p>
         </div>
-        <Button onClick={() => { setEditingForm(null); setWizardOpen(true); }} size="sm">
+        <Button onClick={() => navigate('/formularios/nuevo')} size="sm">
           <Plus className="mr-1.5 h-3.5 w-3.5" /> Crear formulario
         </Button>
       </div>
@@ -229,7 +229,7 @@ export default function FormsPage() {
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-16">
           <FileText className="h-10 w-10 text-muted-foreground/50 mb-2" />
           <p className="text-sm text-muted-foreground">No hay formularios</p>
-          <Button variant="link" size="sm" className="mt-1" onClick={() => { setEditingForm(null); setWizardOpen(true); }}>
+          <Button variant="link" size="sm" className="mt-1" onClick={() => navigate('/formularios/nuevo')}>
             Crear el primero
           </Button>
         </div>
@@ -266,7 +266,7 @@ export default function FormsPage() {
                       <BarChart3 className="h-3.5 w-3.5" />
                     </Button>
                     {form.status !== 'archived' && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingForm(form); setWizardOpen(true); }} title="Editar">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate(`/formularios/${form.id}/editar`)} title="Editar">
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
                     )}
