@@ -1654,26 +1654,30 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
           </div>
         )}
 
-        <Separator className="my-4" />
+        </div>
+      </main>
 
-        {/* Navigation */}
-        <div className="flex items-center justify-between">
+      {/* Sticky footer */}
+      <footer className="sticky bottom-0 z-30 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between px-4 py-3 sm:px-6">
           <Button variant="ghost" size="sm" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}>
-            <ChevronLeft className="h-3.5 w-3.5 mr-1" /> Anterior
+            <ChevronLeft className="h-4 w-4 mr-1" /> Anterior
           </Button>
+          <div className="text-[11px] text-muted-foreground hidden sm:block">
+            Paso {step + 1} de {STEPS.length} · {STEPS[step]}
+          </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
-            {step < 5 ? (
-              <Button size="sm" onClick={() => setStep(step + 1)}>
-                Siguiente <ChevronRight className="h-3.5 w-3.5 ml-1" />
+            {step < STEPS.length - 1 ? (
+              <Button variant="outline" size="sm" onClick={() => setStep(step + 1)}>
+                Siguiente <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             ) : null}
             <Button size="sm" onClick={handleSave} disabled={saving}>
-              {saving ? 'Guardando...' : 'Guardar formulario'}
+              {saving ? 'Guardando…' : 'Guardar formulario'}
             </Button>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </footer>
+    </div>
   );
 }
