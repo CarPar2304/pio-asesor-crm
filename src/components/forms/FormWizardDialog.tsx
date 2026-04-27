@@ -756,23 +756,76 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
   const formUrl = savedSlug ? `${window.location.origin}/form/${savedSlug}` : '';
 
   return (
-    <Dialog open={open} onOpenChange={v => !v && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{editingForm ? 'Editar formulario' : 'Crear formulario'}</DialogTitle>
-        </DialogHeader>
+  if (!open) return null;
 
-        {/* Step indicator */}
-        <div className="flex items-center gap-1 mb-4">
-          {STEPS.map((s, i) => (
-            <button key={i} onClick={() => setStep(i)}
-              className={cn('text-[11px] px-2 py-1 rounded-full transition-colors', i === step ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80')}>
-              {i + 1}. {s}
-            </button>
-          ))}
+  return (
+    <div className="min-h-screen flex flex-col bg-background">
+      {/* Sticky header */}
+      <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+        <div className="mx-auto flex w-full max-w-[1400px] items-center gap-3 px-4 py-3 sm:px-6">
+          <Button variant="ghost" size="sm" className="gap-1 -ml-2" onClick={onClose}>
+            <ArrowLeft className="h-4 w-4" /> Volver
+          </Button>
+          <div className="h-6 w-px bg-border" />
+          <div className="flex-1 min-w-0">
+            <Input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder={editingForm ? 'Nombre interno del formulario' : 'Nuevo formulario sin título'}
+              className="h-9 border-0 bg-transparent px-1 text-base font-semibold shadow-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
+          </div>
+          <Badge variant="outline" className="hidden sm:inline-flex text-[10px] uppercase tracking-wide">
+            {status === 'active' ? 'Activo' : status === 'draft' ? 'Borrador' : status === 'paused' ? 'Pausado' : 'Archivado'}
+          </Badge>
+          <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
+          <Button size="sm" onClick={handleSave} disabled={saving}>
+            {saving ? 'Guardando…' : 'Guardar'}
+          </Button>
         </div>
 
-        <Separator className="mb-4" />
+        {/* Stepper */}
+        <div className="border-t bg-muted/30">
+          <div className="mx-auto w-full max-w-[1400px] px-4 sm:px-6">
+            <div className="flex items-center gap-1 overflow-x-auto py-2">
+              {STEPS.map((s, i) => {
+                const active = i === step;
+                const completed = i < step;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setStep(i)}
+                    className={cn(
+                      'flex shrink-0 items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                      active
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : completed
+                          ? 'bg-primary/10 text-primary hover:bg-primary/15'
+                          : 'text-muted-foreground hover:bg-muted'
+                    )}
+                  >
+                    <span className={cn(
+                      'flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold',
+                      active ? 'bg-primary-foreground/20' : completed ? 'bg-primary text-primary-foreground' : 'bg-muted-foreground/15'
+                    )}>
+                      {completed ? <Check className="h-3 w-3" /> : i + 1}
+                    </span>
+                    <span>{s}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Scrollable content */}
+      <main className="flex-1">
+        <div className={cn(
+          'mx-auto w-full px-4 py-6 sm:px-6',
+          // Constructor de campos y precarga necesitan más ancho
+          step === 2 || step === 3 ? 'max-w-[1400px]' : 'max-w-3xl'
+        )}>
 
         {/* Step 1: General Info */}
         {step === 0 && (
