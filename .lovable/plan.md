@@ -1,208 +1,71 @@
-## Diagnóstico verificado
+# Mejorar editor/creador de formularios — quitar Dialog
 
-La implementación actual todavía no cumple completamente EB.
+Hoy el editor (`FormWizardDialog`) vive en un `Dialog` de `max-w-3xl` con scroll interno. Es estrecho, los pasos largos (Constructor de campos, IA Builder, Precarga) se sienten apretados y obliga a hacer scroll constantemente. Lo vamos a transformar en una **vista de pantalla completa** integrada al layout de la app, manteniendo toda la lógica y datos actuales — solo cambia el contenedor y la organización visual.
 
-Confirmé en base de datos para el formulario **Diagnóstico Inversión** (`48fc4c40-8b1b-4ce4-bbe4-3a2af73ed930`):
+## Qué cambia (UX)
 
-- En `custom_sections` solo existen estas secciones reales del CRM:
-  - `Financiamiento / Inversión`
-  - `Mercado`
-- No existe `Información General` como sección del CRM.
-- En `external_form_fields`, los campos bajo `section_name = 'Información general'` son solo agrupadores visuales del formulario:
-  - `Principales clientes`
-  - `Número de socios (participantes en la propiedad)`
-  - `Antigüedad de la empresa (años)`
-- Esos campos tienen `crm_table = NULL` y `crm_field_id = NULL`, por eso no aparecen en el perfil del CRM.
-- `Utilidad operacional último año` está en `section_name = 'Información financiera'`, también como campo solo formulario.
-- El perfil CRM solo muestra:
-  - campos nativos de `companies`/`contacts` en bloques principales,
-  - `custom_fields` sin sección en la pestaña `Campos personalizados`,
-  - `custom_fields` con `section_id` en pestañas/secciones CRM.
+1. **Adiós al Dialog** — el editor pasa a ser una vista a pantalla completa dentro del layout principal (mismo header/sidebar de la app), accesible desde `/formularios/nuevo` y `/formularios/:id/editar`.
+2. **Header pegajoso (sticky)** con:
+   - Botón "← Volver" a `/formularios`.
+   - Título editable inline del formulario (nombre interno).
+   - Badge de estado (Borrador / Activo / etc.).
+   - Botón "Cancelar" + "Guardar" siempre visibles arriba a la derecha.
+3. **Stepper horizontal** rediseñado: tarjetitas con número, título y check cuando el paso está completo. Permite saltar entre pasos haciendo clic.
+4. **Layout de 2 columnas en pasos densos** (Constructor de campos, Precarga, Diseño):
+   - Columna izquierda (≈ 30%): navegación de secciones/páginas + acciones rápidas (Nueva sección CRM, Nuevo campo CRM, Campo libre, atajos de campos).
+   - Columna derecha (≈ 70%): editor del campo/sección seleccionado, con espacio cómodo.
+   - En pasos simples (Información general, Identificación, Publicación) se usa una columna centrada de ancho cómodo (`max-w-3xl`).
+5. **IA Builder** (chat) pasa a un panel lateral colapsable a la derecha (toggle "Asistente IA"), en vez de competir por espacio dentro del dialog.
+6. **Footer pegajoso** con navegación Anterior / Siguiente y "Guardar".
+7. Vista preview del formulario público abre en nueva pestaña como hoy.
 
-Aclaración importante que voy a aplicar: **“Información General” no debe ser una pestaña/sección custom en este caso; debe entrar como campos del CRM principal / campos sin sección, no dentro de secciones personalizadas.**
+Toda la **lógica interna** (estados, mutaciones, IA, secciones CRM, drag & drop, etc.) se preserva tal cual — solo se reordena el JSX.
 
-## Modelo de negocio corregido
+## Cambios técnicos
 
-A partir de ahora el sistema tendrá 3 destinos explícitos para cada pregunta:
+- **Nueva ruta** en `src/App.tsx`: `/formularios/nuevo` y `/formularios/:id/editar` apuntando a una nueva página `FormEditorPage`.
+- **Nuevo archivo**: `src/pages/FormEditorPage.tsx`
+  - Carga `editingForm` por id desde Supabase si la URL trae `:id`.
+  - Renderiza el nuevo componente `<FormEditor />` (sin Dialog).
+  - Maneja navegación (`useNavigate`) para volver a `/formularios` al guardar/cancelar.
+- **Refactor** `src/components/forms/FormWizardDialog.tsx` → renombrar a `src/components/forms/FormEditor.tsx`:
+  - Eliminar `Dialog`, `DialogContent`, `DialogHeader`, `DialogTitle`.
+  - Cambiar la firma: `({ editingForm, onSaved, onClose })` sin `open`.
+  - Envolver en un `<div className="min-h-screen flex flex-col">` con header sticky, stepper, contenido (grid 2-col en pasos densos), footer sticky.
+  - Mover el panel de IA Builder a un `<aside>` lateral colapsable controlado por un toggle local (`showAI`).
+  - Conservar todos los `useState`, `useEffect`, handlers, lógica de drag & drop, secciones CRM, etc.
+- **`src/pages/FormsPage.tsx`**:
+  - Quitar `<FormWizardDialog ... />` y los estados `wizardOpen`, `editingForm`.
+  - Botón "Nuevo formulario" → `navigate('/formularios/nuevo')`.
+  - Botón "Editar" en cada tarjeta → `navigate('/formularios/' + id + '/editar')`.
+- Mantener `FormResponsesDialog` como dialog (es una vista de solo lectura corta, ahí el dialog sí funciona).
+
+## Estructura visual del editor
 
 ```text
-Pregunta del formulario
-├─ CRM principal
-│  ├─ campo nativo existente: companies.* / contacts.*
-│  └─ campo CRM global sin sección: custom_fields.section_id = null
-├─ CRM sección
-│  └─ campo CRM dentro de custom_sections
-└─ Solo formulario
-   └─ se guarda solo en external_form_responses.response_data
+┌─────────────────────────────────────────────────────────────────┐
+│  ← Volver  │  Diagnóstico Inversión [Borrador]   [Cancelar][Guardar] │  ← sticky
+├─────────────────────────────────────────────────────────────────┤
+│  ① General  ② Identificación  ③ Campos  ④ Precarga  ⑤ Diseño  ⑥ Publicar │
+├─────────────────────────────────────────────────────────────────┤
+│                                                       │ Asistente │
+│   [contenido del paso, 2 columnas en pasos densos]    │   IA      │
+│                                                       │ (toggle)  │
+│                                                       │           │
+├─────────────────────────────────────────────────────────────────┤
+│  ← Anterior                              Siguiente →  │  Guardar  │  ← sticky
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-Reglas finales:
+## Fuera de alcance
 
-1. **No existen secciones solo formulario** cuando la intención es CRM.
-2. **Las secciones creadas por IA son secciones del CRM**, salvo que el usuario diga explícitamente “solo agrupar visualmente en el formulario”.
-3. **“Información general” debe tratarse como destino CRM principal**, no como una sección custom.
-4. **Campos libres solo formulario** sí pueden existir, pero deben quedar claramente marcados como “Solo formulario”.
-5. Todo campo creado desde formularios que tenga destino CRM debe quedar visible en el perfil CRM después de guardar.
-6. Crear o modificar estructura CRM requiere aprobación; crear preguntas solo formulario puede aplicarse automáticamente.
+- No se rediseña la lógica del paso "Constructor de campos" (se mantiene la misma UI de cards/drag&drop, solo dentro del nuevo layout 2-col).
+- No se cambian los datos guardados ni los endpoints/tablas.
+- `FormResponsesDialog` sigue siendo dialog.
 
-## Plan de corrección
+## Archivos afectados
 
-### 1. Reparar el caso existente: Diagnóstico Inversión
-
-Haré una corrección de datos puntual:
-
-- Crear en `custom_fields` como **campos CRM principales sin sección** (`section_id = null`) estos campos del formulario:
-  - `Principales clientes` → tipo texto
-  - `Número de socios (participantes en la propiedad)` → tipo número
-  - `Antigüedad de la empresa (años)` → tipo número
-  - `Utilidad operacional último año` → tipo número
-- Actualizar los registros correspondientes de `external_form_fields` para que apunten a esos campos:
-  - `crm_table = 'custom_field_values'`
-  - `crm_field_id = <nuevo custom_field.id>`
-  - `preload_from_crm = true`
-  - `section_name = ''` para los de Información General, porque deben aparecer como CRM principal / campos sin sección.
-- Mantener el orden del formulario como está.
-
-Resultado: esos campos aparecerán en el perfil CRM en `Campos personalizados` / bloque principal de campos custom sin sección, no como una pestaña nueva.
-
-### 2. Ajustar el perfil CRM para que “campos CRM principales” sean visibles aunque no tengan valor
-
-Ahora el perfil oculta campos custom sin valor. Eso hace que un campo recién creado parezca inexistente.
-
-Cambiaré `CompanyProfile.tsx` para que:
-
-- Muestre los campos CRM principales sin sección aunque estén vacíos, con valor `—`.
-- Muestre también las secciones CRM aunque sus campos aún no tengan valor, si la sección contiene campos definidos.
-- Diferencie visualmente:
-  - Datos básicos / métricas nativas.
-  - Campos CRM principales (`custom_fields.section_id = null`).
-  - Secciones CRM (`custom_sections`).
-
-Resultado: un campo creado por IA se ve inmediatamente en el perfil, incluso antes de que una empresa tenga respuesta.
-
-### 3. Cambiar el AI Builder para entender “CRM principal” vs “CRM sección”
-
-En `supabase/functions/form-ai-builder/index.ts` agregaré/ajustaré herramientas:
-
-- `propose_new_main_crm_field(...)`
-  - crea un `custom_field` sin sección (`section_id = null`)
-  - requiere aprobación
-  - usar para cosas como `Información General`, datos generales, “Número de socios”, “Antigüedad”, “Principales clientes” cuando no son nativos.
-- `propose_new_section(...)`
-  - crea una sección real del CRM (`custom_sections`)
-  - requiere aprobación
-- `propose_new_section_crm_field(...)` o mantener `propose_new_crm_field(...)`
-  - crea un campo dentro de una sección CRM
-  - requiere aprobación
-- `add_form_only_field(...)`
-  - crea pregunta solo formulario
-  - auto-aplicado
-- `move_field_to_main_crm(...)`
-  - promueve un campo solo formulario a campo CRM principal
-  - requiere aprobación
-- `move_field_to_crm_section(...)`
-  - mueve/promueve un campo a sección CRM
-  - requiere aprobación
-- `move_field_out_of_crm(...)`
-  - deja un campo solo en formulario
-  - requiere aprobación
-- `delete_field(...)`
-  - si es CRM, quita del formulario pero no borra del CRM sin confirmación explícita
-  - si es solo formulario, auto
-- `delete_form_group(...)`
-  - elimina solo agrupación visual del formulario, no CRM
-
-Actualizaré el prompt del sistema para que la IA use estas reglas:
-
-- “Información General” → campos CRM principales, no sección custom, salvo que el usuario pida pestaña/sección.
-- “Crea una sección de Financiamiento/Inversión” → sección CRM.
-- “Pregunta opcional/comentarios/¿cómo te enteraste?” → solo formulario.
-- Si agrega campos a una sección, primero debe existir o proponer la sección.
-- Si agrega campos actuales del CRM, debe usar el catálogo existente, no inventar `field_key`.
-
-### 4. Ajustar el Wizard para aplicar propuestas correctamente
-
-En `FormWizardDialog.tsx`:
-
-- `acceptProposal` soportará:
-  - crear campo CRM principal (`sectionId: null`),
-  - crear sección CRM,
-  - crear campo dentro de sección,
-  - promover campo solo formulario a CRM principal o a sección,
-  - mover campo CRM entre principal/sección.
-- `handleSave` sincronizará según el destino real:
-  - campo nativo `companies/contacts` → `section_name = ''`
-  - custom field sin sección → `section_name = ''`
-  - custom field con sección → `section_name = nombre real de custom_sections`
-  - solo formulario → puede conservar agrupador visual si existe
-- El contexto enviado a la IA incluirá:
-  - `origin`: `crm_native`, `crm_main_custom`, `crm_section_custom`, `form_only`
-  - `crm_section_name`
-  - `public_group_name`
-  - condicionales actuales
-  - campos ya existentes en CRM principal y secciones
-
-### 5. UI manual para que no dependa solo de la IA
-
-En el constructor de campos del formulario agregaré acciones visibles:
-
-- En campos “Solo formulario”:
-  - `Pasar a CRM principal`
-  - `Pasar a sección CRM`
-- En campos CRM principal:
-  - `Mover a sección CRM`
-  - `Quitar del formulario`
-- En campos de sección CRM:
-  - `Mover a CRM principal`
-  - `Mover a otra sección CRM`
-  - `Quitar del formulario`
-- En agrupadores visuales huérfanos:
-  - banner: “Este agrupador no existe en CRM”
-  - acciones: `Convertir campos a CRM principal`, `Convertir en sección CRM`, `Dejar solo formulario`
-
-### 6. Mejorar cards del chat de IA
-
-En `FormAIBuilderChat.tsx`:
-
-- Diferenciar claramente propuestas:
-  - `Nuevo campo CRM principal`
-  - `Nueva sección CRM`
-  - `Nuevo campo en sección CRM`
-  - `Pregunta solo formulario aplicada`
-- Persistir historial con estado aceptado/rechazado.
-- Mostrar resumen de auto-cambios aplicados.
-
-### 7. Validación funcional
-
-Después de implementar probaré estos flujos:
-
-1. Abrir `Diagnóstico Inversión` y confirmar que los campos de `Información General` ya están conectados a CRM.
-2. Abrir el perfil actual `/empresa/c5c90fd6-1437-4b3f-82c8-2ab1176b9381` y confirmar que los nuevos campos CRM principales aparecen aunque estén vacíos.
-3. Pedir a la IA: “crea una pregunta de antigüedad en información general” y verificar que propone campo CRM principal, no sección.
-4. Pedir a la IA: “crea una sección Financiamiento con campo EBITDA” y verificar que crea sección CRM + campo dentro.
-5. Pedir a la IA una pregunta auxiliar solo formulario y verificar que no toca CRM.
-6. Guardar formulario y reabrir para comprobar persistencia del chat y de las conexiones CRM.
-
-## Archivos a modificar
-
-- `supabase/functions/form-ai-builder/index.ts`
-- `src/components/forms/FormWizardDialog.tsx`
-- `src/components/forms/FormAIBuilderChat.tsx`
-- `src/components/crm/CompanyProfile.tsx`
-- posiblemente `src/lib/formAICatalog.ts`
-- posiblemente tipos locales de formularios si se necesita reflejar `crm_main_custom` en UI
-
-## Cambios de datos necesarios
-
-No necesito cambiar el esquema de base de datos para esto.
-
-Sí haré una corrección de datos existente para el formulario `Diagnóstico Inversión`, creando los `custom_fields` faltantes y conectando los `external_form_fields` huérfanos al CRM.
-
-## Resultado esperado
-
-- `Información General` deja de ser un agrupador visual “fantasma”.
-- Sus preguntas quedan como campos CRM principales visibles en el perfil.
-- Las secciones que la IA cree en adelante sí serán `custom_sections` reales del CRM.
-- Los campos dentro de secciones sí aparecerán en las pestañas/secciones del perfil.
-- Las preguntas solo formulario seguirán existiendo, pero estarán explícitamente marcadas y no se confundirán con CRM.
-- EB queda garantizado: todo lo creado desde formularios con destino CRM aparece en el perfil al guardar.
+- ➕ `src/pages/FormEditorPage.tsx` (nuevo)
+- ✏️ `src/components/forms/FormWizardDialog.tsx` → renombrar a `FormEditor.tsx` y refactorizar contenedor
+- ✏️ `src/App.tsx` (nuevas rutas)
+- ✏️ `src/pages/FormsPage.tsx` (navegación en lugar de abrir dialog)
