@@ -144,29 +144,40 @@ export default function FormAIBuilderChat({
   };
 
   return (
-    <div className="rounded-md border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-purple-500/5 overflow-hidden">
+    <div className="rounded-lg border-2 border-primary/30 bg-gradient-to-br from-primary/5 via-background to-purple-500/5 overflow-hidden shadow-sm">
       <button
         type="button"
         onClick={() => setCollapsed(c => !c)}
         className="w-full flex items-center justify-between p-3 hover:bg-primary/5 transition-colors"
       >
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-primary" />
-          <span className="text-sm font-medium">Construir formulario con IA</span>
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-primary to-purple-500 text-white shadow-sm">
+            <Sparkles className="h-4 w-4" />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-semibold leading-tight">Construir con IA</p>
+            <p className="text-[10px] text-muted-foreground">Describe en lenguaje natural y la IA arma tus campos</p>
+          </div>
           {messages.length > 0 && (
-            <Badge variant="secondary" className="h-5 text-[10px]">{messages.length} mensajes</Badge>
+            <Badge variant="secondary" className="h-5 text-[10px] ml-1">{messages.length}</Badge>
           )}
         </div>
-        <span className="text-[10px] text-muted-foreground">{collapsed ? 'Mostrar' : 'Ocultar'}</span>
+        <Badge variant="outline" className="text-[10px] h-6">
+          {collapsed ? 'Mostrar' : 'Ocultar'}
+        </Badge>
       </button>
 
       {!collapsed && (
-        <div className="border-t border-primary/20">
+        <div className="border-t border-primary/20 bg-background/40">
           <div ref={scrollRef} className="max-h-72 overflow-y-auto p-3 space-y-3">
             {messages.length === 0 && (
-              <p className="text-[11px] text-muted-foreground italic text-center py-4">
-                Pide cambios en lenguaje natural. Ej: "Agrega NIT, nombre comercial y email obligatorios" o "Haz que el campo ciudad solo sea visible si la categoría es Startup".
-              </p>
+              <div className="text-center py-6 px-4">
+                <Sparkles className="h-6 w-6 text-primary/40 mx-auto mb-2" />
+                <p className="text-xs text-muted-foreground italic">
+                  Pide cambios en lenguaje natural.<br />
+                  <span className="text-[11px] text-foreground/70">Ej: "Agrega NIT, nombre comercial y email obligatorios" o "Haz que ciudad solo aparezca si la categoría es Startup".</span>
+                </p>
+              </div>
             )}
             {messages.map((m, i) => (
               <div key={i} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
