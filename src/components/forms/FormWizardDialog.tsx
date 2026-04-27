@@ -18,16 +18,18 @@ import { showSuccess, showError } from '@/lib/toast';
 import { useAuth } from '@/hooks/useAuth';
 import {
   ExternalForm, FormType, FormStatus, VerificationMode,
-  FormFieldType, FORM_TYPE_LABELS, FIELD_TYPE_OPTIONS, CRM_FIELD_MAPPINGS
+  FormFieldType, FORM_TYPE_LABELS, FIELD_TYPE_OPTIONS, CRM_FIELD_MAPPINGS,
+  DynamicKind, DynamicConfig, DynamicOperationType
 } from '@/types/externalForms';
 import { useCustomFields } from '@/contexts/CustomFieldsContext';
 import { useCrmLayoutSettings } from '@/hooks/useCrmLayoutSettings';
 import { useTaxonomy } from '@/contexts/TaxonomyContext';
 import { CATEGORIES, CITIES } from '@/types/crm';
-import { ChevronLeft, ChevronRight, Plus, Trash2, GripVertical, Copy, ExternalLink, FolderPlus, Layers, Link2, BookOpen, ArrowUp, ArrowDown, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Trash2, GripVertical, Copy, ExternalLink, FolderPlus, Layers, Link2, BookOpen, ArrowUp, ArrowDown, FileText, Calculator, Bot, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import FormAIBuilderChat, { AutoChange, PendingProposal } from './FormAIBuilderChat';
 import { buildCrmCatalog } from '@/lib/formAICatalog';
+import { evaluateOperation, formatDynamicResult, getOperationInputKeys } from '@/lib/dynamicFields';
 
 interface Props {
   open: boolean;
@@ -69,6 +71,9 @@ interface FieldDraft {
   page_id?: string | null;
   default_value?: string;
   default_value_editable?: boolean;
+  is_dynamic?: boolean;
+  dynamic_kind?: DynamicKind | null;
+  dynamic_config?: DynamicConfig;
 }
 
 interface PageDraft {
