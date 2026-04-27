@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, CheckCircle2, AlertCircle, ShieldCheck, FlaskConical, Upload, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { SearchableCombobox } from '@/components/forms/SearchableCombobox';
 import logoCCC from '@/assets/logo-ccc.png';
+import { evaluateOperation, formatDynamicResult } from '@/lib/dynamicFields';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -350,10 +351,15 @@ export default function PublicFormPage() {
     setLoading(true);
     setErrorMsg('');
     try {
+      // Inject computed dynamic operation values so the server persists them
+      const enrichedData = { ...formData };
+      for (const [k, v] of Object.entries(dynamicComputedValues)) {
+        if (v !== null && v !== undefined) enrichedData[k] = v;
+      }
       const data = await callFormApi('submit', {
         session_token: sessionToken || undefined,
         form_id: form.id,
-        response_data: formData,
+        response_data: enrichedData,
         test_mode: isTestMode
       });
       if (data.error) { setErrorMsg(data.error); setLoading(false); return; }
@@ -370,6 +376,8 @@ export default function PublicFormPage() {
 
   // Check if a field should be visible based on conditional logic
   const isFieldVisible = (field: any) => {
+    // Generation dynamic fields are NEVER visible
+    if (field.is_dynamic && field.dynamic_kind === 'generation') return false;
     if (!field.is_visible) return false;
     if (!field.condition_field_key) return true;
     const sourceValue = formData[field.condition_field_key];
@@ -377,6 +385,17 @@ export default function PublicFormPage() {
     if (field.condition_value === 'false') return !sourceValue;
     return String(sourceValue || '') === String(field.condition_value || '');
   };
+
+  // Compute live values for dynamic operation fields and inject into formData
+  const dynamicComputedValues = useMemo(() => {
+    const out: Record<string, number | null> = {};
+    for (const f of fields) {
+      if (f.is_dynamic && f.dynamic_kind === 'operation') {
+        out[f.field_key] = evaluateOperation(f.dynamic_config || {}, formData);
+      }
+    }
+    return out;
+  }, [fields, formData]);
 
   // Get effective options for a field — applies CRM taxonomy hierarchy filtering
   const getFieldOptions = (field: any): string[] => {
@@ -665,11 +684,18 @@ export default function PublicFormPage() {
                       <div key={field.id}>
                         <Label className="text-sm">
                           {field.label}
-                          {field.is_required && <span className="text-red-500 ml-0.5">*</span>}
+                          {field.is_required && !field.is_dynamic && <span className="text-red-500 ml-0.5">*</span>}
+                          {field.is_dynamic && field.dynamic_kind === 'operation' && (
+                            <span className="ml-2 text-[10px] font-medium text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded">⚡ Calculado</span>
+                          )}
                         </Label>
                         {field.help_text && <p className="text-[11px] text-muted-foreground mb-1">{field.help_text}</p>}
 
-                        {(() => {
+                        {field.is_dynamic && field.dynamic_kind === 'operation' ? (
+                          <div className="rounded-md border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-fuchsia-50 px-3 py-2 text-sm font-mono font-semibold text-purple-900">
+                            {formatDynamicResult(dynamicComputedValues[field.field_key] ?? null, field.dynamic_config || {})}
+                          </div>
+                        ) : (() => {
                           const hasLockedDefault = field.default_value_editable === false && field.default_value && !!formData[field.field_key];
                           const effectiveReadonly = field.is_readonly || (field.only_for_new && !isNewCompany) || hasLockedDefault;
                           return effectiveReadonly ? (

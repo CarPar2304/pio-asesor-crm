@@ -522,6 +522,79 @@ Deno.serve(async (req) => {
         sessionId = session.id;
       }
 
+      // ===== Evaluate dynamic fields server-side BEFORE persisting =====
+      const { data: allFormFields } = await supabaseAdmin.from("external_form_fields").select("*").eq("form_id", form_id).order("display_order");
+      const dynamicFields = (allFormFields || []).filter((f: any) => f.is_dynamic);
+
+      // Helper: evaluate operation
+      const evalOperation = (cfg: any, vals: Record<string, any>): number | null => {
+        try {
+          const toNum = (v: any) => { const n = Number(v); return isNaN(n) ? 0 : n; };
+          if (cfg?.mode === 'formula' && cfg.formula) {
+            const expr = String(cfg.formula).replace(/\{([a-zA-Z0-9_]+)\}/g, (_m: string, k: string) => String(toNum(vals[k])));
+            if (!/^[\d+\-*/().,\s]+$/.test(expr)) return null;
+            const r = Function(`"use strict"; return (${expr.replace(/,/g, '.')});`)();
+            return typeof r === 'number' && isFinite(r) ? r : null;
+          }
+          const a = toNum(vals[cfg?.input_a]); const b = toNum(vals[cfg?.input_b]);
+          switch (cfg?.op) {
+            case 'add': return a + b;
+            case 'subtract': return a - b;
+            case 'multiply': return a * b;
+            case 'divide': return b === 0 ? null : a / b;
+            case 'percentage': return (a * b) / 100;
+            default: return null;
+          }
+        } catch { return null; }
+      };
+
+      // 1) Operations: compute and inject (overwrites any client-sent value to avoid tampering)
+      for (const f of dynamicFields) {
+        if (f.dynamic_kind === 'operation') {
+          const val = evalOperation(f.dynamic_config || {}, response_data);
+          if (val !== null) response_data[f.field_key] = val;
+        }
+      }
+
+      // 2) Generation: call OpenAI gpt-4o-mini for each generative field
+      const openaiKey = Deno.env.get("OPENAI_API_KEY");
+      for (const f of dynamicFields) {
+        if (f.dynamic_kind !== 'generation') continue;
+        if (!openaiKey) { console.warn("OPENAI_API_KEY missing — skipping generative field", f.field_key); continue; }
+        try {
+          const cfg = f.dynamic_config || {};
+          const inputs: string[] = Array.isArray(cfg.inputs) ? cfg.inputs : [];
+          const contextLines = inputs.map((k: string) => {
+            const fieldMeta = (allFormFields || []).find((ff: any) => ff.field_key === k);
+            const label = fieldMeta?.label || k;
+            const v = response_data[k];
+            const txt = typeof v === 'object' ? JSON.stringify(v) : String(v ?? '');
+            return `- ${label}: ${txt}`;
+          }).join("\n");
+          const userMsg = `Contexto del formulario:\n${contextLines}\n\nInstrucción:\n${cfg.prompt || ''}`;
+          const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${openaiKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              messages: [
+                { role: "system", content: "Eres un asistente que genera contenido conciso y profesional para perfiles de empresa. Responde solo con el contenido solicitado, sin preámbulos." },
+                { role: "user", content: userMsg },
+              ],
+              temperature: 0.4,
+              max_tokens: cfg.max_tokens || 600,
+            }),
+          });
+          if (aiRes.ok) {
+            const aiJson = await aiRes.json();
+            const content = aiJson?.choices?.[0]?.message?.content?.trim();
+            if (content) response_data[f.field_key] = content;
+          } else {
+            console.error("OpenAI error", aiRes.status, await aiRes.text());
+          }
+        } catch (e) { console.error("Generation field error", f.field_key, e); }
+      }
+
       // Insert response
       const { data: response, error: resErr } = await supabaseAdmin.from("external_form_responses").insert({
         form_id, session_id: sessionId, company_id: companyId,

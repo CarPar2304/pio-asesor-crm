@@ -90,6 +90,31 @@ export interface ExternalForm {
   updated_at: string;
 }
 
+export type DynamicKind = 'operation' | 'generation';
+
+export type DynamicOperationType = 'add' | 'subtract' | 'multiply' | 'divide' | 'percentage' | 'formula';
+
+// dynamic_config shape:
+// For 'operation':
+//   { mode: 'simple', op: 'add'|'subtract'|'multiply'|'divide'|'percentage', input_a: 'field_key', input_b: 'field_key' }
+//   { mode: 'formula', formula: '({ventas} * {pct}) / 100', inputs: ['field_key_1','field_key_2'] }
+//   plus: { decimals?: number, suffix?: string }
+// For 'generation':
+//   { inputs: ['field_key_1','field_key_2'], prompt: '...', model: 'gpt-4o-mini', max_tokens?: number }
+export interface DynamicConfig {
+  mode?: 'simple' | 'formula';
+  op?: DynamicOperationType;
+  input_a?: string;
+  input_b?: string;
+  formula?: string;
+  inputs?: string[];
+  prompt?: string;
+  model?: string;
+  max_tokens?: number;
+  decimals?: number;
+  suffix?: string;
+}
+
 export interface ExternalFormField {
   id: string;
   form_id: string;
@@ -113,6 +138,9 @@ export interface ExternalFormField {
   page_id: string | null;
   default_value: string;
   default_value_editable: boolean;
+  is_dynamic: boolean;
+  dynamic_kind: DynamicKind | null;
+  dynamic_config: DynamicConfig;
   created_at: string;
 }
 

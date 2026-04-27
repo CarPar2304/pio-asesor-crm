@@ -915,11 +915,14 @@ export type Database = {
           default_value: string
           default_value_editable: boolean
           display_order: number
+          dynamic_config: Json
+          dynamic_kind: string | null
           field_key: string
           field_type: string
           form_id: string
           help_text: string
           id: string
+          is_dynamic: boolean
           is_editable: boolean
           is_readonly: boolean
           is_required: boolean
@@ -942,11 +945,14 @@ export type Database = {
           default_value?: string
           default_value_editable?: boolean
           display_order?: number
+          dynamic_config?: Json
+          dynamic_kind?: string | null
           field_key: string
           field_type?: string
           form_id: string
           help_text?: string
           id?: string
+          is_dynamic?: boolean
           is_editable?: boolean
           is_readonly?: boolean
           is_required?: boolean
@@ -969,11 +975,14 @@ export type Database = {
           default_value?: string
           default_value_editable?: boolean
           display_order?: number
+          dynamic_config?: Json
+          dynamic_kind?: string | null
           field_key?: string
           field_type?: string
           form_id?: string
           help_text?: string
           id?: string
+          is_dynamic?: boolean
           is_editable?: boolean
           is_readonly?: boolean
           is_required?: boolean
