@@ -834,6 +834,9 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
             page_id: f.page_id ? (localToPersistedPageId[f.page_id] || f.page_id) : null,
             default_value: f.default_value ?? '',
             default_value_editable: f.default_value_editable ?? true,
+            is_dynamic: f.is_dynamic || false,
+            dynamic_kind: f.is_dynamic ? (f.dynamic_kind || null) : null,
+            dynamic_config: f.dynamic_config || {},
           };
         });
         const { error } = await supabase.from('external_form_fields').insert(fieldsToInsert as any);
