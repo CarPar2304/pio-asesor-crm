@@ -116,6 +116,24 @@ export default function FormWizardDialog({ open, onClose, editingForm, onSaved }
   const [newFieldSection, setNewFieldSection] = useState<string>('');
   const [newFieldOptions, setNewFieldOptions] = useState('');
 
+  // Dynamic field dialog
+  const [showDynamicDialog, setShowDynamicDialog] = useState(false);
+  const [dynKind, setDynKind] = useState<DynamicKind>('operation');
+  const [dynLabel, setDynLabel] = useState('');
+  const [dynSection, setDynSection] = useState('');
+  const [dynVisibleToUser, setDynVisibleToUser] = useState(false);
+  // operation config
+  const [dynMode, setDynMode] = useState<'simple' | 'formula'>('simple');
+  const [dynOp, setDynOp] = useState<DynamicOperationType>('multiply');
+  const [dynInputA, setDynInputA] = useState('');
+  const [dynInputB, setDynInputB] = useState('');
+  const [dynFormula, setDynFormula] = useState('');
+  const [dynDecimals, setDynDecimals] = useState(2);
+  const [dynSuffix, setDynSuffix] = useState('');
+  // generation config
+  const [dynGenInputs, setDynGenInputs] = useState<string[]>([]);
+  const [dynPrompt, setDynPrompt] = useState('');
+
   // Drag and drop state
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
