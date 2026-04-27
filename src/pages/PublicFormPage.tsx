@@ -684,11 +684,18 @@ export default function PublicFormPage() {
                       <div key={field.id}>
                         <Label className="text-sm">
                           {field.label}
-                          {field.is_required && <span className="text-red-500 ml-0.5">*</span>}
+                          {field.is_required && !field.is_dynamic && <span className="text-red-500 ml-0.5">*</span>}
+                          {field.is_dynamic && field.dynamic_kind === 'operation' && (
+                            <span className="ml-2 text-[10px] font-medium text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded">⚡ Calculado</span>
+                          )}
                         </Label>
                         {field.help_text && <p className="text-[11px] text-muted-foreground mb-1">{field.help_text}</p>}
 
-                        {(() => {
+                        {field.is_dynamic && field.dynamic_kind === 'operation' ? (
+                          <div className="rounded-md border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-fuchsia-50 px-3 py-2 text-sm font-mono font-semibold text-purple-900">
+                            {formatDynamicResult(dynamicComputedValues[field.field_key] ?? null, field.dynamic_config || {})}
+                          </div>
+                        ) : (() => {
                           const hasLockedDefault = field.default_value_editable === false && field.default_value && !!formData[field.field_key];
                           const effectiveReadonly = field.is_readonly || (field.only_for_new && !isNewCompany) || hasLockedDefault;
                           return effectiveReadonly ? (
