@@ -187,7 +187,9 @@ export default function Portafolio() {
           ) : filteredOffers.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <Package className="h-12 w-12 text-muted-foreground/30 mb-3" />
-              <p className="text-sm text-muted-foreground">No hay ofertas {hasFilters ? 'con esos filtros' : 'aún'}</p>
+              <p className="text-sm text-muted-foreground">
+                <span>{hasFilters ? 'No hay ofertas con esos filtros' : 'No hay ofertas aún'}</span>
+              </p>
               {!hasFilters && (
                 <Button variant="outline" size="sm" className="mt-3 gap-1.5" onClick={() => setFormOpen(true)}>
                   <Plus className="h-3.5 w-3.5" /> Crear primera oferta
@@ -195,11 +197,13 @@ export default function Portafolio() {
               )}
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredOffers.map(offer => (
-                <OfferCard key={offer.id} offer={offer} onEdit={handleEdit} onViewPipeline={handleViewPipeline} />
-              ))}
-            </div>
+            <ErrorBoundary fallbackTitle="No se pudieron mostrar las ofertas">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredOffers.map(offer => (
+                  <OfferCard key={offer.id} offer={offer} onEdit={handleEdit} onViewPipeline={handleViewPipeline} />
+                ))}
+              </div>
+            </ErrorBoundary>
           )}
         </TabsContent>
 
