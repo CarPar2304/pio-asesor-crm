@@ -83,13 +83,16 @@ export default function OfferCard({ offer, onEdit, onViewPipeline }: Props) {
         {(offer.startDate || offer.endDate) && (
           <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <Calendar className="h-3 w-3" />
-            {offer.startDate && format(new Date(offer.startDate), 'dd MMM yyyy', { locale: es })}
-            {offer.startDate && offer.endDate && ' → '}
-            {offer.endDate && format(new Date(offer.endDate), 'dd MMM yyyy', { locale: es })}
+            <span>
+              {[
+                offer.startDate && format(new Date(offer.startDate), 'dd MMM yyyy', { locale: es }),
+                offer.endDate && format(new Date(offer.endDate), 'dd MMM yyyy', { locale: es }),
+              ].filter(Boolean).join(' → ')}
+            </span>
           </div>
         )}
         <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-          <span className="flex items-center gap-1"><GitBranch className="h-3 w-3" /> {stageCount} etapas</span>
+          <span className="flex items-center gap-1"><GitBranch className="h-3 w-3" /> <span>{stageCount} etapas</span></span>
           <span>·</span>
           <span>{entryCount} empresas</span>
         </div>
