@@ -87,7 +87,11 @@ export default function Portafolio() {
   };
 
   if (viewingPipeline) {
-    return <PipelineBoard offer={viewingPipeline} onBack={handleClosePipeline} />;
+    return (
+      <ErrorBoundary fallbackTitle="No se pudo cargar el pipeline">
+        <PipelineBoard offer={viewingPipeline} onBack={handleClosePipeline} />
+      </ErrorBoundary>
+    );
   }
 
   return (
