@@ -13,6 +13,7 @@ import AlliesSection from '@/components/portfolio/AlliesSection';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import ErrorBoundary from '@/components/ErrorBoundary';
 
 export default function Portafolio() {
   const { offers, categories, loading, stages, entries, allies, getAlliesForOffer } = usePortfolio();
