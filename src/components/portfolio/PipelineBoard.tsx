@@ -192,9 +192,10 @@ export default function PipelineBoard({ offer, onBack }: Props) {
             <span className="flex items-center gap-1.5 text-muted-foreground">
               <Calendar className="h-3.5 w-3.5" />
               <span className="text-foreground/90">
-                {offer.startDate && format(new Date(offer.startDate), 'dd MMM yyyy', { locale: es })}
-                {offer.startDate && offer.endDate && ' → '}
-                {offer.endDate && format(new Date(offer.endDate), 'dd MMM yyyy', { locale: es })}
+                {[
+                  offer.startDate && format(new Date(offer.startDate), 'dd MMM yyyy', { locale: es }),
+                  offer.endDate && format(new Date(offer.endDate), 'dd MMM yyyy', { locale: es }),
+                ].filter(Boolean).join(' → ')}
               </span>
             </span>
           )}
@@ -282,7 +283,7 @@ export default function PipelineBoard({ offer, onBack }: Props) {
               </div>
               <span className="truncate max-w-[100px]">{stage.name}</span>
               <Badge variant="secondary" className="text-[9px] px-1 py-0 h-4 min-w-[18px] flex items-center justify-center">
-                {stageEntryCounts[stage.id] || 0}
+                <span>{stageEntryCounts[stage.id] ?? 0}</span>
               </Badge>
             </button>
           ))}

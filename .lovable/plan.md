@@ -1,71 +1,68 @@
-# Mejorar editor/creador de formularios — quitar Dialog
+## Diagnóstico
 
-Hoy el editor (`FormWizardDialog`) vive en un `Dialog` de `max-w-3xl` con scroll interno. Es estrecho, los pasos largos (Constructor de campos, IA Builder, Precarga) se sienten apretados y obliga a hacer scroll constantemente. Lo vamos a transformar en una **vista de pantalla completa** integrada al layout de la app, manteniendo toda la lógica y datos actuales — solo cambia el contenedor y la organización visual.
+El síntoma "pantalla en blanco al buscar y luego entrar a editar o al pipeline" es el patrón clásico del crash conocido de React con la **traducción automática del navegador** (Google Translate en Chrome, y el traductor integrado de Edge/Safari):
 
-## Qué cambia (UX)
-
-1. **Adiós al Dialog** — el editor pasa a ser una vista a pantalla completa dentro del layout principal (mismo header/sidebar de la app), accesible desde `/formularios/nuevo` y `/formularios/:id/editar`.
-2. **Header pegajoso (sticky)** con:
-   - Botón "← Volver" a `/formularios`.
-   - Título editable inline del formulario (nombre interno).
-   - Badge de estado (Borrador / Activo / etc.).
-   - Botón "Cancelar" + "Guardar" siempre visibles arriba a la derecha.
-3. **Stepper horizontal** rediseñado: tarjetitas con número, título y check cuando el paso está completo. Permite saltar entre pasos haciendo clic.
-4. **Layout de 2 columnas en pasos densos** (Constructor de campos, Precarga, Diseño):
-   - Columna izquierda (≈ 30%): navegación de secciones/páginas + acciones rápidas (Nueva sección CRM, Nuevo campo CRM, Campo libre, atajos de campos).
-   - Columna derecha (≈ 70%): editor del campo/sección seleccionado, con espacio cómodo.
-   - En pasos simples (Información general, Identificación, Publicación) se usa una columna centrada de ancho cómodo (`max-w-3xl`).
-5. **IA Builder** (chat) pasa a un panel lateral colapsable a la derecha (toggle "Asistente IA"), en vez de competir por espacio dentro del dialog.
-6. **Footer pegajoso** con navegación Anterior / Siguiente y "Guardar".
-7. Vista preview del formulario público abre en nueva pestaña como hoy.
-
-Toda la **lógica interna** (estados, mutaciones, IA, secciones CRM, drag & drop, etc.) se preserva tal cual — solo se reordena el JSX.
-
-## Cambios técnicos
-
-- **Nueva ruta** en `src/App.tsx`: `/formularios/nuevo` y `/formularios/:id/editar` apuntando a una nueva página `FormEditorPage`.
-- **Nuevo archivo**: `src/pages/FormEditorPage.tsx`
-  - Carga `editingForm` por id desde Supabase si la URL trae `:id`.
-  - Renderiza el nuevo componente `<FormEditor />` (sin Dialog).
-  - Maneja navegación (`useNavigate`) para volver a `/formularios` al guardar/cancelar.
-- **Refactor** `src/components/forms/FormWizardDialog.tsx` → renombrar a `src/components/forms/FormEditor.tsx`:
-  - Eliminar `Dialog`, `DialogContent`, `DialogHeader`, `DialogTitle`.
-  - Cambiar la firma: `({ editingForm, onSaved, onClose })` sin `open`.
-  - Envolver en un `<div className="min-h-screen flex flex-col">` con header sticky, stepper, contenido (grid 2-col en pasos densos), footer sticky.
-  - Mover el panel de IA Builder a un `<aside>` lateral colapsable controlado por un toggle local (`showAI`).
-  - Conservar todos los `useState`, `useEffect`, handlers, lógica de drag & drop, secciones CRM, etc.
-- **`src/pages/FormsPage.tsx`**:
-  - Quitar `<FormWizardDialog ... />` y los estados `wizardOpen`, `editingForm`.
-  - Botón "Nuevo formulario" → `navigate('/formularios/nuevo')`.
-  - Botón "Editar" en cada tarjeta → `navigate('/formularios/' + id + '/editar')`.
-- Mantener `FormResponsesDialog` como dialog (es una vista de solo lectura corta, ahí el dialog sí funciona).
-
-## Estructura visual del editor
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│  ← Volver  │  Diagnóstico Inversión [Borrador]   [Cancelar][Guardar] │  ← sticky
-├─────────────────────────────────────────────────────────────────┤
-│  ① General  ② Identificación  ③ Campos  ④ Precarga  ⑤ Diseño  ⑥ Publicar │
-├─────────────────────────────────────────────────────────────────┤
-│                                                       │ Asistente │
-│   [contenido del paso, 2 columnas en pasos densos]    │   IA      │
-│                                                       │ (toggle)  │
-│                                                       │           │
-├─────────────────────────────────────────────────────────────────┤
-│  ← Anterior                              Siguiente →  │  Guardar  │  ← sticky
-└─────────────────────────────────────────────────────────────────┘
+```
+NotFoundError: Failed to execute 'removeChild' on 'Node':
+The node to be removed is not a child of this node.
 ```
 
-## Fuera de alcance
+Cuando el traductor está activo, reemplaza nodos de texto del DOM por sus propios `<font>`. Cuando React luego intenta des-montar/re-renderizar esos nodos (al cambiar la búsqueda, abrir un diálogo, o navegar al pipeline), no los encuentra y **toda la app se desmonta** dejando la pantalla en blanco. No es un bug del navegador en sí: es una incompatibilidad documentada entre React y los traductores.
 
-- No se rediseña la lógica del paso "Constructor de campos" (se mantiene la misma UI de cards/drag&drop, solo dentro del nuevo layout 2-col).
-- No se cambian los datos guardados ni los endpoints/tablas.
-- `FormResponsesDialog` sigue siendo dialog.
+Encontré varios puntos en `Portafolio` que son exactamente el patrón que rompe React con el traductor — texto "pelado" condicional como hijo, mezclado con elementos hermanos:
 
-## Archivos afectados
+- `src/components/portfolio/OfferCard.tsx` líneas 86-88: `{offer.startDate && format(...)}{offer.startDate && offer.endDate && ' → '}{offer.endDate && format(...)}`
+- `src/components/portfolio/PipelineBoard.tsx` líneas 195-198: misma estructura
+- Varios `{x && 'texto literal'}` y `{count || 0}` en cards de empresas y badges de etapas
 
-- ➕ `src/pages/FormEditorPage.tsx` (nuevo)
-- ✏️ `src/components/forms/FormWizardDialog.tsx` → renombrar a `FormEditor.tsx` y refactorizar contenedor
-- ✏️ `src/App.tsx` (nuevas rutas)
-- ✏️ `src/pages/FormsPage.tsx` (navegación en lugar de abrir dialog)
+Cuando el traductor traduce esos textos sueltos y React intenta removerlos (al filtrar la lista o al cambiar de vista), revienta el árbol completo → blank screen.
+
+## Solución (dos capas)
+
+### 1. Bloquear la traducción automática de la app (capa global)
+
+Es la solución estándar y oficial recomendada por el equipo de React para apps con UI dinámica intensiva. La página seguirá siendo navegable; el usuario solo pierde la traducción automática del navegador, que de todas formas rompía la app.
+
+- Añadir en `index.html` dentro de `<head>`:
+  ```html
+  <meta name="google" content="notranslate" />
+  ```
+- Añadir `translate="no"` en `<html>` (y como fallback en `<body>`).
+- Mantener `lang="es"` en `<html>` (la app ya está en español, así Chrome ni siquiera ofrecerá traducir).
+
+Esto por sí solo elimina el 99% de los crashes en blanco que describes, **incluyendo los disparados por la búsqueda + abrir editar/pipeline**.
+
+### 2. Endurecer los puntos frágiles (capa de defensa)
+
+Aun con el meta, conviene cerrar los patrones que React documenta como peligrosos en re-renders condicionales, para evitar regresiones si en el futuro se incrusta la app en un iframe o un usuario fuerza la traducción:
+
+- En `OfferCard.tsx` y `PipelineBoard.tsx`, envolver los rangos de fecha en un único `<span>` y construir el string completo dentro, en vez de tres expresiones de texto adyacentes:
+  ```tsx
+  <span>
+    {[
+      offer.startDate && format(new Date(offer.startDate), 'dd MMM yyyy', { locale: es }),
+      offer.endDate && format(new Date(offer.endDate), 'dd MMM yyyy', { locale: es }),
+    ].filter(Boolean).join(' → ')}
+  </span>
+  ```
+- Reemplazar `{count || 0}` por `<span>{count ?? 0}</span>` dentro de los Badges de etapas.
+- Añadir un `ErrorBoundary` ligero alrededor de `<PipelineBoard>` y de la grilla de `OfferCard` en `Portafolio.tsx`, que en caso de error muestre un mensaje "Recargar" en vez de quedar en blanco. Esto sirve como red de seguridad para cualquier futuro crash de render (no solo del traductor).
+
+### 3. Compatibilidad de navegadores
+
+Revisado el resto del flujo (drag&drop HTML5, `framer-motion` con `AnimatePresence mode="popLayout"`, `ScrollArea` de Radix): todo es soportado por Chrome, Edge, Firefox y Safari modernos. No hay APIs experimentales. El único riesgo real de pantalla en blanco identificado en el código es el de la traducción + texto suelto condicional descrito arriba.
+
+## Archivos a modificar
+
+1. `index.html` — meta `notranslate` y atributo `translate="no"`.
+2. `src/components/portfolio/OfferCard.tsx` — envolver rango de fechas en `<span>`.
+3. `src/components/portfolio/PipelineBoard.tsx` — envolver rango de fechas y contadores condicionales.
+4. `src/components/portfolio/PipelineBoard.tsx` + `src/pages/Portafolio.tsx` — montar un `ErrorBoundary` simple (componente nuevo `src/components/ErrorBoundary.tsx`) alrededor del board y de la lista de ofertas.
+
+## Lo que NO se cambia
+
+- No se toca la lógica de búsqueda, filtros, drag&drop ni el estado de portafolio.
+- No se desactiva la traducción a nivel de cada texto del CRM (no es necesario; el meta global basta).
+- No se cambia el comportamiento visible para el usuario salvo que el navegador deje de ofrecer traducir la app automáticamente.
+
+¿Apruebas este plan para implementarlo?
